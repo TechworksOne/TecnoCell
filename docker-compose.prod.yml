@@ -52,7 +52,7 @@ services:
       - ./Tecnocell_backend/.env.docker
     volumes:
       # Uploads persisten aunque se reconstruya el contenedor
-      - uploads_data:/app/uploads
+      - /var/www/Tecnocell_storage/uploads:/app/uploads
     expose:
       - "3000"
     depends_on:
@@ -82,4 +82,5 @@ services:
 
 volumes:
   mysql_data:
-  uploads_data:
+  # uploads_data eliminado: se usa bind mount en el servicio backend
+  # /var/www/Tecnocell_storage/uploads:/app/uploads

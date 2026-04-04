@@ -4,12 +4,18 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Ruta base de uploads — siempre absoluta para ser compatible con Docker bind mount
+// Dentro del contenedor es /app/uploads (mapeado a /var/www/Tecnocell_storage/uploads en el host)
+const UPLOADS_BASE = path.join(__dirname, '..', 'uploads');
+
 // Configuración de Multer para imágenes de ingreso de equipo
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const repairId = req.params.id || req.body.reparacion_id;
-    const uploadPath = path.join('uploads', 'reparaciones', repairId, 'ingreso');
-    
+
+    // Estructura: /app/uploads/reparaciones/REP123456/ingreso/
+    const uploadPath = path.join(UPLOADS_BASE, 'reparaciones', repairId, 'ingreso');
+
     fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
   },

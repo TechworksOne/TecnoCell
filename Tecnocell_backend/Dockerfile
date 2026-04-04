@@ -31,8 +31,9 @@ COPY . .
 
 RUN mkdir -p uploads
 
-# Usar usuario no-root por seguridad
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+# Usuario no-root con UID fijo 1001 — debe coincidir con el propietario del
+# directorio montado en el host: chown -R 1001:1001 /var/www/Tecnocell_storage/uploads
+RUN addgroup -S -g 1001 appgroup && adduser -S -u 1001 -G appgroup appuser \
     && chown -R appuser:appgroup /app
 USER appuser
 
