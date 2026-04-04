@@ -1,0 +1,614 @@
+const db = require('../config/database');
+
+// Obtener todos los productos con sus imágenes y paginación
+exports.getAllProducts = async (req, res) => {
+  try {
+    const { categoria, activo, conStock, search, page = 1, limit = 20 } = req.query;
+    
+    // Convertir a números
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+    
+    let query = `
+      SELECT 
+        p.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', pi.id,
+            'url', pi.url,
+            'orden', pi.orden,
+            'descripcion', pi.descripcion
+          )
+          ORDER BY pi.orden
+        ) as imagenes
+      FROM productos p
+      LEFT JOIN producto_imagenes pi ON p.id = pi.producto_id
+      WHERE 1=1
+    `;
+    
+    let countQuery = 'SELECT COUNT(*) as total FROM productos p WHERE 1=1';
+    
+    const params = [];
+    const countParams = [];
+    
+    if (activo !== undefined) {
+      query += ' AND p.activo = ?';
+      countQuery += ' AND p.activo = ?';
+      const activoValue = activo === 'true' || activo === true;
+      params.push(activoValue);
+      countParams.push(activoValue);
+    }
+    
+    if (categoria) {
+      query += ' AND p.categoria = ?';
+      countQuery += ' AND p.categoria = ?';
+      params.push(categoria);
+      countParams.push(categoria);
+    }
+    
+    if (conStock === 'true') {
+      query += ' AND p.stock > 0';
+      countQuery += ' AND p.stock > 0';
+    }
+    
+    if (search) {
+      query += ' AND (p.nombre LIKE ? OR p.sku LIKE ? OR p.descripcion LIKE ?)';
+      countQuery += ' AND (p.nombre LIKE ? OR p.sku LIKE ? OR p.descripcion LIKE ?)';
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern);
+      countParams.push(searchPattern, searchPattern, searchPattern);
+    }
+    
+    // Obtener total de registros
+    const [countResult] = await db.query(countQuery, countParams);
+    const total = countResult[0].total;
+    
+    // Agregar orden, límite y offset
+    query += ' GROUP BY p.id ORDER BY p.nombre LIMIT ? OFFSET ?';
+    params.push(limitNum, offset);
+    
+    const [products] = await db.query(query, params);
+    
+    // Parsear las imágenes de JSON string a array
+    const productsWithImages = products.map(p => ({
+      ...p,
+      imagenes: p.imagenes ? JSON.parse(`[${p.imagenes}]`) : []
+    }));
+    
+    res.json({
+      success: true,
+      data: productsWithImages,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: total,
+        totalPages: Math.ceil(total / limitNum),
+        hasNextPage: pageNum < Math.ceil(total / limitNum),
+        hasPrevPage: pageNum > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener productos',
+      error: error.message 
+    });
+  }
+};
+
+// Obtener producto por ID con imágenes
+exports.getProductById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [products] = await db.query(
+      `SELECT 
+        p.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', pi.id,
+            'url', pi.url,
+            'orden', pi.orden,
+            'descripcion', pi.descripcion
+          )
+          ORDER BY pi.orden
+        ) as imagenes
+      FROM productos p
+      LEFT JOIN producto_imagenes pi ON p.id = pi.producto_id
+      WHERE p.id = ?
+      GROUP BY p.id`,
+      [id]
+    );
+    
+    if (products.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Producto no encontrado' 
+      });
+    }
+    
+    const product = {
+      ...products[0],
+      imagenes: products[0].imagenes ? JSON.parse(`[${products[0].imagenes}]`) : []
+    };
+    
+    res.json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    console.error('Error al obtener producto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener producto',
+      error: error.message 
+    });
+  }
+};
+
+// Crear nuevo producto con imágenes
+exports.createProduct = async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const {
+      sku,
+      nombre,
+      descripcion,
+      categoria,
+      subcategoria,
+      precio_costo,
+      precio_venta,
+      stock_minimo = 0,
+      aplica_serie = false,
+      imagenes = []
+    } = req.body;
+    
+    // Convertir booleanos a 1 o 0 para la BD
+    const aplicaSerieValue = aplica_serie ? 1 : 0;
+    const stockMinimoValue = parseInt(stock_minimo) || 0;
+    
+    // Log para debugging - ANTES de convertir
+    console.log('📦 Backend recibió (RAW):', { 
+      stock_minimo_raw: stock_minimo,
+      stock_minimo_type: typeof stock_minimo,
+      aplica_serie_raw: aplica_serie,
+      aplica_serie_type: typeof aplica_serie
+    });
+    
+    // Log para debugging - DESPUÉS de convertir
+    console.log('📦 Backend convertido:', { 
+      categoria, 
+      subcategoria, 
+      nombre,
+      aplica_serie: aplicaSerieValue,
+      stock_minimo: stockMinimoValue,
+      precio_costo,
+      precio_venta
+    });
+    
+    // Validaciones
+    if (!nombre || !categoria || !precio_costo || !precio_venta) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Faltan campos requeridos: nombre, categoria, precio_costo, precio_venta' 
+      });
+    }
+    
+    if (imagenes.length > 3) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Máximo 3 imágenes permitidas por producto' 
+      });
+    }
+    
+    // Generar SKU automático si no se proporciona
+    let skuFinal = sku;
+    let skuGenerado = false;
+    
+    if (!sku || sku.trim() === '') {
+      // Obtener el último producto para generar SKU único
+      const [lastProduct] = await connection.query(
+        'SELECT id FROM productos ORDER BY id DESC LIMIT 1'
+      );
+      
+      const nextId = lastProduct.length > 0 ? lastProduct[0].id + 1 : 1;
+      
+      // Generar SKU: TEC_PROD_{ID}_{TIMESTAMP_CORTO}
+      const timestamp = Date.now().toString().slice(-6); // Últimos 6 dígitos del timestamp
+      skuFinal = `TEC_PROD${nextId}_${timestamp}`;
+      skuGenerado = true;
+      
+      console.log('✅ SKU generado automáticamente:', skuFinal);
+    }
+    
+    // Insertar producto con stock = 0 (se cargará desde otra pestaña)
+    const [result] = await connection.query(
+      `INSERT INTO productos 
+        (sku, nombre, descripcion, categoria, subcategoria, precio_costo, precio_venta, stock, stock_minimo, aplica_serie, sku_generado) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+      [skuFinal, nombre, descripcion, categoria, subcategoria, precio_costo, precio_venta, stockMinimoValue, aplicaSerieValue, skuGenerado]
+    );
+    
+    const productoId = result.insertId;
+    
+    // Insertar imágenes si existen
+    if (imagenes && imagenes.length > 0) {
+      for (let i = 0; i < imagenes.length; i++) {
+        const imagen = imagenes[i];
+        await connection.query(
+          'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
+          [productoId, imagen.url || imagen, i, imagen.descripcion || `Imagen ${i + 1}`]
+        );
+      }
+    }
+    
+    await connection.commit();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Producto creado exitosamente con stock inicial de 0',
+      data: {
+        id: productoId,
+        sku: skuFinal,
+        sku_generado: skuGenerado,
+        nombre,
+        stock: 0,
+        stock_minimo: stockMinimoValue,
+        aplica_serie: aplicaSerieValue
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al crear producto:', error);
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Ya existe un producto con ese SKU' 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al crear producto',
+      error: error.message 
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+// Actualizar producto
+exports.updateProduct = async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const { id } = req.params;
+    const {
+      sku,
+      nombre,
+      descripcion,
+      categoria,
+      subcategoria,
+      precio_costo,
+      precio_venta,
+      stock,
+      stock_minimo,
+      aplica_serie,
+      activo,
+      imagenes
+    } = req.body;
+    
+    console.log('🔄 Actualizando producto ID:', id);
+    console.log('📦 Datos recibidos:', req.body);
+    
+    const updates = [];
+    const values = [];
+    
+    if (sku !== undefined) { updates.push('sku = ?'); values.push(sku); }
+    if (nombre !== undefined) { updates.push('nombre = ?'); values.push(nombre); }
+    if (descripcion !== undefined) { updates.push('descripcion = ?'); values.push(descripcion); }
+    if (categoria !== undefined) { updates.push('categoria = ?'); values.push(categoria); }
+    if (subcategoria !== undefined) { updates.push('subcategoria = ?'); values.push(subcategoria); }
+    if (precio_costo !== undefined) { updates.push('precio_costo = ?'); values.push(precio_costo); }
+    if (precio_venta !== undefined) { updates.push('precio_venta = ?'); values.push(precio_venta); }
+    if (stock !== undefined) { updates.push('stock = ?'); values.push(stock); }
+    if (stock_minimo !== undefined) { updates.push('stock_minimo = ?'); values.push(stock_minimo); }
+    if (aplica_serie !== undefined) { 
+      const aplicaSerieValue = aplica_serie ? 1 : 0;
+      updates.push('aplica_serie = ?'); 
+      values.push(aplicaSerieValue); 
+    }
+    if (activo !== undefined) { updates.push('activo = ?'); values.push(activo); }
+    
+    if (updates.length === 0 && !imagenes) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No hay datos para actualizar' 
+      });
+    }
+    
+    // Actualizar producto si hay cambios
+    if (updates.length > 0) {
+      values.push(id);
+      await connection.query(
+        `UPDATE productos SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+    }
+    
+    // Actualizar imágenes si se enviaron
+    if (imagenes !== undefined) {
+      if (imagenes.length > 3) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Máximo 3 imágenes permitidas por producto' 
+        });
+      }
+      
+      // Eliminar imágenes existentes
+      await connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id]);
+      
+      // Insertar nuevas imágenes
+      for (let i = 0; i < imagenes.length; i++) {
+        const imagen = imagenes[i];
+        await connection.query(
+          'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
+          [id, imagen.url || imagen, i, imagen.descripcion || `Imagen ${i + 1}`]
+        );
+      }
+    }
+    
+    await connection.commit();
+    
+    res.json({
+      success: true,
+      message: 'Producto actualizado exitosamente'
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al actualizar producto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al actualizar producto',
+      error: error.message 
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+// Eliminar producto (soft delete)
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await db.query('UPDATE productos SET activo = false WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      message: 'Producto desactivado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al desactivar producto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al desactivar producto',
+      error: error.message 
+    });
+  }
+};
+
+// Ajustar stock con registro en kardex
+exports.adjustStock = async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const { id } = req.params;
+    const { cantidad, tipo = 'ajuste', nota, usuario_id } = req.body;
+    
+    if (cantidad === undefined) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'La cantidad es requerida' 
+      });
+    }
+    
+    // Obtener stock actual
+    const [products] = await connection.query('SELECT stock FROM productos WHERE id = ?', [id]);
+    
+    if (products.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Producto no encontrado' 
+      });
+    }
+    
+    const stockAnterior = products[0].stock;
+    const stockNuevo = stockAnterior + cantidad;
+    
+    if (stockNuevo < 0) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Stock insuficiente' 
+      });
+    }
+    
+    // Actualizar stock
+    await connection.query('UPDATE productos SET stock = ? WHERE id = ?', [stockNuevo, id]);
+    
+    // Registrar en kardex
+    await connection.query(
+      `INSERT INTO kardex 
+        (producto_id, tipo, cantidad, cantidad_anterior, cantidad_nueva, nota, usuario_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, tipo, cantidad, stockAnterior, stockNuevo, nota, usuario_id]
+    );
+    
+    await connection.commit();
+    
+    res.json({
+      success: true,
+      message: 'Stock ajustado exitosamente',
+      data: {
+        stock_anterior: stockAnterior,
+        stock_nuevo: stockNuevo,
+        diferencia: cantidad
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al ajustar stock:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al ajustar stock',
+      error: error.message 
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+// Obtener kardex de un producto
+exports.getProductKardex = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50 } = req.query;
+    
+    const [kardex] = await db.query(
+      `SELECT 
+        k.*,
+        u.username as usuario_nombre
+      FROM kardex k
+      LEFT JOIN users u ON k.usuario_id = u.id
+      WHERE k.producto_id = ?
+      ORDER BY k.created_at DESC
+      LIMIT ?`,
+      [id, parseInt(limit)]
+    );
+    
+    res.json({
+      success: true,
+      data: kardex
+    });
+  } catch (error) {
+    console.error('Error al obtener kardex:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener kardex',
+      error: error.message 
+    });
+  }
+};
+
+// Buscar productos
+exports.searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'El término de búsqueda debe tener al menos 2 caracteres' 
+      });
+    }
+    
+    const [products] = await db.query(
+      `SELECT 
+        p.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', pi.id,
+            'url', pi.url,
+            'orden', pi.orden,
+            'descripcion', pi.descripcion
+          )
+          ORDER BY pi.orden
+        ) as imagenes
+      FROM productos p
+      LEFT JOIN producto_imagenes pi ON p.id = pi.producto_id
+      WHERE p.activo = true
+      AND (p.nombre LIKE ? OR p.sku LIKE ? OR p.descripcion LIKE ?)
+      GROUP BY p.id
+      LIMIT 20`,
+      [`%${q}%`, `%${q}%`, `%${q}%`]
+    );
+    
+    const productsWithImages = products.map(p => ({
+      ...p,
+      imagenes: p.imagenes ? JSON.parse(`[${p.imagenes}]`) : []
+    }));
+    
+    res.json({
+      success: true,
+      data: productsWithImages
+    });
+  } catch (error) {
+    console.error('Error al buscar productos:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al buscar productos',
+      error: error.message 
+    });
+  }
+};
+
+// Obtener productos con stock crítico (stock <= stock_minimo)
+exports.getCriticalStockProducts = async (req, res) => {
+  try {
+    const [products] = await db.query(
+      `SELECT 
+        p.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', pi.id,
+            'url', pi.url,
+            'orden', pi.orden,
+            'descripcion', pi.descripcion
+          )
+          ORDER BY pi.orden
+        ) as imagenes,
+        (p.stock_minimo - p.stock) as faltante
+      FROM productos p
+      LEFT JOIN producto_imagenes pi ON p.id = pi.producto_id
+      WHERE p.activo = true AND p.stock <= p.stock_minimo
+      GROUP BY p.id
+      ORDER BY faltante DESC, p.stock ASC`
+    );
+    
+    const productsWithImages = products.map(p => ({
+      ...p,
+      imagenes: p.imagenes ? JSON.parse(`[${p.imagenes}]`) : [],
+      faltante: p.faltante
+    }));
+    
+    res.json({
+      success: true,
+      data: productsWithImages,
+      total: productsWithImages.length
+    });
+  } catch (error) {
+    console.error('Error al obtener productos con stock crítico:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener productos con stock crítico',
+      error: error.message 
+    });
+  }
+};

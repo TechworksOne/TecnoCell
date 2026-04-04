@@ -1,0 +1,130 @@
+import API_URL from './config';
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: API_URL,
+});
+
+// Interceptor para agregar token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ========== INGRESO DE EQUIPO (CHECKLIST) ==========
+
+export interface ChecklistData {
+  checks: {
+    // Teléfono
+    equipoEnciende?: boolean;
+    daFlash?: boolean;
+    bocinaSuperior?: boolean;
+    bocinaInferior?: boolean;
+    faceId?: boolean;
+    touchId?: boolean;
+    camara05x?: boolean;
+    camara10x?: boolean;
+    camara30x?: boolean;
+    camaraFrontal?: boolean;
+    microfono?: boolean;
+    vibracion?: boolean;
+    wifi?: boolean;
+    bluetooth?: boolean;
+    pantallaCompleta?: boolean;
+    tactil?: boolean;
+    botonSubirVolumen?: boolean;
+    botonBajarVolumen?: boolean;
+    botonPower?: boolean;
+    puertoCarga?: boolean;
+    cargaInalambrica?: boolean;
+    entradaAudifono?: boolean;
+    
+    // Tablet
+    bocinas?: boolean;
+    bateria?: boolean;
+    
+    // Computadora
+    pantalla?: boolean;
+    teclado?: boolean;
+    touchpad?: boolean;
+    puertosUSB?: boolean;
+    puertoHDMI?: boolean;
+    camara?: boolean;
+    cargador?: boolean;
+    ventilador?: boolean;
+  };
+  observaciones?: string;
+}
+
+export const saveIngresoEquipo = async (reparacionId: string, data: ChecklistData, fotos?: File[]) => {
+  const formData = new FormData();
+  formData.append('checks', JSON.stringify(data.checks));
+  
+  if (data.observaciones) {
+    formData.append('observaciones', data.observaciones);
+  }
+  
+  if (fotos && fotos.length > 0) {
+    fotos.forEach(foto => {
+      formData.append('fotos', foto);
+    });
+  }
+  
+  const response = await api.post(`/flujo-reparaciones/${reparacionId}/ingreso-equipo`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
+
+export const getIngresoEquipo = async (reparacionId: string) => {
+  const response = await api.get(`/flujo-reparaciones/${reparacionId}/ingreso-equipo`);
+  return response.data;
+};
+
+// ========== GESTIÓN DE ESTADOS ==========
+
+export const cambiarEstado = async (
+  reparacionId: string, 
+  nuevoEstado: string, 
+  nota?: string,
+  userId?: number,
+  userName?: string
+) => {
+  const response = await api.put(`/flujo-reparaciones/${reparacionId}/estado`, {
+    nuevoEstado,
+    nota,
+    userId,
+    userName
+  });
+  return response.data;
+};
+
+export const getHistorial = async (reparacionId: string) => {
+  const response = await api.get(`/flujo-reparaciones/${reparacionId}/historial`);
+  return response.data;
+};
+
+// ========== ASIGNACIONES ==========
+
+export const asignarTecnico = async (reparacionId: string, tecnicoId: number, tecnicoNombre: string) => {
+  const response = await api.put(`/flujo-reparaciones/${reparacionId}/tecnico`, {
+    tecnicoId,
+    tecnicoNombre
+  });
+  return response.data;
+};
+
+export const cambiarPrioridad = async (reparacionId: string, prioridad: 'BAJA' | 'MEDIA' | 'ALTA') => {
+  const response = await api.put(`/flujo-reparaciones/${reparacionId}/prioridad`, {
+    prioridad
+  });
+  return response.data;
+};
