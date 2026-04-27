@@ -22,6 +22,13 @@ interface ChecksGenerales {
   cargaOk: boolean;
 }
 
+interface CuentaBancaria {
+  id: number;
+  nombre: string;
+  numero_cuenta: string;
+  tipo_cuenta: string;
+}
+
 export default function FlujoReparacionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -31,91 +38,91 @@ export default function FlujoReparacionDetailPage() {
   
   // Checks generales
   const [checksGenerales, setChecksGenerales] = useState<ChecksGenerales>({
-    enciende: false,
-    tactilFunciona: false,
-    pantallaOk: false,
-    bateriaOk: false,
-    cargaOk: false
+    enciende: true,
+    tactilFunciona: true,
+    pantallaOk: true,
+    bateriaOk: true,
+    cargaOk: true
   });
 
   // Checks específicos según tipo de equipo
   const [checksTelefono, setChecksTelefono] = useState<CheckItem[]>([
-    { id: 'senal', label: 'Señal de red / Antena', checked: false },
-    { id: 'wifi', label: 'WiFi', checked: false },
-    { id: 'bluetooth', label: 'Bluetooth', checked: false },
-    { id: 'gps', label: 'GPS / Ubicación', checked: false },
-    { id: 'datos', label: 'Datos móviles / 4G/5G', checked: false },
-    { id: 'camaraTrasera', label: 'Cámara trasera', checked: false },
-    { id: 'camaraFrontal', label: 'Cámara frontal / Selfie', checked: false },
-    { id: 'flash', label: 'Flash / Linterna', checked: false },
-    { id: 'zoom', label: 'Zoom de cámara', checked: false },
-    { id: 'bocina', label: 'Bocina / Altavoz', checked: false },
-    { id: 'auricular', label: 'Auricular / Altavoz de llamadas', checked: false },
-    { id: 'microfono', label: 'Micrófono principal', checked: false },
-    { id: 'microfonoLlamadas', label: 'Micrófono de llamadas', checked: false },
-    { id: 'vibrador', label: 'Vibrador / Motor de vibración', checked: false },
-    { id: 'botonesVolumen', label: 'Botones de volumen', checked: false },
-    { id: 'botonEncendido', label: 'Botón de encendido / Power', checked: false },
-    { id: 'botonHome', label: 'Botón Home / Inicio', checked: false },
-    { id: 'sensorHuella', label: 'Sensor de huella dactilar', checked: false },
-    { id: 'faceId', label: 'Face ID / Reconocimiento facial', checked: false },
-    { id: 'sensorProximidad', label: 'Sensor de proximidad', checked: false },
-    { id: 'sensorLuz', label: 'Sensor de luz ambiental', checked: false },
-    { id: 'nfc', label: 'NFC / Pagos móviles', checked: false },
-    { id: 'infrarrojo', label: 'Infrarrojo / Control remoto', checked: false },
-    { id: 'jackAudifonos', label: 'Jack de audífonos 3.5mm', checked: false },
-    { id: 'puertoCarga', label: 'Puerto de carga', checked: false },
-    { id: 'cargaRapida', label: 'Carga rápida', checked: false },
-    { id: 'cargaInalambrica', label: 'Carga inalámbrica', checked: false },
-    { id: 'simCard', label: 'Lector de SIM / Bandeja', checked: false },
-    { id: 'sdCard', label: 'Lector de tarjeta SD', checked: false },
-    { id: 'rotation', label: 'Rotación automática de pantalla', checked: false },
-    { id: 'notificaciones', label: 'LED de notificaciones', checked: false }
+    { id: 'senal', label: 'Señal de red / Antena', checked: true },
+    { id: 'wifi', label: 'WiFi', checked: true },
+    { id: 'bluetooth', label: 'Bluetooth', checked: true },
+    { id: 'gps', label: 'GPS / Ubicación', checked: true },
+    { id: 'datos', label: 'Datos móviles / 4G/5G', checked: true },
+    { id: 'camaraTrasera', label: 'Cámara trasera', checked: true },
+    { id: 'camaraFrontal', label: 'Cámara frontal / Selfie', checked: true },
+    { id: 'flash', label: 'Flash / Linterna', checked: true },
+    { id: 'zoom', label: 'Zoom de cámara', checked: true },
+    { id: 'bocina', label: 'Bocina / Altavoz', checked: true },
+    { id: 'auricular', label: 'Auricular / Altavoz de llamadas', checked: true },
+    { id: 'microfono', label: 'Micrófono principal', checked: true },
+    { id: 'microfonoLlamadas', label: 'Micrófono de llamadas', checked: true },
+    { id: 'vibrador', label: 'Vibrador / Motor de vibración', checked: true },
+    { id: 'botonesVolumen', label: 'Botones de volumen', checked: true },
+    { id: 'botonEncendido', label: 'Botón de encendido / Power', checked: true },
+    { id: 'botonHome', label: 'Botón Home / Inicio', checked: true },
+    { id: 'sensorHuella', label: 'Sensor de huella dactilar', checked: true },
+    { id: 'faceId', label: 'Face ID / Reconocimiento facial', checked: true },
+    { id: 'sensorProximidad', label: 'Sensor de proximidad', checked: true },
+    { id: 'sensorLuz', label: 'Sensor de luz ambiental', checked: true },
+    { id: 'nfc', label: 'NFC / Pagos móviles', checked: true },
+    { id: 'infrarrojo', label: 'Infrarrojo / Control remoto', checked: true },
+    { id: 'jackAudifonos', label: 'Jack de audífonos 3.5mm', checked: true },
+    { id: 'puertoCarga', label: 'Puerto de carga', checked: true },
+    { id: 'cargaRapida', label: 'Carga rápida', checked: true },
+    { id: 'cargaInalambrica', label: 'Carga inalámbrica', checked: true },
+    { id: 'simCard', label: 'Lector de SIM / Bandeja', checked: true },
+    { id: 'sdCard', label: 'Lector de tarjeta SD', checked: true },
+    { id: 'rotation', label: 'Rotación automática de pantalla', checked: true },
+    { id: 'notificaciones', label: 'LED de notificaciones', checked: true }
   ]);
 
   const [checksTablet, setChecksTablet] = useState<CheckItem[]>([
-    { id: 'wifi', label: 'WiFi', checked: false },
-    { id: 'bluetooth', label: 'Bluetooth', checked: false },
-    { id: 'gps', label: 'GPS', checked: false },
-    { id: 'camaraTrasera', label: 'Cámara trasera', checked: false },
-    { id: 'camaraFrontal', label: 'Cámara frontal', checked: false },
-    { id: 'flash', label: 'Flash', checked: false },
-    { id: 'bocinas', label: 'Bocinas / Altavoces', checked: false },
-    { id: 'microfono', label: 'Micrófono', checked: false },
-    { id: 'acelerometro', label: 'Acelerómetro', checked: false },
-    { id: 'giroscopio', label: 'Giroscopio', checked: false },
-    { id: 'sensorLuz', label: 'Sensor de luz', checked: false },
-    { id: 'puertoCarga', label: 'Puerto de carga', checked: false },
-    { id: 'jackAudifonos', label: 'Jack de audífonos', checked: false },
-    { id: 'botonesVolumen', label: 'Botones de volumen', checked: false },
-    { id: 'botonEncendido', label: 'Botón de encendido', checked: false },
-    { id: 'simCard', label: 'Lector de SIM (si aplica)', checked: false },
-    { id: 'sdCard', label: 'Lector de tarjeta SD', checked: false },
-    { id: 'rotation', label: 'Rotación de pantalla', checked: false }
+    { id: 'wifi', label: 'WiFi', checked: true },
+    { id: 'bluetooth', label: 'Bluetooth', checked: true },
+    { id: 'gps', label: 'GPS', checked: true },
+    { id: 'camaraTrasera', label: 'Cámara trasera', checked: true },
+    { id: 'camaraFrontal', label: 'Cámara frontal', checked: true },
+    { id: 'flash', label: 'Flash', checked: true },
+    { id: 'bocinas', label: 'Bocinas / Altavoces', checked: true },
+    { id: 'microfono', label: 'Micrófono', checked: true },
+    { id: 'acelerometro', label: 'Acelerómetro', checked: true },
+    { id: 'giroscopio', label: 'Giroscopio', checked: true },
+    { id: 'sensorLuz', label: 'Sensor de luz', checked: true },
+    { id: 'puertoCarga', label: 'Puerto de carga', checked: true },
+    { id: 'jackAudifonos', label: 'Jack de audífonos', checked: true },
+    { id: 'botonesVolumen', label: 'Botones de volumen', checked: true },
+    { id: 'botonEncendido', label: 'Botón de encendido', checked: true },
+    { id: 'simCard', label: 'Lector de SIM (si aplica)', checked: true },
+    { id: 'sdCard', label: 'Lector de tarjeta SD', checked: true },
+    { id: 'rotation', label: 'Rotación de pantalla', checked: true }
   ]);
 
   const [checksComputadora, setChecksComputadora] = useState<CheckItem[]>([
-    { id: 'teclado', label: 'Teclado completo', checked: false },
-    { id: 'teclasFuncion', label: 'Teclas de función (F1-F12)', checked: false },
-    { id: 'touchpad', label: 'Touchpad / Mouse táctil', checked: false },
-    { id: 'clickTouchpad', label: 'Click del touchpad', checked: false },
-    { id: 'puertosUsb', label: 'Puertos USB', checked: false },
-    { id: 'usbC', label: 'Puerto USB-C', checked: false },
-    { id: 'puertoHdmi', label: 'Puerto HDMI', checked: false },
-    { id: 'puertoVga', label: 'Puerto VGA', checked: false },
-    { id: 'ethernet', label: 'Puerto Ethernet / RJ45', checked: false },
-    { id: 'lectorSd', label: 'Lector de tarjetas SD', checked: false },
-    { id: 'webcam', label: 'Webcam / Cámara', checked: false },
-    { id: 'microfono', label: 'Micrófono integrado', checked: false },
-    { id: 'bocinas', label: 'Bocinas / Altavoces', checked: false },
-    { id: 'jackAudifonos', label: 'Jack de audífonos', checked: false },
-    { id: 'wifi', label: 'WiFi', checked: false },
-    { id: 'bluetooth', label: 'Bluetooth', checked: false },
-    { id: 'lectorHuella', label: 'Lector de huella', checked: false },
-    { id: 'retroiluminacion', label: 'Retroiluminación de teclado', checked: false },
-    { id: 'ventilador', label: 'Ventilador / Cooling', checked: false },
-    { id: 'bisagras', label: 'Bisagras de la pantalla', checked: false },
-    { id: 'unidadOptica', label: 'Unidad óptica (CD/DVD)', checked: false }
+    { id: 'teclado', label: 'Teclado completo', checked: true },
+    { id: 'teclasFuncion', label: 'Teclas de función (F1-F12)', checked: true },
+    { id: 'touchpad', label: 'Touchpad / Mouse táctil', checked: true },
+    { id: 'clickTouchpad', label: 'Click del touchpad', checked: true },
+    { id: 'puertosUsb', label: 'Puertos USB', checked: true },
+    { id: 'usbC', label: 'Puerto USB-C', checked: true },
+    { id: 'puertoHdmi', label: 'Puerto HDMI', checked: true },
+    { id: 'puertoVga', label: 'Puerto VGA', checked: true },
+    { id: 'ethernet', label: 'Puerto Ethernet / RJ45', checked: true },
+    { id: 'lectorSd', label: 'Lector de tarjetas SD', checked: true },
+    { id: 'webcam', label: 'Webcam / Cámara', checked: true },
+    { id: 'microfono', label: 'Micrófono integrado', checked: true },
+    { id: 'bocinas', label: 'Bocinas / Altavoces', checked: true },
+    { id: 'jackAudifonos', label: 'Jack de audífonos', checked: true },
+    { id: 'wifi', label: 'WiFi', checked: true },
+    { id: 'bluetooth', label: 'Bluetooth', checked: true },
+    { id: 'lectorHuella', label: 'Lector de huella', checked: true },
+    { id: 'retroiluminacion', label: 'Retroiluminación de teclado', checked: true },
+    { id: 'ventilador', label: 'Ventilador / Cooling', checked: true },
+    { id: 'bisagras', label: 'Bisagras de la pantalla', checked: true },
+    { id: 'unidadOptica', label: 'Unidad óptica (CD/DVD)', checked: true }
   ]);
 
   const [observaciones, setObservaciones] = useState('');
@@ -125,10 +132,31 @@ export default function FlujoReparacionDetailPage() {
   const [dejoAnticipo, setDejoAnticipo] = useState(false);
   const [montoAnticipo, setMontoAnticipo] = useState('');
   const [metodoAnticipo, setMetodoAnticipo] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState<string>('');
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>([]);
+  const [anticipo_confirmado, setAnticipoConfirmado] = useState(false);
 
   useEffect(() => {
     loadReparacion();
   }, [id]);
+
+  // Cargar cuentas bancarias para selector de transferencia
+  useEffect(() => {
+    const loadBancos = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/caja/bancos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.data.success) {
+          setCuentasBancarias(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error cargando cuentas bancarias:', error);
+      }
+    };
+    loadBancos();
+  }, []);
 
   const loadReparacion = async () => {
     try {
@@ -206,7 +234,11 @@ export default function FlujoReparacionDetailPage() {
           setDejoAnticipo(true);
           setMontoAnticipo((check.monto_anticipo / 100).toFixed(2));
           setMetodoAnticipo(check.metodo_anticipo || 'efectivo');
+          if (check.cuenta_bancaria_anticipo_id) {
+            setCuentaBancariaId(check.cuenta_bancaria_anticipo_id.toString());
+          }
         }
+        setAnticipoConfirmado(check.anticipo_confirmado || false);
       }
     } catch (error) {
       // No existe checklist aún, está bien
@@ -220,6 +252,10 @@ export default function FlujoReparacionDetailPage() {
     // Validación de anticipo
     if (dejoAnticipo && (!montoAnticipo || parseFloat(montoAnticipo) <= 0)) {
       alert('Por favor ingresa el monto del anticipo');
+      return;
+    }
+    if (dejoAnticipo && metodoAnticipo === 'transferencia' && !cuentaBancariaId) {
+      alert('Selecciona una cuenta bancaria para el anticipo por transferencia');
       return;
     }
 
@@ -258,7 +294,8 @@ export default function FlujoReparacionDetailPage() {
         realizadoPor: 'Usuario', // TODO: Obtener del contexto de autenticación
         dejoAnticipo,
         montoAnticipo: dejoAnticipo ? Math.round(parseFloat(montoAnticipo) * 100) : 0, // Convertir a centavos
-        metodoAnticipo: dejoAnticipo ? metodoAnticipo : null
+        metodoAnticipo: dejoAnticipo ? metodoAnticipo : null,
+        cuentaBancariaId: dejoAnticipo && metodoAnticipo === 'transferencia' ? parseInt(cuentaBancariaId) : null
       };
 
       await axios.post(
@@ -269,12 +306,25 @@ export default function FlujoReparacionDetailPage() {
         }
       );
 
-      alert('Checklist guardado exitosamente. Estado de reparación actualizado a RECIBIDA.');
+      const mensaje = existeCheck
+        ? 'Checklist actualizado exitosamente.'
+        : 'Checklist guardado exitosamente. Estado de reparación actualizado a RECIBIDA.';
+      if (dejoAnticipo) {
+        const metodoLabel = metodoAnticipo === 'efectivo' ? 'Efectivo' : 'Transferencia';
+        alert(`${mensaje}\nAnticipo Q${montoAnticipo} (${metodoLabel}) registrado como PENDIENTE. Confírmalo desde /caja-bancos.`);
+      } else {
+        alert(mensaje);
+      }
       navigate('/flujo-reparaciones');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving checklist:', error);
-      alert('Error al guardar el checklist');
+      if (error.response?.status === 409) {
+        alert('No se puede modificar el anticipo: ya fue confirmado en Caja/Bancos.');
+        setAnticipoConfirmado(true);
+      } else {
+        alert('Error al guardar el checklist');
+      }
     } finally {
       setSaving(false);
     }
@@ -305,7 +355,7 @@ export default function FlujoReparacionDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-64 p-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-0 md:ml-64 p-4 md:p-8">
         <div className="text-center py-12">Cargando...</div>
       </div>
     );
@@ -313,14 +363,14 @@ export default function FlujoReparacionDetailPage() {
 
   if (!reparacion) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-64 p-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-0 md:ml-64 p-4 md:p-8">
         <div className="text-center py-12">Reparación no encontrada</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-64 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-0 md:ml-64 p-4 md:p-8">
       <div className="mb-6">
         <Button
           variant="ghost"
@@ -340,7 +390,7 @@ export default function FlujoReparacionDetailPage() {
       {/* Información de la reparación */}
       <Card className="mb-6">
         <h3 className="text-lg font-semibold mb-4">Información del Equipo</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-slate-600">Cliente</p>
             <p className="font-semibold">{reparacion.cliente_nombre}</p>
@@ -379,19 +429,19 @@ export default function FlujoReparacionDetailPage() {
       {/* Checks Generales */}
       <Card className="mb-6">
         <h3 className="text-lg font-semibold mb-4">Checks Generales</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {Object.entries(checksGenerales).map(([key, value]) => (
             <button
               key={key}
               onClick={() => toggleCheckGeneral(key as keyof ChecksGenerales)}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                 value
                   ? 'border-green-500 bg-green-50'
                   : 'border-slate-300 bg-white hover:border-slate-400'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-sm md:text-base">
                   {key === 'enciende' && 'Enciende'}
                   {key === 'tactilFunciona' && 'Táctil Funciona'}
                   {key === 'pantallaOk' && 'Pantalla OK'}
@@ -412,26 +462,26 @@ export default function FlujoReparacionDetailPage() {
       {/* Checks Específicos */}
       <Card className="mb-6">
         <h3 className="text-lg font-semibold mb-4">
-          Checks Específicos - {reparacion.recepcion?.tipoEquipo}
+          Checks Específicos — {reparacion.recepcion?.tipoEquipo}
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {reparacion.recepcion?.tipoEquipo === 'Telefono' &&
             checksTelefono.map(item => (
               <button
                 key={item.id}
                 onClick={() => toggleCheckEspecifico('telefono', item.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-slate-300 bg-white hover:border-slate-400'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{item.label}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-xs md:text-sm leading-snug text-left">{item.label}</span>
                   {item.checked ? (
-                    <Check className="text-blue-600" size={18} />
+                    <Check className="text-blue-600 shrink-0" size={16} />
                   ) : (
-                    <X className="text-slate-400" size={18} />
+                    <X className="text-slate-400 shrink-0" size={16} />
                   )}
                 </div>
               </button>
@@ -442,18 +492,18 @@ export default function FlujoReparacionDetailPage() {
               <button
                 key={item.id}
                 onClick={() => toggleCheckEspecifico('tablet', item.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-slate-300 bg-white hover:border-slate-400'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{item.label}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-xs md:text-sm leading-snug text-left">{item.label}</span>
                   {item.checked ? (
-                    <Check className="text-blue-600" size={18} />
+                    <Check className="text-blue-600 shrink-0" size={16} />
                   ) : (
-                    <X className="text-slate-400" size={18} />
+                    <X className="text-slate-400 shrink-0" size={16} />
                   )}
                 </div>
               </button>
@@ -464,18 +514,18 @@ export default function FlujoReparacionDetailPage() {
               <button
                 key={item.id}
                 onClick={() => toggleCheckEspecifico('computadora', item.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-slate-300 bg-white hover:border-slate-400'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{item.label}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-xs md:text-sm leading-snug text-left">{item.label}</span>
                   {item.checked ? (
-                    <Check className="text-blue-600" size={18} />
+                    <Check className="text-blue-600 shrink-0" size={16} />
                   ) : (
-                    <X className="text-slate-400" size={18} />
+                    <X className="text-slate-400 shrink-0" size={16} />
                   )}
                 </div>
               </button>
@@ -498,26 +548,35 @@ export default function FlujoReparacionDetailPage() {
       {/* Anticipo del Cliente */}
       <Card className="mb-6">
         <h3 className="text-lg font-semibold mb-4">Anticipo del Cliente</h3>
+
+        {anticipo_confirmado && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-sm">
+            ⚠️ Este anticipo ya fue <strong>confirmado</strong> en Caja/Bancos y no puede modificarse desde aquí.
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={dejoAnticipo}
+                disabled={anticipo_confirmado}
                 onChange={(e) => {
                   setDejoAnticipo(e.target.checked);
                   if (!e.target.checked) {
                     setMontoAnticipo('');
+                    setCuentaBancariaId('');
                   }
                 }}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               />
               <span className="text-sm font-medium">¿El cliente dejó anticipo?</span>
             </label>
           </div>
 
           {dejoAnticipo && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Monto del Anticipo (Q)
@@ -527,8 +586,9 @@ export default function FlujoReparacionDetailPage() {
                   step="0.01"
                   min="0"
                   value={montoAnticipo}
+                  disabled={anticipo_confirmado}
                   onChange={(e) => setMontoAnticipo(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-500"
                   placeholder="0.00"
                 />
               </div>
@@ -538,32 +598,72 @@ export default function FlujoReparacionDetailPage() {
                 </label>
                 <select
                   value={metodoAnticipo}
-                  onChange={(e) => setMetodoAnticipo(e.target.value as 'efectivo' | 'transferencia')}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={anticipo_confirmado}
+                  onChange={(e) => {
+                    setMetodoAnticipo(e.target.value as 'efectivo' | 'transferencia');
+                    setCuentaBancariaId('');
+                  }}
+                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-500"
                 >
                   <option value="efectivo">Efectivo 💵</option>
                   <option value="transferencia">Transferencia 🏦</option>
                 </select>
               </div>
+
+              {metodoAnticipo === 'transferencia' && (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Cuenta Bancaria de Destino <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={cuentaBancariaId}
+                    disabled={anticipo_confirmado}
+                    onChange={(e) => setCuentaBancariaId(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-500"
+                  >
+                    <option value="">-- Selecciona una cuenta bancaria --</option>
+                    {cuentasBancarias.map((cuenta) => (
+                      <option key={cuenta.id} value={cuenta.id.toString()}>
+                        {cuenta.nombre} — {cuenta.tipo_cuenta} ({cuenta.numero_cuenta})
+                      </option>
+                    ))}
+                  </select>
+                  {cuentasBancarias.length === 0 && (
+                    <p className="text-xs text-slate-500 mt-1">No hay cuentas bancarias activas registradas.</p>
+                  )}
+                </div>
+              )}
+
+              {!anticipo_confirmado && dejoAnticipo && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-slate-500">
+                    El anticipo se registrará como <strong>PENDIENTE</strong>. Confírmalo desde{' '}
+                    <a href="/caja-bancos" className="text-blue-600 underline">Caja / Bancos</a> para
+                    que afecte el saldo.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </Card>
 
       {/* Botón Guardar */}
-      <div className="flex justify-end gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
         <Button
           variant="ghost"
           onClick={() => navigate('/flujo-reparaciones')}
+          className="w-full sm:w-auto"
         >
           Cancelar
         </Button>
         <Button
           onClick={handleSaveChecklist}
-          disabled={saving || existeCheck}
+          disabled={saving}
+          className="w-full sm:w-auto"
         >
           <Save size={20} className="mr-2" />
-          {saving ? 'Guardando...' : existeCheck ? 'Checklist Ya Guardado' : 'Guardar Checklist y Actualizar Estado'}
+          {saving ? 'Guardando...' : existeCheck ? 'Actualizar Checklist' : 'Guardar Checklist y Actualizar Estado'}
         </Button>
       </div>
     </div>

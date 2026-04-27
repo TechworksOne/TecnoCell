@@ -71,10 +71,18 @@ exports.getAllProducts = async (req, res) => {
     const [products] = await db.query(query, params);
     
     // Parsear las imágenes de JSON string a array
-    const productsWithImages = products.map(p => ({
-      ...p,
-      imagenes: p.imagenes ? JSON.parse(`[${p.imagenes}]`) : []
-    }));
+    const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
+    const productsWithImages = products.map(p => {
+      const product = { ...p, imagenes: p.imagenes ? JSON.parse(`[${p.imagenes}]`) : [] };
+      if (!isAdmin) {
+        delete product.precio_compra;
+        delete product.precioProducto;
+        delete product.costo_unitario;
+        delete product.margen_ganancia;
+        delete product.total_invertido;
+      }
+      return product;
+    });
     
     res.json({
       success: true,
@@ -133,7 +141,16 @@ exports.getProductById = async (req, res) => {
       ...products[0],
       imagenes: products[0].imagenes ? JSON.parse(`[${products[0].imagenes}]`) : []
     };
-    
+
+    const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
+    if (!isAdmin) {
+      delete product.precio_compra;
+      delete product.precioProducto;
+      delete product.costo_unitario;
+      delete product.margen_ganancia;
+      delete product.total_invertido;
+    }
+
     res.json({
       success: true,
       data: product

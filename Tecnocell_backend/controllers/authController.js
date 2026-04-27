@@ -32,16 +32,33 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    // Generar token JWT
+    // Obtener perfil y roles del sistema de roles nuevo
+    const [[perfil]] = await db.query(
+      'SELECT nombres, apellidos, telefono, foto_perfil FROM user_profiles WHERE user_id = ?',
+      [user.id]
+    );
+    const [rolesRows] = await db.query(
+      `SELECT r.nombre FROM roles r
+       INNER JOIN user_roles ur ON ur.role_id = r.id
+       WHERE ur.user_id = ?`,
+      [user.id]
+    );
+    const rolesArray = rolesRows.map(r => r.nombre);
+
+    // Generar token JWT (incluye roles para middleware)
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        roles: rolesArray
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    // Actualizar ultimo_login
+    await db.query('UPDATE users SET ultimo_login = NOW() WHERE id = ?', [user.id]);
 
     // Enviar respuesta (sin enviar la contraseña)
     res.json({
@@ -52,7 +69,9 @@ const login = async (req, res) => {
         username: user.username,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        roles: rolesArray,
+        perfil: perfil || null,
       }
     });
 
@@ -83,8 +102,117 @@ const verifyToken = (req, res) => {
   }
 };
 
+// GET /api/auth/me — devuelve el usuario autenticado con perfil y roles
+const getMe = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [[user]] = await db.query(
+      'SELECT id, username, email, name, role, active, ultimo_login, created_at, updated_at FROM users WHERE id = ?',
+      [userId]
+    );
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const [[perfil]] = await db.query(
+      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil FROM user_profiles WHERE user_id = ?',
+      [userId]
+    );
+    const [rolesRows] = await db.query(
+      'SELECT r.nombre FROM roles r INNER JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        active: Boolean(user.active),
+        ultimo_login: user.ultimo_login,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        perfil: perfil || null,
+        roles: rolesRows.map(r => r.nombre),
+      }
+    });
+  } catch (error) {
+    console.error('Error en getMe:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+};
+
+// PUT /api/auth/me/perfil — actualiza foto, teléfono, dirección del usuario activo
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const UPLOADS_BASE = path.join(__dirname, '..', 'uploads');
+
+const uploadMe = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(UPLOADS_BASE, 'usuarios', String(req.user.id), 'perfil');
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `perfil${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\//.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Solo se permiten imágenes'));
+  },
+});
+
+const updateMePerfil = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { telefono, direccion } = req.body;
+    const updateFields = [];
+    const updateValues = [];
+
+    if (telefono !== undefined) { updateFields.push('telefono = ?'); updateValues.push(telefono || null); }
+    if (direccion !== undefined) { updateFields.push('direccion = ?'); updateValues.push(direccion || null); }
+    if (req.file) {
+      const foto_perfil = `/uploads/usuarios/${userId}/perfil/${req.file.filename}`;
+      updateFields.push('foto_perfil = ?');
+      updateValues.push(foto_perfil);
+    }
+
+    if (updateFields.length > 0) {
+      // Ensure row exists
+      await db.query(
+        'INSERT INTO user_profiles (user_id) VALUES (?) ON DUPLICATE KEY UPDATE user_id = user_id',
+        [userId]
+      );
+      await db.query(
+        `UPDATE user_profiles SET ${updateFields.join(', ')} WHERE user_id = ?`,
+        [...updateValues, userId]
+      );
+    }
+
+    const [[perfil]] = await db.query(
+      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil FROM user_profiles WHERE user_id = ?',
+      [userId]
+    );
+    res.json({ success: true, data: { perfil: perfil || null } });
+  } catch (error) {
+    console.error('Error en updateMePerfil:', error);
+    res.status(500).json({ message: 'Error al actualizar perfil' });
+  }
+};
+
 module.exports = {
   login,
   logout,
-  verifyToken
+  verifyToken,
+  getMe,
+  updateMePerfil,
+  uploadMe,
 };

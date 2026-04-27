@@ -5,6 +5,7 @@ const reparacionController = require('../controllers/reparacionController');
 
 // Rutas CRUD
 router.get('/', reparacionController.getAllReparaciones);
+router.get('/:id/historial-completo', reparacionController.getHistorialCompleto);
 router.get('/:id', reparacionController.getReparacionById);
 router.post('/', reparacionController.createReparacion);
 

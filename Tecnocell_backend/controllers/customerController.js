@@ -4,7 +4,28 @@ const db = require('../config/database');
 const getAllCustomers = async (req, res) => {
   try {
     const [customers] = await db.query(
-      'SELECT * FROM clientes WHERE activo = true ORDER BY created_at DESC'
+      `SELECT 
+        c.*,
+        COALESCE(v.total_ventas, 0) AS total_ventas,
+        COALESCE(v.total_gastado, 0) AS total_gastado,
+        COALESCE(cot.total_cotizaciones, 0) AS total_cotizaciones
+       FROM clientes c
+       LEFT JOIN (
+         SELECT cliente_id,
+           COUNT(*) AS total_ventas,
+           SUM(total) AS total_gastado
+         FROM ventas
+         WHERE estado != 'ANULADA'
+         GROUP BY cliente_id
+       ) v ON v.cliente_id = c.id
+       LEFT JOIN (
+         SELECT cliente_id,
+           COUNT(*) AS total_cotizaciones
+         FROM cotizaciones
+         GROUP BY cliente_id
+       ) cot ON cot.cliente_id = c.id
+       WHERE c.activo = true
+       ORDER BY c.created_at DESC`
     );
     res.json({
       success: true,

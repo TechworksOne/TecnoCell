@@ -24,7 +24,13 @@ const verifyRole = (...allowedRoles) => {
       return res.status(401).json({ message: 'No autorizado' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    // Verificar en el array de roles (sistema RBAC) O en el campo role legacy
+    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : [];
+    const hasRole = allowedRoles.some(r =>
+      userRoles.includes(r) || req.user.role === r
+    );
+
+    if (!hasRole) {
       return res.status(403).json({ message: 'No tienes permisos para esta acción' });
     }
 

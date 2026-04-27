@@ -1,8 +1,12 @@
 const db = require('../config/database');
 
-// Crear checklist de equipo
+// Crear o actualizar checklist de equipo (UPSERT con manejo transaccional de anticipo)
 exports.createCheckEquipo = async (req, res) => {
+  const connection = await db.getConnection();
+
   try {
+    await connection.beginTransaction();
+
     const {
       reparacionId,
       tipoEquipo,
@@ -13,7 +17,8 @@ exports.createCheckEquipo = async (req, res) => {
       realizadoPor,
       dejoAnticipo,
       montoAnticipo,
-      metodoAnticipo
+      metodoAnticipo,
+      cuentaBancariaId  // requerido cuando metodoAnticipo === 'transferencia'
     } = req.body;
 
     // Preparar datos JSON según el tipo de equipo
@@ -29,96 +34,211 @@ exports.createCheckEquipo = async (req, res) => {
       computadoraChecks = JSON.stringify(checksEspecificos);
     }
 
-    const [result] = await db.query(
-      `INSERT INTO check_equipo (
-        reparacion_id, tipo_equipo,
-        enciende, tactil_funciona, pantalla_ok, bateria_ok, carga_ok,
-        telefono_checks, tablet_checks, computadora_checks,
-        observaciones, fotos_checklist, realizado_por
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        reparacionId,
-        tipoEquipo,
-        checksGenerales.enciende || false,
-        checksGenerales.tactilFunciona || false,
-        checksGenerales.pantallaOk || false,
-        checksGenerales.bateriaOk || false,
-        checksGenerales.cargaOk || false,
-        telefonoChecks,
-        tabletChecks,
-        computadoraChecks,
-        observaciones || null,
-        fotosChecklist ? JSON.stringify(fotosChecklist) : null,
-        realizadoPor || 'Sistema'
-      ]
+    // ── UPSERT check_equipo ──────────────────────────────────────────────────
+    const [existing] = await connection.query(
+      'SELECT id FROM check_equipo WHERE reparacion_id = ? ORDER BY fecha_checklist DESC LIMIT 1',
+      [reparacionId]
     );
 
-    // Si dejó anticipo, actualizar la reparación con el monto y método
-    if (dejoAnticipo && montoAnticipo > 0) {
-      await db.query(
-        `UPDATE reparaciones 
-         SET monto_anticipo = ?, 
-             saldo_anticipo = ?, 
-             metodo_anticipo = ?
+    let checkId;
+    const isUpdate = existing.length > 0;
+
+    if (isUpdate) {
+      checkId = existing[0].id;
+      await connection.query(
+        `UPDATE check_equipo SET
+          tipo_equipo = ?,
+          enciende = ?, tactil_funciona = ?, pantalla_ok = ?, bateria_ok = ?, carga_ok = ?,
+          telefono_checks = ?, tablet_checks = ?, computadora_checks = ?,
+          observaciones = ?, fotos_checklist = ?, realizado_por = ?
          WHERE id = ?`,
         [
-          montoAnticipo,
-          montoAnticipo, // El saldo inicial es igual al monto del anticipo
-          metodoAnticipo,
+          tipoEquipo,
+          checksGenerales.enciende || false,
+          checksGenerales.tactilFunciona || false,
+          checksGenerales.pantallaOk || false,
+          checksGenerales.bateriaOk || false,
+          checksGenerales.cargaOk || false,
+          telefonoChecks, tabletChecks, computadoraChecks,
+          observaciones || null,
+          fotosChecklist ? JSON.stringify(fotosChecklist) : null,
+          realizadoPor || 'Sistema',
+          checkId
+        ]
+      );
+    } else {
+      const [result] = await connection.query(
+        `INSERT INTO check_equipo (
+          reparacion_id, tipo_equipo,
+          enciende, tactil_funciona, pantalla_ok, bateria_ok, carga_ok,
+          telefono_checks, tablet_checks, computadora_checks,
+          observaciones, fotos_checklist, realizado_por
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          reparacionId, tipoEquipo,
+          checksGenerales.enciende || false,
+          checksGenerales.tactilFunciona || false,
+          checksGenerales.pantallaOk || false,
+          checksGenerales.bateriaOk || false,
+          checksGenerales.cargaOk || false,
+          telefonoChecks, tabletChecks, computadoraChecks,
+          observaciones || null,
+          fotosChecklist ? JSON.stringify(fotosChecklist) : null,
+          realizadoPor || 'Sistema'
+        ]
+      );
+      checkId = result.insertId;
+
+      // Solo registrar RECIBIDA en historial la primera vez
+      await connection.query(
+        `INSERT INTO reparaciones_historial (reparacion_id, estado, nota, user_nombre, tipo_evento, descripcion)
+         VALUES (?, 'RECIBIDA', 'Equipo recibido y checklist completado', ?, 'CHECKLIST_COMPLETADO', 'Se completó el checklist de inspección del equipo')`,
+        [reparacionId, realizadoPor || 'Sistema']
+      );
+
+      // Actualizar estado a RECIBIDA solo si está en un estado muy inicial
+      await connection.query(
+        `UPDATE reparaciones SET estado = 'RECIBIDA'
+         WHERE id = ? AND estado NOT IN (
+           'EN_DIAGNOSTICO','ESPERANDO_AUTORIZACION','AUTORIZADA',
+           'EN_REPARACION','EN_PROCESO','ESPERANDO_PIEZA',
+           'COMPLETADA','ENTREGADA','CANCELADA'
+         )`,
+        [reparacionId]
+      );
+    }
+
+    // ── MANEJO DE ANTICIPO ───────────────────────────────────────────────────
+    if (dejoAnticipo && montoAnticipo > 0) {
+
+      // 1. Verificar si ya existe un movimiento CONFIRMADO → no permitir cambios
+      const [[{ cajaCnt }]] = await connection.query(
+        `SELECT COUNT(*) AS cajaCnt FROM caja_chica
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'CONFIRMADO'`,
+        [reparacionId]
+      );
+      const [[{ bancoCnt }]] = await connection.query(
+        `SELECT COUNT(*) AS bancoCnt FROM movimientos_bancarios
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'CONFIRMADO'`,
+        [reparacionId]
+      );
+
+      if (cajaCnt > 0 || bancoCnt > 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          message: 'El anticipo ya fue confirmado en Caja/Bancos y no puede ser modificado.',
+          anticipo_confirmado: true
+        });
+      }
+
+      // 2. Eliminar movimientos PENDIENTES previos (puede haberse cambiado el método)
+      await connection.query(
+        `DELETE FROM caja_chica
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'PENDIENTE'`,
+        [reparacionId]
+      );
+      await connection.query(
+        `DELETE FROM movimientos_bancarios
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'PENDIENTE'`,
+        [reparacionId]
+      );
+
+      // 3. Crear nuevo movimiento según método
+      const montoDecimal = montoAnticipo / 100; // centavos → quetzales
+      const concepto = `Anticipo de reparación ${reparacionId}`;
+
+      if (metodoAnticipo === 'efectivo') {
+        await connection.query(
+          `INSERT INTO caja_chica
+           (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+           VALUES ('INGRESO', ?, ?, 'ANTICIPO_REPARACION', 'PENDIENTE', ?, 'Anticipo registrado desde checklist de ingreso', 'REPARACION', ?)`,
+          [montoDecimal, concepto, realizadoPor || 'Sistema', reparacionId]
+        );
+      } else if (metodoAnticipo === 'transferencia') {
+        if (!cuentaBancariaId) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Debe seleccionar una cuenta bancaria para el anticipo por transferencia'
+          });
+        }
+        await connection.query(
+          `INSERT INTO movimientos_bancarios
+           (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+           VALUES (?, 'INGRESO', ?, ?, 'ANTICIPO_REPARACION', 'PENDIENTE', ?, 'Anticipo por transferencia desde checklist de ingreso', 'REPARACION', ?)`,
+          [cuentaBancariaId, montoDecimal, concepto, realizadoPor || 'Sistema', reparacionId]
+        );
+      }
+
+      // 4. Actualizar reparación
+      await connection.query(
+        `UPDATE reparaciones
+         SET monto_anticipo = ?, saldo_anticipo = ?, metodo_anticipo = ?, cuenta_bancaria_anticipo_id = ?
+         WHERE id = ?`,
+        [
+          montoAnticipo, montoAnticipo, metodoAnticipo,
+          metodoAnticipo === 'transferencia' ? (cuentaBancariaId || null) : null,
           reparacionId
         ]
       );
 
-      // Registrar el anticipo en el historial
-      await db.query(
-        `INSERT INTO reparaciones_historial (
-          reparacion_id, estado, nota, user_nombre
-        ) VALUES (?, ?, ?, ?)`,
+      // 5. Historial
+      const metodoLabel = metodoAnticipo === 'efectivo' ? 'Efectivo' : 'Transferencia';
+      const montoStr = `Q${(montoAnticipo / 100).toFixed(2)}`;
+      await connection.query(
+        `INSERT INTO reparaciones_historial (reparacion_id, estado, nota, user_nombre, tipo_evento, descripcion)
+         VALUES (?, 'ANTICIPO_REGISTRADO', ?, ?, 'ANTICIPO_REGISTRADO', ?)`,
         [
           reparacionId,
-          'ANTICIPO_REGISTRADO',
-          `Anticipo registrado: Q${(montoAnticipo / 100).toFixed(2)} (${metodoAnticipo})`,
-          realizadoPor || 'Sistema'
+          `Anticipo ${montoStr} (${metodoLabel}) – pendiente de confirmación en Caja/Bancos`,
+          realizadoPor || 'Sistema',
+          `Anticipo de ${montoStr} registrado por ${metodoLabel}. Pendiente de confirmación.`
         ]
+      );
+
+    } else if (!dejoAnticipo) {
+      // Si se desmarcó el anticipo: limpiar movimientos PENDIENTES y resetear en reparación
+      await connection.query(
+        `DELETE FROM caja_chica
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'PENDIENTE'`,
+        [reparacionId]
+      );
+      await connection.query(
+        `DELETE FROM movimientos_bancarios
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'PENDIENTE'`,
+        [reparacionId]
+      );
+      await connection.query(
+        `UPDATE reparaciones
+         SET monto_anticipo = 0, saldo_anticipo = 0, metodo_anticipo = NULL, cuenta_bancaria_anticipo_id = NULL
+         WHERE id = ?`,
+        [reparacionId]
       );
     }
 
-    // Crear entrada en historial de reparaciones con estado RECIBIDA
-    await db.query(
-      `INSERT INTO reparaciones_historial (
-        reparacion_id, estado, nota, user_nombre
-      ) VALUES (?, ?, ?, ?)`,
-      [
-        reparacionId,
-        'RECIBIDA',
-        'Equipo recibido y checklist completado',
-        realizadoPor || 'Sistema'
-      ]
-    );
+    await connection.commit();
 
-    // Actualizar estado de la reparación a RECIBIDA si aún no lo está
-    await db.query(
-      `UPDATE reparaciones SET estado = 'RECIBIDA' WHERE id = ? AND estado != 'RECIBIDA'`,
-      [reparacionId]
-    );
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: 'Checklist creado exitosamente',
+      message: isUpdate ? 'Checklist actualizado exitosamente' : 'Checklist creado exitosamente',
       data: {
-        id: result.insertId,
+        id: checkId,
         reparacionId,
-        anticipoRegistrado: dejoAnticipo && montoAnticipo > 0
+        anticipoRegistrado: !!(dejoAnticipo && montoAnticipo > 0)
       }
     });
 
   } catch (error) {
-    console.error('Error creating check equipo:', error);
+    await connection.rollback();
+    console.error('Error saving check equipo:', error);
     res.status(500).json({
       success: false,
-      message: 'Error al crear checklist',
+      message: 'Error al guardar checklist',
       error: error.message
     });
+  } finally {
+    connection.release();
   }
 };
 
@@ -128,11 +248,13 @@ exports.getCheckByReparacion = async (req, res) => {
     const { reparacionId } = req.params;
 
     const [checks] = await db.query(
-      `SELECT ce.*, r.monto_anticipo, r.saldo_anticipo, r.metodo_anticipo
+      `SELECT ce.*,
+              r.monto_anticipo, r.saldo_anticipo, r.metodo_anticipo,
+              r.cuenta_bancaria_anticipo_id
        FROM check_equipo ce
        LEFT JOIN reparaciones r ON ce.reparacion_id = r.id
-       WHERE ce.reparacion_id = ? 
-       ORDER BY ce.fecha_checklist DESC 
+       WHERE ce.reparacion_id = ?
+       ORDER BY ce.fecha_checklist DESC
        LIMIT 1`,
       [reparacionId]
     );
@@ -145,6 +267,23 @@ exports.getCheckByReparacion = async (req, res) => {
     }
 
     const check = checks[0];
+
+    // Verificar si el anticipo ya fue confirmado en Caja o Bancos
+    let anticipo_confirmado = false;
+    if (check.monto_anticipo && check.monto_anticipo > 0) {
+      const [[{ cajaCnt }]] = await db.query(
+        `SELECT COUNT(*) AS cajaCnt FROM caja_chica
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'CONFIRMADO'`,
+        [reparacionId]
+      );
+      const [[{ bancoCnt }]] = await db.query(
+        `SELECT COUNT(*) AS bancoCnt FROM movimientos_bancarios
+         WHERE referencia_tipo = 'REPARACION' AND referencia_id = ? AND estado = 'CONFIRMADO'`,
+        [reparacionId]
+      );
+      anticipo_confirmado = cajaCnt > 0 || bancoCnt > 0;
+    }
+    check.anticipo_confirmado = anticipo_confirmado;
 
     // Parsear JSON fields
     if (check.telefono_checks) check.telefono_checks = JSON.parse(check.telefono_checks);

@@ -8,6 +8,7 @@ import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ImageModal from '../../components/ui/ImageModal';
+import { useAuth } from '../../store/useAuth';
 import { useRepuestosStore } from '../../store/useRepuestosStore';
 import { useSuppliersStore } from '../../store/useSuppliers';
 import { formatMoney } from '../../lib/format';
@@ -16,6 +17,7 @@ import * as repuestoService from '../../services/repuestoService';
 import * as marcaLineaService from '../../services/marcaLineaService';
 import type { Marca, Linea } from '../../services/marcaLineaService';
 import { useToast } from '../../components/ui/Toast';
+import { canViewCosts } from '../../lib/permissions';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = ['Pantalla', 'Batería', 'Cámara', 'Flex', 'Placa', 'Back Cover', 'Altavoz', 'Conector', 'Otro'];
@@ -74,6 +76,8 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
   onDelete: (id: string) => void;
   onDuplicate: (r: Repuesto) => void;
 }) {
+  const { user } = useAuth();
+  const showCost = canViewCosts(user?.roles);
   const lowStock = repuesto.stockMinimo != null && repuesto.stock > 0 && repuesto.stock <= repuesto.stockMinimo;
   const noStock = repuesto.stock === 0;
   const img = repuesto.imagenes?.[0] || REPUESTO_PLACEHOLDER;
@@ -107,7 +111,9 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
       </div>
       <div className="text-right hidden md:block w-28 shrink-0">
         <p className="text-sm font-bold text-emerald-600">{formatMoney(repuesto.precio)}</p>
-        <p className="text-[10px] text-slate-400">costo {formatMoney(repuesto.precioCosto)}</p>
+        {showCost && (
+          <p className="text-[10px] text-slate-400">costo {formatMoney(repuesto.precioCosto)}</p>
+        )}
       </div>
       <div className="hidden lg:flex items-center justify-center w-20 shrink-0">
         {noStock && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-50 text-red-600">Sin stock</span>}
@@ -132,6 +138,8 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
 export function RepuestosPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
+  const showCost = canViewCosts(user?.roles);
   const { repuestos, removeRepuesto, duplicateRepuesto, loadRepuestos, isLoading } = useRepuestosStore();
   const { suppliers, loadSuppliers } = useSuppliersStore();
 
@@ -356,7 +364,7 @@ export function RepuestosPage() {
         <KpiCard label="Total Repuestos" value={repuestos.length} sub="en inventario" icon={Package} gradient="bg-gradient-to-br from-blue-500 to-blue-700" />
         <KpiCard label="Activos" value={totalActivos} sub="disponibles" icon={Activity} gradient="bg-gradient-to-br from-emerald-500 to-emerald-700" />
         <KpiCard label="Stock Bajo" value={totalLowStock} sub="por reponer" icon={AlertTriangle} gradient="bg-gradient-to-br from-amber-500 to-orange-600" />
-        <KpiCard label="Valor inventario" value={formatMoney(valorInventario)} sub="precio costo" icon={DollarSign} gradient="bg-gradient-to-br from-violet-500 to-purple-700" />
+        {showCost && <KpiCard label="Valor inventario" value={formatMoney(valorInventario)} sub="precio costo" icon={DollarSign} gradient="bg-gradient-to-br from-violet-500 to-purple-700" />}
       </div>
 
       {/* ── Toolbar ─────────────────────────────────────────────────── */}
@@ -556,6 +564,7 @@ export function RepuestosPage() {
 
           {/* Row 4: Precios + Stock mínimo */}
           <div className="grid grid-cols-3 gap-3">
+            {showCost && (
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Precio Costo <span className="text-red-400">*</span></label>
               <div className="relative">
@@ -569,6 +578,7 @@ export function RepuestosPage() {
                 />
               </div>
             </div>
+            )}
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Precio Venta <span className="text-red-400">*</span></label>
               <div className="relative">
@@ -595,7 +605,7 @@ export function RepuestosPage() {
           </div>
 
           {/* Margin preview */}
-          {formData.precioCosto > 0 && formData.precio > 0 && (
+          {showCost && formData.precioCosto > 0 && formData.precio > 0 && (
             <div className={`rounded-xl px-3 py-2 flex items-center justify-between ${formData.precio <= formData.precioCosto ? 'bg-red-50 border border-red-200' : 'bg-violet-50 border border-violet-200'}`}>
               <span className={`text-[11px] font-medium ${formData.precio <= formData.precioCosto ? 'text-red-600' : 'text-violet-600'}`}>
                 {formData.precio <= formData.precioCosto ? '⚠ Precio venta ≤ costo' : 'Margen de ganancia'}
@@ -790,17 +800,19 @@ export function RepuestosPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                {showCost && (
                 <div className="bg-blue-50 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-widest">Precio Costo</p>
                   <p className="text-lg font-bold text-blue-700 mt-0.5">{formatMoney(selectedRepuesto.precioCosto)}</p>
                 </div>
+                )}
                 <div className="bg-emerald-50 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">Precio Venta</p>
                   <p className="text-lg font-bold text-emerald-700 mt-0.5">{formatMoney(selectedRepuesto.precio)}</p>
                 </div>
               </div>
 
-              {selectedRepuesto.precioCosto > 0 && selectedRepuesto.precio > 0 && (
+              {showCost && selectedRepuesto.precioCosto > 0 && selectedRepuesto.precio > 0 && (
                 <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 flex items-center justify-between">
                   <span className="text-[11px] font-medium text-violet-600">Margen</span>
                   <span className="text-sm font-bold text-violet-700">

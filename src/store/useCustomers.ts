@@ -42,7 +42,10 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
           address: c.direccion || '',
           createdAt: c.created_at,
           updatedAt: c.updated_at,
-          totalVisits: 0,
+          // Estadísticas precargadas desde el backend
+          totalVisits: Number(c.total_ventas) || 0,
+          totalSpentPreloaded: (Number(c.total_gastado) || 0) / 100,
+          totalCotizaciones: Number(c.total_cotizaciones) || 0,
           customerSince: c.created_at,
           loyaltyPoints: 0,
           preferredPaymentMethod: c.metodo_pago_preferido || 'efectivo',
@@ -177,7 +180,6 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
   getCustomerSummary: (customerId) => {
     const customer = get().getCustomerById(customerId);
     const purchases = get().getCustomerPurchases(customerId);
-    const visits = get().getCustomerVisits(customerId);
     
     if (!customer) return {
       totalQuotes: 0,
@@ -190,54 +192,75 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
       monthlyPurchases: 0,
       favoriteProducts: [],
     };
-    
-    const quotes = purchases.filter((p) => p.type === 'quote');
-    const sales = purchases.filter((p) => p.type === 'sale');
-    const activeQuotes = quotes.filter((q) => q.status === 'open').length;
-    
-    // Considerar ventas PAGADA y PARCIAL como completadas
-    const completedPurchases = purchases.filter((p) => 
-      p.status === 'PAGADA' || p.status === 'PARCIAL' || p.status === 'won' || p.status === 'completed'
-    );
-    const totalSpent = completedPurchases.reduce((sum, p) => sum + (p.total || 0), 0);
-    const averageOrderValue = completedPurchases.length > 0 ? totalSpent / completedPurchases.length : 0;
 
-    // Calcular compras del último mes
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
-    const monthlyPurchases = purchases.filter(p => new Date(p.date) >= lastMonth).length;
+    // Si hay compras cargadas en detalle, calcular desde ellas
+    // Si no, usar los valores precargados del backend (para las tarjetas de la lista)
+    const hasLoadedPurchases = purchases.length > 0;
+    const customerAny = customer as any;
 
-    // Productos favoritos (más comprados)
-    const productCounts: Record<string, number> = {};
-    purchases.forEach(purchase => {
-      if (purchase.products && Array.isArray(purchase.products)) {
-        purchase.products.forEach(product => {
-          if (product.name) {
-            productCounts[product.name] = (productCounts[product.name] || 0) + (product.quantity || 1);
-          }
-        });
-      }
-    });
-    
-    const favoriteProducts = Object.entries(productCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([product]) => product);
+    let totalSpent: number;
+    let totalQuotes: number;
+    let totalVisitsCount: number;
+    let activeQuotes: number;
+    let averageOrderValue: number;
+    let monthlyPurchases: number;
+    let favoriteProducts: string[];
 
-    const lastPurchase = purchases.length > 0 
+    if (hasLoadedPurchases) {
+      const quotes = purchases.filter((p) => p.type === 'quote');
+      const completedPurchases = purchases.filter((p) => 
+        p.status === 'PAGADA' || p.status === 'PARCIAL' || p.status === 'won' || p.status === 'completed'
+      );
+      totalSpent = completedPurchases.reduce((sum, p) => sum + (p.total || 0), 0);
+      totalQuotes = customerAny.totalCotizaciones || quotes.length;
+      activeQuotes = quotes.filter((q) => q.status === 'open').length;
+      averageOrderValue = completedPurchases.length > 0 ? totalSpent / completedPurchases.length : 0;
+
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      monthlyPurchases = purchases.filter(p => new Date(p.date) >= lastMonth).length;
+
+      const productCounts: Record<string, number> = {};
+      purchases.forEach(purchase => {
+        if (purchase.products && Array.isArray(purchase.products)) {
+          purchase.products.forEach(product => {
+            if (product.name) {
+              productCounts[product.name] = (productCounts[product.name] || 0) + (product.quantity || 1);
+            }
+          });
+        }
+      });
+      favoriteProducts = Object.entries(productCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+        .map(([product]) => product);
+
+      totalVisitsCount = customer.totalVisits || purchases.length;
+    } else {
+      // Usar datos precargados del backend (sin cargar detalle)
+      totalSpent = customerAny.totalSpentPreloaded || 0;
+      totalQuotes = customerAny.totalCotizaciones || 0;
+      totalVisitsCount = customer.totalVisits || 0;
+      activeQuotes = 0;
+      averageOrderValue = totalVisitsCount > 0 ? totalSpent / totalVisitsCount : 0;
+      monthlyPurchases = 0;
+      favoriteProducts = [];
+    }
+
+    const lastPurchase = hasLoadedPurchases && purchases.length > 0
       ? purchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date
       : undefined;
 
-    const loyaltyLevel = get().getLoyaltyLevel(totalSpent, customer.totalVisits);
+    const loyaltyLevel = get().getLoyaltyLevel(totalSpent, totalVisitsCount);
 
     return {
-      totalQuotes: quotes.length,
-      totalSales: sales.length,
+      totalQuotes,
+      totalSales: hasLoadedPurchases ? purchases.filter(p => p.type !== 'quote').length : totalVisitsCount,
       totalSpent,
       lastPurchase,
       activeQuotes,
       averageOrderValue,
-      totalVisits: customer.totalVisits,
+      totalVisits: totalVisitsCount,
       loyaltyLevel,
       monthlyPurchases,
       favoriteProducts,

@@ -10,7 +10,7 @@ import PurchaseFormPage from "./pages/Purchases/PurchaseFormPage";
 import QuotesPage from "./pages/Quotes/QuotesPage";
 import QuoteDetailPage from "./pages/Quotes/QuoteDetailPage";
 import QuoteFormPage from "./pages/Quotes/QuoteFormPage";
-import ReportsPage from "./pages/Reports/ReportsPage";
+import ReportesPage from "./pages/Reports/ReportesPage";
 import SalesPageNew from "./pages/Sales/SalesPageNew";
 import SaleNewPage from "./pages/Sales/SaleNewPage";
 import SaleDetailPage from "./pages/Sales/SaleDetailPage";
@@ -25,6 +25,10 @@ import RepuestoForm from "./pages/Repuestos/RepuestoForm";
 import StickersGarantiaPage from "./pages/StickersGarantia/StickersGarantiaPage";
 import AdminUsuariosPage from "./pages/AdminUsuarios/AdminUsuariosPage";
 import CajaBancosPage from "./pages/CajaBancos/CajaBancosPage";
+import ProtectedRoute from "./components/common/ProtectedRoute";
+import { ROLES } from "./lib/permissions";
+
+const ADMIN = [ROLES.ADMINISTRADOR];
 
 const routes = [
   { path: "/login", element: <LoginPage /> },
@@ -33,8 +37,8 @@ const routes = [
   { path: "/repuestos", element: <RepuestosPage /> },
   { path: "/repuestos/nuevo", element: <RepuestoForm /> },
   { path: "/repuestos/editar/:id", element: <RepuestoForm /> },
-  { path: "/compras", element: <PurchasesPage /> },
-  { path: "/compras/nueva", element: <PurchaseFormPage /> },
+  { path: "/compras", element: <ProtectedRoute roles={ADMIN}><PurchasesPage /></ProtectedRoute> },
+  { path: "/compras/nueva", element: <ProtectedRoute roles={ADMIN}><PurchaseFormPage /></ProtectedRoute> },
   { path: "/cotizaciones", element: <QuotesPage /> },
   { path: "/cotizaciones/nueva", element: <QuoteFormPage /> },
   { path: "/cotizaciones/:id/editar", element: <QuoteFormPage /> },
@@ -49,12 +53,12 @@ const routes = [
   { path: "/flujo-reparaciones/:id", element: <FlujoReparacionDetailPage /> },
   { path: "/pago-tarjeta", element: <CardPaymentPage /> },
   { path: "/clientes", element: <CustomersPage /> },
-  { path: "/proveedores", element: <SuppliersPage /> },
+  { path: "/proveedores", element: <ProtectedRoute roles={ADMIN}><SuppliersPage /></ProtectedRoute> },
   { path: "/caja-bancos", element: <CajaBancosPage /> },
-  { path: "/stickers-garantia", element: <StickersGarantiaPage /> },
-  { path: "/admin-usuarios", element: <AdminUsuariosPage /> },
+  { path: "/stickers-garantia", element: <ProtectedRoute roles={ADMIN}><StickersGarantiaPage /></ProtectedRoute> },
+  { path: "/admin-usuarios", element: <ProtectedRoute roles={ADMIN}><AdminUsuariosPage /></ProtectedRoute> },
   { path: "/fel", element: <FelPage /> },
-  { path: "/reportes", element: <ReportsPage /> },
+  { path: "/reportes", element: <ProtectedRoute roles={ADMIN}><ReportesPage /></ProtectedRoute> },
   { path: "/usuarios", element: <UsersPage /> },
   { path: "/perfil", element: <ProfilePage /> },
 ];

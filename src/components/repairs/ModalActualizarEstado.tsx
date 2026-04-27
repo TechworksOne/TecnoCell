@@ -132,7 +132,9 @@ export default function ModalActualizarEstado({
       // Datos básicos
       formData.append('estado', estado);
       formData.append('nota', nota);
-      formData.append('imageTipo', 'historial'); // Tipo de imagen para el multer
+      // Tipo de imagen según estado: COMPLETADA/ENTREGADA → 'final', resto → 'historial'
+      const tipoImg = (estado === 'COMPLETADA' || estado === 'ENTREGADA') ? 'final' : 'historial';
+      formData.append('imageTipo', tipoImg);
 
       // Campos específicos según estado
       if (estado === 'ESPERANDO_PIEZA' && piezaNecesaria) {
@@ -393,7 +395,9 @@ export default function ModalActualizarEstado({
           {/* Subida de Imágenes */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Imágenes de Evidencia
+              {(estado === 'COMPLETADA' || estado === 'ENTREGADA')
+                ? 'Fotos del equipo terminado / Estado final'
+                : 'Imágenes de Evidencia'}
             </label>
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
               <input

@@ -1,4 +1,4 @@
-import { GitBranch, Search, Calendar, User, AlertCircle, CheckCircle, ClipboardList, Edit, History } from "lucide-react";
+import { GitBranch, Search, User, AlertCircle, CheckCircle, ClipboardList, Edit, History, AlertTriangle, Smartphone, Wrench, Clock, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/common/PageHeader";
@@ -152,32 +152,17 @@ export default function FlujoReparacionesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-64 p-8">
-      <div className="mb-8">
+    <div className="space-y-6">
+      {/* HEADER */}
+      <div>
         <PageHeader
           title="Flujo de Equipos"
           subtitle="Gestiona el estado y progreso de cada reparación"
         />
-
-        {/* Info Card */}
-        <Card className="mt-4 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-          <div className="flex items-start gap-4">
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <GitBranch size={24} className="text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-800 mb-1">Control de Flujo de Reparaciones</h3>
-              <p className="text-sm text-slate-600">
-                Aquí puedes gestionar cada etapa del proceso de reparación: desde el ingreso del equipo con su checklist,
-                cambio de estados, asignación de técnicos, hasta la entrega final.
-              </p>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -220,7 +205,7 @@ export default function FlujoReparacionesPage() {
       </div>
 
       {/* TABLA 1: REPARACIONES SIN CHECKLIST */}
-      <div className="mb-8">
+      <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-slate-800">Reparaciones Sin Checklist</h2>
           <Input
@@ -303,7 +288,7 @@ export default function FlujoReparacionesPage() {
       </div>
 
       {/* TABLA 2: FLUJOS ACTIVOS (CON CHECKLIST) */}
-      <div className="mb-8">
+      <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-slate-800">Flujo de Equipos</h2>
           <Input
@@ -339,79 +324,142 @@ export default function FlujoReparacionesPage() {
             {reparacionesConCheck.map((rep) => {
               const estado = getEstadoBadge(rep.estado);
               const prioridad = getPrioridadBadge(rep.prioridad);
-              
+              const cambios = (rep as any).totalCambiosEstado || 0;
+
+              // Color del borde lateral según estado
+              const borderColor =
+                ['COMPLETADA', 'ENTREGADA'].includes(rep.estado) ? 'border-l-emerald-500' :
+                ['CANCELADA'].includes(rep.estado) ? 'border-l-red-500' :
+                'border-l-amber-400';
+
+              // Color del badge de estado
+              const estadoBgMap: Record<string, string> = {
+                'RECIBIDA': 'bg-blue-100 text-blue-800',
+                'EN_DIAGNOSTICO': 'bg-amber-100 text-amber-800',
+                'ESPERANDO_AUTORIZACION': 'bg-amber-100 text-amber-800',
+                'AUTORIZADA': 'bg-blue-100 text-blue-800',
+                'EN_REPARACION': 'bg-violet-100 text-violet-800',
+                'ESPERANDO_PIEZA': 'bg-orange-100 text-orange-800',
+                'COMPLETADA': 'bg-emerald-100 text-emerald-800',
+                'ENTREGADA': 'bg-emerald-100 text-emerald-800',
+                'CANCELADA': 'bg-red-100 text-red-800',
+                'STAND_BY': 'bg-slate-100 text-slate-700',
+              };
+              const estadoClasses = estadoBgMap[rep.estado] || 'bg-slate-100 text-slate-700';
+
+              const prioridadClasses: Record<string, string> = {
+                'BAJA': 'bg-emerald-100 text-emerald-800',
+                'MEDIA': 'bg-amber-100 text-amber-800',
+                'ALTA': 'bg-red-100 text-red-800',
+              };
+              const prioridadClass = prioridadClasses[rep.prioridad] || 'bg-slate-100 text-slate-600';
+
               return (
-                <Card key={rep.id} className="hover:shadow-lg transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-bold text-slate-800">{rep.id}</h3>
-                        <Badge color={estado.color}>{estado.label}</Badge>
-                        <Badge color={prioridad.color}>Prioridad {prioridad.label}</Badge>
-                        <Badge color="green">
-                          <CheckCircle size={14} className="mr-1" />
+                <div
+                  key={rep.id}
+                  className={`bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 border-l-4 ${borderColor} overflow-hidden cursor-pointer`}
+                  onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
+                >
+                  <div className="p-5">
+                    {/* ── HEADER ── */}
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-base font-mono tracking-tight">{rep.id}</span>
+                        {/* Estado */}
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${estadoClasses}`}>
+                          <Clock size={11} />
+                          {estado.label}
+                        </span>
+                        {/* Prioridad */}
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${prioridadClass}`}>
+                          {prioridad.label}
+                        </span>
+                        {/* Checklist OK */}
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          <CheckCircle size={11} />
                           Checklist OK
-                        </Badge>
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                          <p className="text-xs text-slate-500">Cliente</p>
-                          <p className="font-medium text-slate-700">{rep.clienteNombre}</p>
+                      {/* Badge de cambios de estado */}
+                      {cambios > 0 && (
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                          cambios >= 5 ? 'bg-red-100 text-red-700' :
+                          cambios >= 3 ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          <AlertTriangle size={12} />
+                          {cambios} {cambios === 1 ? 'cambio' : 'cambios'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* ── BODY: datos en grid ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-5">
+                      <div>
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Cliente</p>
+                        <div className="flex items-center gap-1.5">
+                          <User size={13} className="text-slate-400 shrink-0" />
+                          <p className="font-semibold text-slate-700 text-sm truncate">{rep.clienteNombre}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Equipo</p>
-                          <p className="font-medium text-slate-700">
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Equipo</p>
+                        <div className="flex items-center gap-1.5">
+                          <Smartphone size={13} className="text-slate-400 shrink-0" />
+                          <p className="font-semibold text-slate-700 text-sm truncate">
                             {rep.recepcion?.marca} {rep.recepcion?.modelo}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Técnico</p>
-                          <p className="font-medium text-slate-700">
-                            {rep.tecnicoAsignado || 'Sin asignar'}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Técnico</p>
+                        <div className="flex items-center gap-1.5">
+                          <Wrench size={13} className="text-slate-400 shrink-0" />
+                          <p className="font-semibold text-slate-700 text-sm truncate">
+                            {rep.tecnicoAsignado || <span className="text-slate-400 font-normal italic">Sin asignar</span>}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Fecha Ingreso</p>
-                          <p className="font-medium text-slate-700">
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Fecha ingreso</p>
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-slate-400 shrink-0" />
+                          <p className="font-semibold text-slate-700 text-sm">
                             {new Date(rep.fechaIngreso).toLocaleDateString('es-GT')}
                           </p>
                         </div>
                       </div>
-
-                      {/* Botones de Acción */}
-                      <div className="flex items-center gap-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenModalHistorial(rep)}
-                          className="flex items-center gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-                        >
-                          <History size={16} />
-                          Ver Historial
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenModalEstado(rep)}
-                          className="flex items-center gap-2"
-                        >
-                          <Edit size={16} />
-                          Actualizar Estado
-                        </Button>
-                      </div>
                     </div>
-                    <div className="ml-4">
-                      <Button
-                        size="sm"
-                        onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
-                        className="bg-green-600 hover:bg-green-700"
+
+                    {/* ── FOOTER: acciones ── */}
+                    <div
+                      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-4 border-t border-slate-100"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => handleOpenModalHistorial(rep)}
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-violet-300 text-violet-700 text-xs font-semibold hover:bg-violet-50 transition-colors"
                       >
-                        Ver Detalles
-                      </Button>
+                        <History size={14} />
+                        Ver historial
+                      </button>
+                      <button
+                        onClick={() => handleOpenModalEstado(rep)}
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                      >
+                        <Edit size={14} />
+                        Actualizar estado
+                      </button>
+                      <button
+                        onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
+                        className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors sm:ml-auto"
+                      >
+                        Ver detalles
+                      </button>
                     </div>
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>

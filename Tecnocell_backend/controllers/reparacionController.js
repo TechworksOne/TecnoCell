@@ -174,9 +174,9 @@ exports.createReparacion = async (req, res) => {
     
     const [historialResult] = await connection.query(
       `INSERT INTO reparaciones_historial (
-        reparacion_id, estado, nota, user_nombre
-      ) VALUES (?, ?, ?, ?)`,
-      [repairId, estado, notaInicial, 'Sistema']
+        reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [repairId, estado, notaInicial, 'Sistema', 'REPARACION_CREADA', null, 'Reparación registrada en el sistema']
     );
     
     const historialId = historialResult.insertId;
@@ -432,34 +432,38 @@ exports.changeRepairState = async (req, res) => {
     const reparacion = reparaciones[0];
     
     // 1. Crear entrada en historial
+    const estadoAnterior = reparacion.estado;
     const [historialResult] = await connection.query(
       `INSERT INTO reparaciones_historial (
         reparacion_id, estado, sub_etapa, nota,
         pieza_necesaria, proveedor, costo_repuesto,
         sticker_numero, sticker_ubicacion,
-        diferencia_reparacion, user_nombre
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        diferencia_reparacion, user_nombre,
+        tipo_evento, estado_anterior, descripcion
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, estado, subEtapa || null, nota,
         piezaNecesaria || null, proveedor || null,
         costoRepuesto ? quetzalesACentavos(parseFloat(costoRepuesto)) : null,
         stickerNumero || null, stickerUbicacion || null,
         diferenciaReparacion ? quetzalesACentavos(parseFloat(diferenciaReparacion)) : null,
-        'Usuario' // TODO: obtener de auth
+        'Usuario',
+        'CAMBIO_ESTADO', estadoAnterior, nota || null
       ]
     );
     
     const historialId = historialResult.insertId;
     
     // 2. Guardar imágenes en BD
+    const tipoImagen = (estado === 'COMPLETADA' || estado === 'ENTREGADA') ? 'final' : 'historial';
     for (const file of uploadedFiles) {
-      const urlPath = `/uploads/reparaciones/${id}/historial/${file.filename}`;
+      const urlPath = `/uploads/reparaciones/${id}/${tipoImagen}/${file.filename}`;
       
       await connection.query(
         `INSERT INTO reparaciones_imagenes (
           reparacion_id, historial_id, tipo, filename, url_path, file_size, mime_type
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [id, historialId, 'historial', file.filename, urlPath, file.size, file.mimetype]
+        [id, historialId, tipoImagen, file.filename, urlPath, file.size, file.mimetype]
       );
     }
     
@@ -557,6 +561,12 @@ exports.updateEstadoReparacion = async (req, res) => {
       });
     }
 
+    // Obtener estado anterior antes de actualizar
+    const [[repActual]] = await db.query(
+      'SELECT estado FROM reparaciones WHERE id = ?', [id]
+    );
+    const estadoAnteriorSimple = repActual ? repActual.estado : null;
+
     // Actualizar estado en la reparación
     await db.query(
       `UPDATE reparaciones SET estado = ? WHERE id = ?`,
@@ -566,13 +576,16 @@ exports.updateEstadoReparacion = async (req, res) => {
     // Crear entrada en historial
     await db.query(
       `INSERT INTO reparaciones_historial (
-        reparacion_id, estado, nota, user_nombre
-      ) VALUES (?, ?, ?, ?)`,
+        reparacion_id, estado, nota, user_nombre,
+        tipo_evento, estado_anterior, descripcion
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         estado,
         `Estado actualizado a ${estado}`,
-        'Usuario' // TODO: obtener de auth
+        'Usuario',
+        'CAMBIO_ESTADO', estadoAnteriorSimple,
+        `Estado actualizado a ${estado}`
       ]
     );
 
@@ -586,6 +599,187 @@ exports.updateEstadoReparacion = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al actualizar el estado',
+      error: error.message
+    });
+  }
+};
+
+// ========== HISTORIAL COMPLETO (línea de tiempo unificada) ==========
+exports.getHistorialCompleto = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que la reparación exista
+    const [[reparacion]] = await db.query(
+      `SELECT * FROM reparaciones WHERE id = ?`,
+      [id]
+    );
+
+    if (!reparacion) {
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+
+    const eventos = [];
+
+    // 1. Entradas de reparaciones_historial
+    const [historial] = await db.query(
+      `SELECT h.*,
+         GROUP_CONCAT(i.url_path ORDER BY i.id SEPARATOR ',') AS fotos_urls
+       FROM reparaciones_historial h
+       LEFT JOIN reparaciones_imagenes i ON i.historial_id = h.id
+       WHERE h.reparacion_id = ?
+       GROUP BY h.id
+       ORDER BY h.created_at ASC`,
+      [id]
+    );
+
+    for (const h of historial) {
+      const tipoEvento = h.tipo_evento || (h.estado === 'ANTICIPO_REGISTRADO' ? 'ANTICIPO_REGISTRADO' : 'CAMBIO_ESTADO');
+      const titulo = {
+        REPARACION_CREADA: 'Reparación creada',
+        CAMBIO_ESTADO: `Cambio de estado${h.estado ? ': ' + h.estado : ''}`,
+        CHECKLIST_COMPLETADO: 'Checklist de recepción completado',
+        ANTICIPO_REGISTRADO: 'Anticipo registrado',
+      }[tipoEvento] || h.estado || 'Actualización';
+
+      eventos.push({
+        id: h.id,
+        tipo_evento: tipoEvento,
+        titulo,
+        descripcion: h.descripcion || h.nota || null,
+        estado_anterior: h.estado_anterior || null,
+        estado_nuevo: (tipoEvento !== 'ANTICIPO_REGISTRADO') ? (h.estado || null) : null,
+        nota: h.nota || null,
+        usuario: h.user_nombre || 'Sistema',
+        fecha: h.created_at,
+        pieza_necesaria: h.pieza_necesaria || null,
+        proveedor: h.proveedor || null,
+        costo_repuesto: h.costo_repuesto ? centavosAQuetzales(h.costo_repuesto) : null,
+        sticker_numero: h.sticker_numero || null,
+        sticker_ubicacion: h.sticker_ubicacion || null,
+        imagenes: h.fotos_urls ? h.fotos_urls.split(',').filter(Boolean) : []
+      });
+    }
+
+    // 2. Checklist (check_equipo)
+    const [[checklist]] = await db.query(
+      'SELECT * FROM check_equipo WHERE reparacion_id = ? ORDER BY created_at ASC LIMIT 1',
+      [id]
+    );
+    if (checklist) {
+      // Solo añadir si no hay ya un evento CHECKLIST_COMPLETADO en historial
+      const yaExiste = eventos.some(e => e.tipo_evento === 'CHECKLIST_COMPLETADO');
+      if (!yaExiste) {
+        eventos.push({
+          id: `checklist-${checklist.id}`,
+          tipo_evento: 'CHECKLIST_COMPLETADO',
+          titulo: 'Checklist de recepción completado',
+          descripcion: checklist.observaciones || 'Se completó el checklist de recepción del equipo',
+          estado_anterior: null,
+          estado_nuevo: 'RECIBIDA',
+          nota: checklist.observaciones || null,
+          usuario: checklist.realizado_por || 'Sistema',
+          fecha: checklist.created_at,
+          imagenes: []
+        });
+      }
+    }
+
+    // 3. Movimientos de caja relacionados
+    const [movCaja] = await db.query(
+      `SELECT cc.*, 'caja_chica' as origen
+       FROM caja_chica cc
+       WHERE cc.referencia_tipo = 'REPARACION' AND cc.referencia_id = ?
+       ORDER BY cc.fecha_movimiento ASC`,
+      [id]
+    );
+    for (const mov of movCaja) {
+      eventos.push({
+        id: `caja-${mov.id}`,
+        tipo_evento: mov.estado === 'CONFIRMADO' ? 'ANTICIPO_CONFIRMADO' : 'ANTICIPO_PENDIENTE',
+        titulo: mov.estado === 'CONFIRMADO' ? 'Anticipo confirmado (Caja)' : 'Anticipo registrado como pendiente (Caja)',
+        descripcion: mov.concepto || null,
+        estado_anterior: null,
+        estado_nuevo: null,
+        nota: mov.observaciones || null,
+        usuario: mov.realizado_por || 'Sistema',
+        fecha: mov.fecha_movimiento,
+        monto: parseFloat(mov.monto),
+        metodo_pago: 'EFECTIVO',
+        banco: null,
+        imagenes: []
+      });
+    }
+
+    // 4. Movimientos bancarios relacionados
+    const [movBanco] = await db.query(
+      `SELECT mb.*, cb.nombre as banco_nombre, 'banco' as origen
+       FROM movimientos_bancarios mb
+       LEFT JOIN cuentas_bancarias cb ON cb.id = mb.cuenta_id
+       WHERE mb.referencia_tipo = 'REPARACION' AND mb.referencia_id = ?
+       ORDER BY mb.fecha_movimiento ASC`,
+      [id]
+    );
+    for (const mov of movBanco) {
+      eventos.push({
+        id: `banco-${mov.id}`,
+        tipo_evento: mov.estado === 'CONFIRMADO' ? 'ANTICIPO_CONFIRMADO' : 'ANTICIPO_PENDIENTE',
+        titulo: mov.estado === 'CONFIRMADO' ? 'Anticipo confirmado (Transferencia)' : 'Anticipo registrado como pendiente (Transferencia)',
+        descripcion: mov.concepto || null,
+        estado_anterior: null,
+        estado_nuevo: null,
+        nota: mov.observaciones || null,
+        usuario: mov.realizado_por || 'Sistema',
+        fecha: mov.fecha_movimiento,
+        monto: parseFloat(mov.monto),
+        metodo_pago: 'TRANSFERENCIA',
+        banco: mov.banco_nombre || null,
+        imagenes: []
+      });
+    }
+
+    // Ordenar todos los eventos por fecha ascendente
+    eventos.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+    // Deduplicar: si hay un evento ANTICIPO_REGISTRADO del historial y también un movimiento pendiente de caja/banco,
+    // conservar solo el del historial (más informativo) para evitar duplicar
+    const eventosFinales = [];
+    const anticipoHistorialFecha = eventos
+      .filter(e => e.tipo_evento === 'ANTICIPO_REGISTRADO')
+      .map(e => new Date(e.fecha).toISOString().substring(0, 10));
+
+    for (const ev of eventos) {
+      if ((ev.tipo_evento === 'ANTICIPO_PENDIENTE') &&
+          anticipoHistorialFecha.includes(new Date(ev.fecha).toISOString().substring(0, 10))) {
+        // Hay un registro en historial para la misma fecha → skip movimiento duplicado
+        continue;
+      }
+      eventosFinales.push(ev);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        reparacion: {
+          id: reparacion.id,
+          cliente_nombre: reparacion.cliente_nombre,
+          cliente_telefono: reparacion.cliente_telefono,
+          equipo: `${reparacion.marca} ${reparacion.modelo}`,
+          estado_actual: reparacion.estado,
+          prioridad: reparacion.prioridad,
+          fecha_ingreso: reparacion.fecha_ingreso,
+          tecnico_asignado: reparacion.tecnico_asignado || null,
+          diagnostico_inicial: reparacion.diagnostico_inicial
+        },
+        eventos: eventosFinales
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener historial completo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener el historial',
       error: error.message
     });
   }

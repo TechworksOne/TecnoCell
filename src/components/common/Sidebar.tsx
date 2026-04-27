@@ -1,31 +1,37 @@
 import {
   Box, ChevronLeft, ChevronRight, FileText, Home, User, Users,
   CreditCard, Wrench, Settings, ShoppingBag, Building2, GitBranch,
-  Tag, Shield, Wallet,
+  Tag, Shield, Wallet, BarChart3,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
 import { useSidebar } from "../../store/useSidebar";
+import { useAuth } from "../../store/useAuth";
 
 const items = [
-  { to: "/dashboard",          label: "Dashboard",           icon: <Home size={18} /> },
-  { to: "/productos",          label: "Productos",           icon: <Box size={18} /> },
-  { to: "/repuestos",          label: "Repuestos",           icon: <Settings size={18} /> },
-  { to: "/compras",            label: "Compras",             icon: <ShoppingBag size={18} /> },
-  { to: "/cotizaciones",       label: "Cotizaciones",        icon: <FileText size={18} /> },
-  { to: "/ventas",             label: "Ventas",              icon: <CreditCard size={18} /> },
-  { to: "/reparaciones",       label: "Reparaciones",        icon: <Wrench size={18} /> },
-  { to: "/flujo-reparaciones", label: "Flujo Reparaciones",  icon: <GitBranch size={18} /> },
-  { to: "/caja-bancos",        label: "Caja y Bancos",       icon: <Wallet size={18} /> },
-  { to: "/clientes",           label: "Clientes",            icon: <Users size={18} /> },
-  { to: "/proveedores",        label: "Proveedores",         icon: <Building2 size={18} /> },
-  { to: "/stickers-garantia",  label: "Stickers-garantía",   icon: <Tag size={18} /> },
-  { to: "/admin-usuarios",     label: "Admin. usuarios",     icon: <Shield size={18} /> },
-  { to: "/perfil",             label: "Perfil",              icon: <User size={18} /> },
+  { to: "/dashboard",          label: "Dashboard",           icon: <Home size={18} />,         adminOnly: false },
+  { to: "/productos",          label: "Productos",           icon: <Box size={18} />,           adminOnly: false },
+  { to: "/repuestos",          label: "Repuestos",           icon: <Settings size={18} />,      adminOnly: false },
+  { to: "/compras",            label: "Compras",             icon: <ShoppingBag size={18} />,   adminOnly: true  },
+  { to: "/cotizaciones",       label: "Cotizaciones",        icon: <FileText size={18} />,      adminOnly: false },
+  { to: "/ventas",             label: "Ventas",              icon: <CreditCard size={18} />,    adminOnly: false },
+  { to: "/reparaciones",       label: "Reparaciones",        icon: <Wrench size={18} />,        adminOnly: false },
+  { to: "/flujo-reparaciones", label: "Flujo Reparaciones",  icon: <GitBranch size={18} />,     adminOnly: false },
+  { to: "/caja-bancos",        label: "Caja y Bancos",       icon: <Wallet size={18} />,        adminOnly: false },
+  { to: "/reportes",           label: "Reportes",            icon: <BarChart3 size={18} />,     adminOnly: true  },
+  { to: "/clientes",           label: "Clientes",            icon: <Users size={18} />,         adminOnly: false },
+  { to: "/proveedores",        label: "Proveedores",         icon: <Building2 size={18} />,     adminOnly: true  },
+  { to: "/stickers-garantia",  label: "Stickers-garantia",   icon: <Tag size={18} />,           adminOnly: true  },
+  { to: "/admin-usuarios",     label: "Admin. usuarios",     icon: <Shield size={18} />,        adminOnly: true  },
+  { to: "/perfil",             label: "Perfil",              icon: <User size={18} />,          adminOnly: false },
 ];
 
 export default function Sidebar() {
   const { isOpen, toggle } = useSidebar();
+  const { user } = useAuth();
+
+  const isAdmin = user?.roles?.includes('ADMINISTRADOR') || user?.role === 'admin';
+  const visibleItems = items.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside
@@ -59,7 +65,7 @@ export default function Sidebar() {
 
       {/* ── Navegación ── */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-0.5">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

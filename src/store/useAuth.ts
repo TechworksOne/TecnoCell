@@ -1,12 +1,20 @@
 import { create } from "zustand";
 import { authService, LoginCredentials } from "../services/authService";
 
+interface UserPerfil {
+  nombres?: string;
+  apellidos?: string;
+  foto_perfil?: string | null;
+}
+
 interface User {
   id: number;
   username: string;
   name: string;
   email: string;
   role: "admin" | "employee";
+  roles: string[];
+  perfil: UserPerfil | null;
 }
 
 interface AuthState {
@@ -21,6 +29,7 @@ interface AuthState {
   logout: () => void;
   setRole: (role: "admin" | "employee") => void;
   initAuth: () => void;
+  hasRole: (role: string) => boolean;
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -80,5 +89,11 @@ export const useAuth = create<AuthState>((set) => ({
         token,
       });
     }
+  },
+
+  // Verificar si el usuario tiene un rol específico
+  hasRole: (role: string) => {
+    const state = useAuth.getState();
+    return state.user?.roles?.includes(role) ?? state.user?.role === role;
   },
 }));

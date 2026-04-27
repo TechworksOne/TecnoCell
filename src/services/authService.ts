@@ -13,6 +13,8 @@ export interface LoginResponse {
     name: string;
     email: string;
     role: 'admin' | 'employee';
+    roles: string[];
+    perfil: { nombres?: string; apellidos?: string; foto_perfil?: string | null } | null;
   };
 }
 

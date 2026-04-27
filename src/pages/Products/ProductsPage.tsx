@@ -11,6 +11,8 @@ import { useCatalog } from "../../store/useCatalog";
 import { Product } from "../../types/product";
 import * as categoryService from "../../services/categoryService";
 import { StockAlertsWidget } from "../../components/common/StockAlertsWidget";
+import { useAuth } from "../../store/useAuth";
+import { canViewCosts } from "../../lib/permissions";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, gradient }: {
@@ -45,6 +47,8 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
   getImage: (p: Product) => string;
   capitalize: (s: string) => string;
 }) {
+  const { user } = useAuth();
+  const showCost = canViewCosts(user?.roles);
   const lowStock = product.stock <= product.stockMin && product.stock > 0;
   const noStock = product.stock === 0;
   return (
@@ -78,7 +82,9 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
       </div>
       <div className="text-right hidden md:block w-28 shrink-0">
         <p className="text-sm font-bold text-emerald-600">{formatMoney(product.price)}</p>
-        <p className="text-[10px] text-slate-400">costo {formatMoney(product.precioProducto || 0)}</p>
+        {showCost && (
+          <p className="text-[10px] text-slate-400">costo {formatMoney(product.precioProducto || 0)}</p>
+        )}
       </div>
       <div className="hidden lg:flex items-center justify-center w-18 shrink-0">
         {(noStock || lowStock) && (
@@ -129,6 +135,8 @@ export default function ProductsPage() {
     pagination
   } = useCatalog();
   const toast = useToast();
+  const { user } = useAuth();
+  const showCost = canViewCosts(user?.roles);
 
   // Estados - TODOS los useState deben estar declarados ANTES de cualquier useEffect
   const [searchTerm, setSearchTerm] = useState("");
@@ -805,6 +813,7 @@ export default function ProductsPage() {
 
             {/* Precios + Stock */}
             <div className="grid grid-cols-3 gap-3">
+              {showCost && (
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Costo <span className="text-red-400">*</span></label>
                 <div className="relative">
@@ -818,6 +827,7 @@ export default function ProductsPage() {
                   />
                 </div>
               </div>
+              )}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Venta <span className="text-red-400">*</span></label>
                 <div className="relative">
@@ -847,7 +857,7 @@ export default function ProductsPage() {
             </div>
 
             {/* Margin preview */}
-            {productForm.precioProducto > 0 && productForm.precioPublico > 0 && (
+            {showCost && productForm.precioProducto > 0 && productForm.precioPublico > 0 && (
               <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 flex items-center justify-between">
                 <span className="text-[11px] font-medium text-violet-600">Margen de ganancia</span>
                 <span className="text-sm font-bold text-violet-700">
@@ -1059,17 +1069,19 @@ export default function ProductsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                {showCost && (
                 <div className="bg-blue-50 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-widest">Costo</p>
                   <p className="text-lg font-bold text-blue-700 mt-0.5">{formatMoney(selectedProduct.precioProducto || 0)}</p>
                 </div>
+                )}
                 <div className="bg-emerald-50 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">Precio venta</p>
                   <p className="text-lg font-bold text-emerald-700 mt-0.5">{formatMoney(selectedProduct.precioPublico || selectedProduct.price)}</p>
                 </div>
               </div>
 
-              {selectedProduct.precioProducto > 0 && selectedProduct.precioPublico > 0 && (
+              {showCost && selectedProduct.precioProducto > 0 && selectedProduct.precioPublico > 0 && (
                 <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 flex items-center justify-between">
                   <span className="text-[11px] font-medium text-violet-600">Margen</span>
                   <span className="text-sm font-bold text-violet-700">

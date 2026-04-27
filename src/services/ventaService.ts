@@ -68,12 +68,15 @@ export interface VentaData {
   created_at?: string;
   updated_at?: string;
   created_by?: number;
+  vendedor_nombre?: string;
 }
 
 export interface VentaFilters {
   estado?: string;
   tipo_venta?: string;
   cliente_id?: number;
+  metodo_pago?: string;
+  search?: string;
   fecha_desde?: string;
   fecha_hasta?: string;
   page?: number;

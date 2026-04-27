@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Clock, AlertCircle, CheckCircle, Package, FileText, History, Printer, FileSearch } from 'lucide-react';
+import { Plus, Search, Eye, Clock, AlertCircle, CheckCircle, Package, FileText, History, Printer, FileSearch, User, Smartphone, CalendarDays, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRepairs } from '../../store/useRepairs';
 import { RepairStatus, RepairPriority, StateChangeRequest, Repair } from '../../types/repair';
@@ -12,8 +12,8 @@ import Card from '../../components/ui/Card';
 import Modal from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { StateChangeModal } from '../../components/repairs/StateChangeModal';
-import { StateHistory } from '../../components/repairs/StateHistory';
 import { EditRepairModal } from '../../components/repairs/EditRepairModal';
+import ModalHistorialReparacion from '../../components/repairs/ModalHistorialReparacion';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { getAllReparaciones } from '../../services/repairService';
 
@@ -190,7 +190,7 @@ export default function RepairsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       <PageHeader 
         title="Reparaciones" 
         subtitle="Gestión de reparaciones de equipos"
@@ -276,139 +276,144 @@ export default function RepairsPage() {
           </Card>
         ) : (
           filteredRepairs.map((repair) => (
-            <Card key={repair.id} className="p-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <Card key={repair.id} className="p-5 hover:shadow-md transition-shadow">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                 {/* Información principal */}
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                <div className="flex-1 min-w-0">
+                  {/* Header: ID + badges */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="font-mono text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
                       {repair.id}
-                    </h3>
+                    </span>
                     <Badge color={getStatusColor(repair.estado)}>
                       <div className="flex items-center gap-1">
                         {getStatusIcon(repair.estado)}
-                        {STATUS_OPTIONS.find(opt => opt.value === repair.estado)?.label}
+                        {repair.estado.replace(/_/g, ' ')}
                       </div>
                     </Badge>
-                    {repair.subEtapa && (
-                      <Badge color="gray" className="text-xs">
-                        {repair.subEtapa}
-                      </Badge>
-                    )}
                     <Badge color={getPriorityColor(repair.prioridad)}>
                       {repair.prioridad}
                     </Badge>
                     {repair.stickerSerieInterna && (
-                      <Badge color="purple">
+                      <span className="flex items-center gap-1 text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                        <Tag size={11} />
                         {repair.stickerSerieInterna}
-                      </Badge>
+                      </span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                  {/* Grid de datos clave */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    {/* Cliente */}
                     <div>
-                      <span className="text-gray-500">Cliente:</span>
-                      <p className="font-medium">{repair.clienteNombre}</p>
-                      <p className="text-gray-600">{repair.clienteTelefono}</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
+                        <User size={11} /> Cliente
+                      </p>
+                      <p className="font-semibold text-slate-800 truncate">{repair.clienteNombre}</p>
+                      {repair.clienteTelefono && (
+                        <p className="text-slate-500 text-xs">{repair.clienteTelefono}</p>
+                      )}
                     </div>
 
+                    {/* Equipo */}
                     <div>
-                      <span className="text-gray-500">Equipo:</span>
-                      <p className="font-medium">
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
+                        <Smartphone size={11} /> Equipo
+                      </p>
+                      <p className="font-semibold text-slate-800">
                         {repair.recepcion.marca} {repair.recepcion.modelo}
                       </p>
-                      <p className="text-gray-600">{repair.recepcion.color}</p>
+                      {repair.recepcion.color && (
+                        <p className="text-slate-500 text-xs">{repair.recepcion.tipoEquipo} · {repair.recepcion.color}</p>
+                      )}
                     </div>
 
+                    {/* Fecha */}
                     <div>
-                      <span className="text-gray-500">Total:</span>
-                      <p className="font-medium text-green-600 text-lg">
-                        {formatCurrency(repair.total)}
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
+                        <CalendarDays size={11} /> Fecha de ingreso
                       </p>
-                      
-                      {/* Anticipo recibido */}
-                      {repair.recepcion.montoAnticipo && repair.recepcion.montoAnticipo > 0 && (
-                        <div className="mt-1">
-                          <span className="text-gray-500 text-xs">Anticipo recibido:</span>
-                          <p className="font-medium text-sm text-blue-600">
-                            Q{repair.recepcion.montoAnticipo.toFixed(2)} ({repair.recepcion.metodoAnticipo})
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Total Ganancia */}
-                      {repair.totalGanancia !== undefined && (
-                        <div className="mt-1">
-                          <span className="text-gray-500 text-xs">Total ganancia:</span>
-                          <p className={`font-medium text-sm ${repair.totalGanancia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            Q{repair.totalGanancia.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Total Invertido */}
-                      {repair.totalInvertido !== undefined && repair.totalInvertido > 0 && (
-                        <div className="mt-1">
-                          <span className="text-gray-500 text-xs">Total invertido:</span>
-                          <p className="font-medium text-red-600 text-sm">
-                            -Q{repair.totalInvertido.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                      
+                      <p className="font-medium text-slate-700 text-xs">
+                        {repair.fechaIngreso
+                          ? new Date(repair.fechaIngreso).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : '—'}
+                      </p>
                       {repair.tecnicoAsignado && (
-                        <p className="text-gray-600 text-xs mt-1">
-                          Técnico: {repair.tecnicoAsignado}
-                        </p>
+                        <p className="text-slate-500 text-xs mt-0.5">Técnico: {repair.tecnicoAsignado}</p>
                       )}
                     </div>
+
+                    {/* Anticipo (solo si > 0) */}
+                    {repair.recepcion.montoAnticipo && repair.recepcion.montoAnticipo > 0 && (
+                      <div className="sm:col-span-2 lg:col-span-1">
+                        <p className="text-xs text-slate-500 mb-0.5">Anticipo recibido</p>
+                        <p className="font-semibold text-emerald-700">
+                          Q{repair.recepcion.montoAnticipo.toFixed(2)}
+                          {repair.recepcion.metodoAnticipo && (
+                            <span className="ml-1 text-xs font-normal text-slate-500">
+                              ({repair.recepcion.metodoAnticipo})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-3 text-sm text-gray-600">
-                    <p className="line-clamp-2">{repair.recepcion.diagnosticoInicial}</p>
-                  </div>
+                  {/* Diagnóstico inicial (solo si no está vacío) */}
+                  {repair.recepcion.diagnosticoInicial && (
+                    <p className="mt-3 text-xs text-slate-600 line-clamp-2 italic border-l-2 border-slate-200 pl-2">
+                      {repair.recepcion.diagnosticoInicial}
+                    </p>
+                  )}
+
+                  {/* IMEI si existe */}
+                  {repair.recepcion.imei && (
+                    <p className="mt-1 text-xs text-slate-400 font-mono">
+                      IMEI: {repair.recepcion.imei}
+                    </p>
+                  )}
                 </div>
 
                 {/* Acciones */}
-                <div className="flex flex-col sm:flex-row gap-2 lg:flex-col lg:w-auto">
+                <div className="flex flex-row flex-wrap sm:flex-col gap-2 lg:w-40 lg:shrink-0">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleViewDetail(repair)}
-                    className="justify-center text-blue-600 hover:text-blue-700"
+                    className="flex-1 sm:flex-none justify-center text-blue-600 hover:bg-blue-50 border border-blue-200"
                   >
-                    <Eye size={16} className="mr-1" />
+                    <Eye size={15} className="mr-1" />
                     Ver Detalle
                   </Button>
 
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleGeneratePDF(repair)}
-                    className="justify-center text-purple-600 hover:text-purple-700"
-                  >
-                    <Printer size={16} className="mr-1" />
-                    Imprimir PDF
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
                     onClick={() => setShowHistoryModal(repair.id)}
-                    className="justify-center text-green-600 hover:text-green-700"
+                    className="flex-1 sm:flex-none justify-center text-emerald-600 hover:bg-emerald-50 border border-emerald-200"
                   >
-                    <History size={16} className="mr-1" />
+                    <History size={15} className="mr-1" />
                     Ver Historial
                   </Button>
 
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigate('/flujo-reparaciones')}
-                    className="justify-center text-orange-600 hover:text-orange-700"
+                    onClick={() => navigate(`/flujo-reparaciones`)}
+                    className="flex-1 sm:flex-none justify-center text-orange-600 hover:bg-orange-50 border border-orange-200"
                   >
-                    <Clock size={16} className="mr-1" />
+                    <Clock size={15} className="mr-1" />
                     Gestionar Flujo
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleGeneratePDF(repair)}
+                    className="flex-1 sm:flex-none justify-center text-slate-500 hover:bg-slate-50"
+                  >
+                    <Printer size={15} className="mr-1" />
+                    Imprimir PDF
                   </Button>
                 </div>
               </div>
@@ -417,17 +422,13 @@ export default function RepairsPage() {
         )}
       </div>
 
-      {/* Modal de historial */}
+      {/* Modal de historial completo */}
       {showHistoryModal && (
-        <Modal
-          open={!!showHistoryModal}
+        <ModalHistorialReparacion
+          isOpen={!!showHistoryModal}
           onClose={() => setShowHistoryModal(null)}
-          title="Historial de Estados"
-        >
-          <StateHistory 
-            history={backendRepairs.find(r => r.id === showHistoryModal)?.historialEstados || []}
-          />
-        </Modal>
+          reparacionId={showHistoryModal}
+        />
       )}
 
       {/* Modal de detalle de reparación */}

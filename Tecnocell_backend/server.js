@@ -37,7 +37,9 @@ const flujoReparacionRoutes = require('./routes/flujoReparacionRoutes');
 const checkEquipoRoutes = require('./routes/checkEquipoRoutes');
 const cajaRoutes = require('./routes/cajaRoutes');
 const stickerRoutes = require('./routes/stickerRoutes');
-// const dashboardRoutes = require('./routes/dashboardRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const reportesRoutes = require('./routes/reportesRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -56,6 +58,9 @@ app.use('/api/flujo-reparaciones', flujoReparacionRoutes);
 app.use('/api/check-equipo', checkEquipoRoutes);
 app.use('/api/caja', cajaRoutes);
 app.use('/api/stickers', stickerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reportes', reportesRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', marcaLineaRoutes);
 

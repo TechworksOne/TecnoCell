@@ -163,6 +163,7 @@ export const getAllReparaciones = async (filters?: {
       fechaEstimadaEntrega: rep.fecha_estimada_entrega,
       fechaEntrega: rep.fecha_entrega,
       historialEstados: [],
+      totalCambiosEstado: rep.total_cambios || 0,
       createdAt: rep.created_at,
       updatedAt: rep.updated_at
     }));

@@ -241,41 +241,56 @@ exports.createVentaFromQuote = async (req, res) => {
 exports.getAllVentas = async (req, res) => {
   try {
     const {
-      estado, tipo_venta, cliente_id, fecha_desde, fecha_hasta,
-      page = 1, limit = 1000 // Aumentar límite por defecto
+      estado, tipo_venta, cliente_id, metodo_pago, search,
+      fecha_desde, fecha_hasta,
+      page = 1, limit = 1000
     } = req.query;
 
-    let query = 'SELECT * FROM ventas WHERE 1=1';
+    let query = `SELECT v.*, u.name as vendedor_nombre
+      FROM ventas v
+      LEFT JOIN users u ON v.created_by = u.id
+      WHERE 1=1`;
     const params = [];
 
     // Filtros
     if (estado) {
-      query += ' AND estado = ?';
+      query += ' AND v.estado = ?';
       params.push(estado);
     }
 
     if (tipo_venta) {
-      query += ' AND tipo_venta = ?';
+      query += ' AND v.tipo_venta = ?';
       params.push(tipo_venta);
     }
 
     if (cliente_id) {
-      query += ' AND cliente_id = ?';
+      query += ' AND v.cliente_id = ?';
       params.push(cliente_id);
     }
 
+    if (metodo_pago) {
+      query += ' AND v.metodo_pago = ?';
+      params.push(metodo_pago);
+    }
+
+    if (search) {
+      query += ' AND (v.cliente_nombre LIKE ? OR v.numero_venta LIKE ? OR v.cliente_telefono LIKE ?)';
+      const s = `%${search}%`;
+      params.push(s, s, s);
+    }
+
     if (fecha_desde) {
-      query += ' AND DATE(COALESCE(fecha_venta, created_at)) >= ?';
+      query += ' AND DATE(COALESCE(v.fecha_venta, v.created_at)) >= ?';
       params.push(fecha_desde);
     }
 
     if (fecha_hasta) {
-      query += ' AND DATE(COALESCE(fecha_venta, created_at)) <= ?';
+      query += ' AND DATE(COALESCE(v.fecha_venta, v.created_at)) <= ?';
       params.push(fecha_hasta);
     }
 
-    // Ordenar por fecha más reciente (usar created_at si fecha_venta es NULL)
-    query += ' ORDER BY COALESCE(fecha_venta, created_at) DESC';
+    // Ordenar por fecha más reciente
+    query += ' ORDER BY COALESCE(v.fecha_venta, v.created_at) DESC';
 
     // Paginación
     const offset = (page - 1) * limit;
@@ -337,18 +352,65 @@ exports.registrarPago = async (req, res) => {
       return res.status(400).json({ error: 'El método de pago es requerido' });
     }
 
-    // Convertir monto a centavos
+    // Obtener venta actual
+    const [ventasRows] = await db.query('SELECT * FROM ventas WHERE id = ? AND estado != "ANULADA"', [id]);
+    if (ventasRows.length === 0) {
+      return res.status(404).json({ error: 'Venta no encontrada o ya está anulada' });
+    }
+    const ventaActual = ventasRows[0];
+
+    // Convertir monto a centavos (si viene en quetzales)
     const montoCentavos = Math.round(parseFloat(monto) * 100);
 
-    // Llamar al stored procedure
+    // Validar que no exceda el saldo
+    const saldoPendiente = ventaActual.total - ventaActual.monto_pagado;
+    if (montoCentavos > saldoPendiente) {
+      return res.status(400).json({ 
+        error: `El monto (Q${(montoCentavos/100).toFixed(2)}) excede el saldo pendiente (Q${(saldoPendiente/100).toFixed(2)})` 
+      });
+    }
+
+    // Agregar pago al array
+    const pagosActuales = ventaActual.pagos
+      ? (typeof ventaActual.pagos === 'string' ? JSON.parse(ventaActual.pagos) : ventaActual.pagos)
+      : [];
+
+    pagosActuales.push({
+      metodo,
+      monto: montoCentavos,
+      referencia: referencia || null,
+      comprobanteUrl: comprobanteUrl || null,
+      fecha: new Date().toISOString(),
+      usuario_id: usuario_id || null
+    });
+
+    const nuevoMontoPagado = ventaActual.monto_pagado + montoCentavos;
+    const metodoFinal = pagosActuales.length > 1 ? 'MIXTO' : metodo;
+
     await db.query(
-      'CALL sp_registrar_pago_venta(?, ?, ?, ?, ?, ?)',
-      [id, montoCentavos, metodo, referencia || null, comprobanteUrl || null, usuario_id || null]
+      'UPDATE ventas SET pagos = ?, monto_pagado = ?, metodo_pago = ?, updated_by = ? WHERE id = ?',
+      [JSON.stringify(pagosActuales), nuevoMontoPagado, metodoFinal, usuario_id || null, id]
     );
 
+    // Registrar en caja/bancos
+    try {
+      await cajaController.registrarMovimientoVenta(
+        ventaActual.numero_venta || `V-${id}`,
+        metodo,
+        montoCentavos,
+        usuario_id || 'Sistema',
+        null,
+        null,
+        null,
+        referencia || null
+      );
+    } catch (cajaErr) {
+      console.error('Error al registrar en caja (no crítico):', cajaErr);
+    }
+
     // Obtener venta actualizada
-    const [ventas] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
-    const venta = parseVentaJSON(ventas[0]);
+    const [ventasUpdated] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
+    const venta = parseVentaJSON(ventasUpdated[0]);
 
     res.json(venta);
   } catch (error) {
@@ -373,15 +435,39 @@ exports.anularVenta = async (req, res) => {
       return res.status(400).json({ error: 'El motivo de anulación es requerido' });
     }
 
-    // Llamar al stored procedure
+    // Verificar que la venta existe y no está ya anulada
+    const [ventasRows] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
+    if (ventasRows.length === 0) {
+      return res.status(404).json({ error: 'Venta no encontrada' });
+    }
+    const ventaActual = ventasRows[0];
+
+    if (ventaActual.estado === 'ANULADA') {
+      return res.status(400).json({ error: 'La venta ya está anulada' });
+    }
+
+    // Agregar nota de anulación
+    const notasActuales = ventaActual.notas_internas || '';
+    const nuevasNotas = notasActuales
+      ? `${notasActuales}\nANULADA: ${motivo} - ${new Date().toISOString()}`
+      : `ANULADA: ${motivo} - ${new Date().toISOString()}`;
+
     await db.query(
-      'CALL sp_anular_venta(?, ?, ?)',
-      [id, motivo, usuario_id || null]
+      'UPDATE ventas SET estado = "ANULADA", notas_internas = ?, updated_by = ? WHERE id = ?',
+      [nuevasNotas, usuario_id || null, id]
     );
 
+    // Revertir cotización si existía
+    if (ventaActual.cotizacion_id) {
+      await db.query(
+        `UPDATE cotizaciones SET estado = 'ENVIADA', convertida_a = NULL, referencia_venta_id = NULL, fecha_conversion = NULL WHERE id = ?`,
+        [ventaActual.cotizacion_id]
+      );
+    }
+
     // Obtener venta actualizada
-    const [ventas] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
-    const venta = parseVentaJSON(ventas[0]);
+    const [ventasUpdated] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
+    const venta = parseVentaJSON(ventasUpdated[0]);
 
     res.json(venta);
   } catch (error) {

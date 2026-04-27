@@ -36,8 +36,8 @@ exports.getDashboardStats = async (req, res) => {
     const [productos] = await connection.query(`
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN cantidad > 0 AND cantidad <= stock_minimo THEN 1 ELSE 0 END) as bajo_stock,
-        SUM(CASE WHEN cantidad = 0 THEN 1 ELSE 0 END) as sin_stock
+        SUM(CASE WHEN stock > 0 AND stock <= stock_minimo THEN 1 ELSE 0 END) as bajo_stock,
+        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as sin_stock
       FROM productos
     `);
 
@@ -45,10 +45,10 @@ exports.getDashboardStats = async (req, res) => {
     const [reparaciones] = await connection.query(`
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN tiene_checklist = 1 THEN 1 ELSE 0 END) as con_checklist,
-        SUM(CASE WHEN tiene_checklist = 0 OR tiene_checklist IS NULL THEN 1 ELSE 0 END) as sin_checklist,
+        SUM(CASE WHEN r.id IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) as con_checklist,
+        SUM(CASE WHEN r.id NOT IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) as sin_checklist,
         SUM(CASE WHEN estado = 'COMPLETADA' THEN 1 ELSE 0 END) as completadas
-      FROM reparaciones
+      FROM reparaciones r
       WHERE estado NOT IN ('ENTREGADA', 'CANCELADA')
     `);
 
@@ -65,9 +65,9 @@ exports.getDashboardStats = async (req, res) => {
       SELECT 
         COALESCE(SUM(total), 0) as total
       FROM compras
-      WHERE MONTH(fecha) = MONTH(CURDATE())
-      AND YEAR(fecha) = YEAR(CURDATE())
-      AND estado = 'COMPLETADA'
+      WHERE MONTH(fecha_compra) = MONTH(CURDATE())
+      AND YEAR(fecha_compra) = YEAR(CURDATE())
+      AND estado IN ('CONFIRMADA', 'RECIBIDA')
     `);
 
     // Calcular ganancias (ventas - gastos) del día
@@ -83,8 +83,8 @@ exports.getDashboardStats = async (req, res) => {
       SELECT 
         COALESCE(SUM(total), 0) as total
       FROM compras
-      WHERE DATE(fecha) = CURDATE()
-      AND estado = 'COMPLETADA'
+      WHERE DATE(fecha_compra) = CURDATE()
+      AND estado IN ('CONFIRMADA', 'RECIBIDA')
     `);
 
     connection.release();
