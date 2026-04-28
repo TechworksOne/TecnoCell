@@ -1,4 +1,25 @@
 const db = require('../config/database');
+const fs = require('fs');
+const path = require('path');
+
+// Guarda una imagen base64 como archivo físico y retorna la URL relativa
+const saveBase64Image = (base64String, productoId, index) => {
+  try {
+    const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches) return base64String; // ya es una URL normal
+    const mimeType = matches[1];
+    const data = matches[2];
+    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const uploadDir = path.join(__dirname, '..', 'uploads', 'productos', String(productoId));
+    fs.mkdirSync(uploadDir, { recursive: true });
+    const filename = `img_${index}_${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(uploadDir, filename), data, 'base64');
+    return `/uploads/productos/${productoId}/${filename}`;
+  } catch (e) {
+    console.error('Error guardando imagen base64:', e);
+    return null;
+  }
+};
 
 // Obtener todos los productos con sus imágenes y paginación
 exports.getAllProducts = async (req, res) => {
@@ -259,10 +280,16 @@ exports.createProduct = async (req, res) => {
     if (imagenes && imagenes.length > 0) {
       for (let i = 0; i < imagenes.length; i++) {
         const imagen = imagenes[i];
-        await connection.query(
-          'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
-          [productoId, imagen.url || imagen, i, imagen.descripcion || `Imagen ${i + 1}`]
-        );
+        let urlFinal = imagen.url || imagen;
+        if (typeof urlFinal === 'string' && urlFinal.startsWith('data:')) {
+          urlFinal = saveBase64Image(urlFinal, productoId, i);
+        }
+        if (urlFinal) {
+          await connection.query(
+            'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
+            [productoId, urlFinal, i, imagen.descripcion || `Imagen ${i + 1}`]
+          );
+        }
       }
     }
     
@@ -374,16 +401,29 @@ exports.updateProduct = async (req, res) => {
         });
       }
       
-      // Eliminar imágenes existentes
+      // Eliminar imágenes existentes (y sus archivos físicos)
+      const [oldImages] = await connection.query('SELECT url FROM producto_imagenes WHERE producto_id = ?', [id]);
+      for (const old of oldImages) {
+        if (old.url && old.url.startsWith('/uploads/')) {
+          const filePath = path.join(__dirname, '..', old.url);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+      }
       await connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id]);
       
       // Insertar nuevas imágenes
       for (let i = 0; i < imagenes.length; i++) {
         const imagen = imagenes[i];
-        await connection.query(
-          'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
-          [id, imagen.url || imagen, i, imagen.descripcion || `Imagen ${i + 1}`]
-        );
+        let urlFinal = imagen.url || imagen;
+        if (typeof urlFinal === 'string' && urlFinal.startsWith('data:')) {
+          urlFinal = saveBase64Image(urlFinal, id, i);
+        }
+        if (urlFinal) {
+          await connection.query(
+            'INSERT INTO producto_imagenes (producto_id, url, orden, descripcion) VALUES (?, ?, ?, ?)',
+            [id, urlFinal, i, imagen.descripcion || `Imagen ${i + 1}`]
+          );
+        }
       }
     }
     
