@@ -40,6 +40,9 @@ export default function RepairFormSimple() {
     diagnostico: ''
   });
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
+  const [fechaRecepcion, setFechaRecepcion] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
   // Estados para marcas y modelos dinámicos
   const [marcas, setMarcas] = useState<EquipoMarca[]>([]);
@@ -170,17 +173,16 @@ export default function RepairFormSimple() {
     }
 
     const numeroReparacion = `REP${String(Date.now()).slice(-6)}`;
-    const fecha = new Date().toLocaleDateString('es-GT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    const [anio, mes, dia] = fechaRecepcion.split('-');
+    const fecha = `${dia}/${mes}/${anio}`;
 
     generarPDFRecepcion({
       numeroReparacion,
       fecha,
       cliente: {
-        nombre: selectedCustomer.nombre || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim(),
+        nombre: selectedCustomer.nombre
+          ? `${selectedCustomer.nombre}${selectedCustomer.apellido ? ' ' + selectedCustomer.apellido : ''}`.trim()
+          : `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim(),
         telefono: selectedCustomer.telefono || selectedCustomer.phone || '',
         email: selectedCustomer.correo || selectedCustomer.email
       },
@@ -272,7 +274,7 @@ export default function RepairFormSimple() {
             cargador: false
           },
           fotosRecepcion: [],
-          fechaRecepcion: new Date().toISOString().split('T')[0],
+          fechaRecepcion: fechaRecepcion,
           userRecepcion: "Sistema"
         },
         
@@ -722,7 +724,23 @@ export default function RepairFormSimple() {
                 </div>
               </div>
 
-              {/* Anticipo - REMOVIDO TEMPORALMENTE */}
+              {/* Fecha de Recepción */}
+              <div>
+                <h5 className="font-medium text-gray-700 mb-3">Fecha de Recepción</h5>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Selecciona la fecha de ingreso del equipo
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaRecepcion}
+                    onChange={(e) => setFechaRecepcion(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Anticipo - REMOVIDO TEMPORALMENTE */
             </div>
           </Card>
         )}

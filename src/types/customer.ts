@@ -16,6 +16,7 @@ export interface Customer {
   notes?: string;
   // Campos de la BD
   nombre?: string;
+  apellido?: string;
   telefono?: string;
   correo?: string;
   frecuente?: boolean;

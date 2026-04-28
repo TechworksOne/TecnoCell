@@ -25,7 +25,9 @@ interface CustomerCardProps {
 
 // Subcomponente para mostrar la ficha del cliente seleccionado
 export function CustomerCard({ customer, onEdit, showEdit = true, className = '' }: CustomerCardProps) {
-  const customerName = customer.nombre || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+  const customerName = customer.nombre
+    ? `${customer.nombre}${customer.apellido ? ' ' + customer.apellido : ''}`.trim()
+    : `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
   const isFrequent = customer.frecuente || (customer.loyaltyPoints && customer.loyaltyPoints > 100) || (customer.totalVisits && customer.totalVisits > 5);
   const phone = customer.telefono || customer.phone;
   
@@ -290,7 +292,9 @@ export default function CustomerPicker({
                 
                 <div className="space-y-1">
                   {filteredCustomers.map((customer) => {
-                    const customerName = customer.nombre || `${customer.firstName} ${customer.lastName}`.trim();
+                    const customerName = customer.nombre
+                      ? `${customer.nombre}${customer.apellido ? ' ' + customer.apellido : ''}`.trim()
+                      : `${customer.firstName} ${customer.lastName}`.trim();
                     const isFrequent = customer.frecuente || customer.loyaltyPoints > 100 || customer.totalVisits > 5;
                     const phone = customer.telefono || customer.phone;
                     const email = customer.correo || customer.email;
