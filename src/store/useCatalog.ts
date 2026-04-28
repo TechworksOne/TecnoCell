@@ -129,11 +129,13 @@ export const useCatalog = create<CatalogState>((set, get) => ({
           const imgs = product.images && product.images.length > 0
             ? product.images
             : product.image ? [product.image] : [];
-          return imgs.map((url, index) => ({
-            url: typeof url === 'string' ? url : url,
-            orden: index,
-            descripcion: `Imagen ${index + 1}`
-          }));
+          return imgs
+            .filter((url) => typeof url === 'string' && !url.startsWith('data:'))
+            .map((url, index) => ({
+              url,
+              orden: index,
+              descripcion: `Imagen ${index + 1}`
+            }));
         })()
       };
 
@@ -180,12 +182,15 @@ export const useCatalog = create<CatalogState>((set, get) => ({
       if (updates.active !== undefined) productData.activo = updates.active;
       
       if (updates.images && updates.images.length > 0) {
-        productData.imagenes = updates.images.map((url, index) => ({
-          url: typeof url === 'string' ? url : url,
-          orden: index,
-          descripcion: `Imagen ${index + 1}`
-        }));
-      } else if (updates.image) {
+        const filteredImages = updates.images.filter((url) => typeof url === 'string' && !url.startsWith('data:'));
+        if (filteredImages.length > 0) {
+          productData.imagenes = filteredImages.map((url, index) => ({
+            url,
+            orden: index,
+            descripcion: `Imagen ${index + 1}`
+          }));
+        }
+      } else if (updates.image && !updates.image.startsWith('data:')) {
         productData.imagenes = [{
           url: updates.image,
           orden: 0,
