@@ -95,6 +95,8 @@ exports.createReparacion = async (req, res) => {
       accesorios,
       // Observaciones
       observaciones,
+      // Fecha de ingreso seleccionada por el usuario
+      fechaIngreso,
       // Fotos de recepción (URLs temporales o IDs si ya se subieron)
       fotosRecepcion = []
     } = req.body;
@@ -128,7 +130,7 @@ exports.createReparacion = async (req, res) => {
         estado, prioridad,
         manoObraCentavos, subtotalCentavos, impuestosCentavos, totalCentavos,
         anticipoCentavos, anticipoCentavos, metodoAnticipo,
-        new Date().toISOString().split('T')[0], observaciones, 'Sistema'
+        fechaIngreso || new Date().toISOString().split('T')[0], observaciones, 'Sistema'
       ]
     );
     

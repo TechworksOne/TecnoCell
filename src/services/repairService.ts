@@ -89,7 +89,10 @@ export const createReparacion = async (repairData: RepairFormData, fotosRecepcio
       observaciones: repairData.observaciones,
       
       // Fotos de recepción
-      fotosRecepcion: fotosRecepcionUrls
+      fotosRecepcion: fotosRecepcionUrls,
+
+      // Fecha de ingreso seleccionada por el usuario
+      fechaIngreso: repairData.recepcion.fechaRecepcion
     };
     
     const response = await axios.post(`${API_URL}/reparaciones`, payload);

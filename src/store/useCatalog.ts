@@ -125,11 +125,16 @@ export const useCatalog = create<CatalogState>((set, get) => ({
         precio_venta: parseFloat(String(product.precioPublico)) || 0,
         stock_minimo: parseInt(String(product.stockMin)) || 0,
         aplica_serie: product.aplica_serie ? true : false,
-        imagenes: product.images?.map((url, index) => ({
-          url: typeof url === 'string' ? url : url,
-          orden: index,
-          descripcion: `Imagen ${index + 1}`
-        })) || []
+        imagenes: (() => {
+          const imgs = product.images && product.images.length > 0
+            ? product.images
+            : product.image ? [product.image] : [];
+          return imgs.map((url, index) => ({
+            url: typeof url === 'string' ? url : url,
+            orden: index,
+            descripcion: `Imagen ${index + 1}`
+          }));
+        })()
       };
 
       console.log('📦 Creando producto:', { 
@@ -180,6 +185,12 @@ export const useCatalog = create<CatalogState>((set, get) => ({
           orden: index,
           descripcion: `Imagen ${index + 1}`
         }));
+      } else if (updates.image) {
+        productData.imagenes = [{
+          url: updates.image,
+          orden: 0,
+          descripcion: 'Imagen 1'
+        }];
       }
 
       const response = await productService.updateProduct(id, productData);
