@@ -56,13 +56,12 @@ export default function Sidebar() {
   return (
     <aside
       style={{
-        width: isOpen ? 272 : 72,
-        background: "var(--color-sidebar)",
+        width: isOpen ? 272 : 76,
         borderRight: "1px solid var(--color-border)",
-        boxShadow: "8px 0 30px rgba(20,50,74,0.05)",
-        transition: "width 300ms ease, background 250ms ease",
+        boxShadow: "4px 0 24px rgba(20,50,74,0.07)",
+        transition: "width 300ms ease",
       }}
-      className="flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
+      className="sidebar-bg flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
     >
       {/* ── Header: solo logo ───────────────────────────────────────────── */}
       <div
@@ -131,22 +130,22 @@ export default function Sidebar() {
       {/* ── Navegación ─────────────────────────────────────────────────── */}
       <nav
         className={isOpen ? "sidebar-nav" : "sidebar-nav-collapsed"}
-        style={{ padding: isOpen ? "8px 8px 24px" : "8px 6px 24px" }}
+        style={{ padding: isOpen ? "10px 10px 28px" : "10px 8px 28px" }}
       >
         {GROUPS.map((group, gi) => {
           const visible = group.items.filter(item => !item.adminOnly || isAdmin);
           if (visible.length === 0) return null;
           return (
-            <div key={gi} style={{ marginBottom: 4 }}>
+            <div key={gi} style={{ marginBottom: 6 }}>
               {/* Label de grupo — solo en modo expandido */}
               {isOpen && (
                 <p
-                  className="font-semibold uppercase tracking-widest"
+                  className="font-bold uppercase tracking-[0.14em]"
                   style={{
                     fontSize: 9,
                     color: "var(--color-text-muted)",
-                    padding: "8px 10px 3px",
-                    letterSpacing: "0.12em",
+                    padding: "10px 12px 4px",
+                    letterSpacing: "0.14em",
                   }}
                 >
                   {group.label}
@@ -154,10 +153,10 @@ export default function Sidebar() {
               )}
               {/* Separador en modo colapsado */}
               {!isOpen && gi > 0 && (
-                <div style={{ height: 1, background: "var(--color-border)", margin: "4px 10px" }} />
+                <div style={{ height: 1, background: "var(--color-border)", margin: "6px 10px" }} />
               )}
 
-              <div className="flex flex-col" style={{ gap: 1 }}>
+              <div className="flex flex-col" style={{ gap: 2 }}>
                 {visible.map((item) => (
                   <NavLink
                     key={item.to}
@@ -169,11 +168,11 @@ export default function Sidebar() {
                       <span
                         className="flex items-center transition-all duration-200"
                         style={{
-                          gap: isOpen ? 10 : 0,
+                          gap: isOpen ? 11 : 0,
                           justifyContent: isOpen ? "flex-start" : "center",
-                          padding: isOpen ? "0 10px" : "0",
-                          height: 40,
-                          borderRadius: 10,
+                          padding: isOpen ? "0 12px" : "0",
+                          height: 44,
+                          borderRadius: 12,
                           background: isActive
                             ? "var(--color-active-bg)"
                             : "transparent",
@@ -184,7 +183,7 @@ export default function Sidebar() {
                           fontWeight: isActive ? 600 : 400,
                         }}
                         onMouseEnter={(e) => {
-                          if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.08)";
+                          if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.09)";
                         }}
                         onMouseLeave={(e) => {
                           if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -192,12 +191,12 @@ export default function Sidebar() {
                       >
                         <span
                           className="shrink-0"
-                          style={{ color: isActive ? "#2EA7D8" : "var(--color-text-muted)" }}
+                          style={{ color: isActive ? "#48B9E6" : "var(--color-text-muted)" }}
                         >
                           {item.icon}
                         </span>
                         {isOpen && (
-                          <span className="text-sm whitespace-nowrap overflow-hidden" style={{ fontSize: 13.5 }}>
+                          <span className="whitespace-nowrap overflow-hidden" style={{ fontSize: 13.5, letterSpacing: "-0.01em" }}>
                             {item.label}
                           </span>
                         )}
@@ -215,37 +214,41 @@ export default function Sidebar() {
       <div
         className="shrink-0 flex items-center"
         style={{
-          height: 52,
+          height: 56,
           borderTop: "1px solid var(--color-border)",
-          padding: isOpen ? "0 12px 0 16px" : "0",
-          justifyContent: isOpen ? "flex-end" : "center",
+          padding: isOpen ? "0 14px" : "0",
+          justifyContent: isOpen ? "space-between" : "center",
           transition: "border-color 250ms ease",
         }}
       >
+        {isOpen && (
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
+            {isOpen ? "Colapsar" : ""}
+          </span>
+        )}
         <button
           onClick={toggle}
           aria-label={isOpen ? "Colapsar menú" : "Expandir menú"}
-          className="rounded-lg transition-colors"
+          className="rounded-xl transition-all flex items-center justify-center"
           style={{
-            width: 32,
-            height: 32,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            width: 34,
+            height: 34,
             color: "var(--color-text-sec)",
             border: "1px solid var(--color-border)",
-            background: "var(--color-surface)",
+            background: "var(--color-surface-soft)",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.12)";
-            (e.currentTarget as HTMLElement).style.color      = "#2EA7D8";
+            (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.14)";
+            (e.currentTarget as HTMLElement).style.color      = "#48B9E6";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(72,185,230,0.35)";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "var(--color-surface)";
+            (e.currentTarget as HTMLElement).style.background = "var(--color-surface-soft)";
             (e.currentTarget as HTMLElement).style.color      = "var(--color-text-sec)";
+            (e.currentTarget as HTMLElement).style.borderColor = "var(--color-border)";
           }}
         >
-          {isOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
       </div>
     </aside>

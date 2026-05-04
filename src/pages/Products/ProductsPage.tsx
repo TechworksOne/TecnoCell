@@ -942,18 +942,26 @@ export default function ProductsPage() {
         <div className="space-y-4">
           {/* Type selector */}
           {!newCategoryForm.isEditing && (
-            <div className="bg-slate-50 rounded-xl p-1 flex gap-1">
+            <div className="bg-[#F8FDFF] dark:bg-[#0A1220] rounded-xl p-1 flex gap-1 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)]">
               <button
                 type="button"
                 onClick={() => setNewCategoryForm({ ...newCategoryForm, isSubcategory: false })}
-                className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-colors ${!newCategoryForm.isSubcategory ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors ${
+                  !newCategoryForm.isSubcategory
+                    ? 'bg-white dark:bg-[#0D1526] text-[#2563EB] dark:text-[#48B9E6] shadow-sm border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.20)]'
+                    : 'text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC]'
+                }`}
               >
                 Nueva Categoría
               </button>
               <button
                 type="button"
                 onClick={() => setNewCategoryForm({ ...newCategoryForm, isSubcategory: true })}
-                className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-colors ${newCategoryForm.isSubcategory ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 text-xs font-semibold py-2.5 rounded-lg transition-colors ${
+                  newCategoryForm.isSubcategory
+                    ? 'bg-white dark:bg-[#0D1526] text-[#2563EB] dark:text-[#48B9E6] shadow-sm border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.20)]'
+                    : 'text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC]'
+                }`}
               >
                 Nueva Subcategoría
               </button>
@@ -964,11 +972,11 @@ export default function ProductsPage() {
           <div className="space-y-3">
             {(newCategoryForm.isSubcategory || newCategoryForm.editingSubcategoryId) && (
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Categoría principal</label>
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Categoría principal</label>
                 <Select
                   value={newCategoryForm.selectedParentCategory}
                   onChange={(e) => setNewCategoryForm({ ...newCategoryForm, selectedParentCategory: e.target.value })}
-                  className="text-sm rounded-xl border-slate-200 w-full"
+                  className="text-sm rounded-xl w-full"
                   disabled={newCategoryForm.isEditing}
                 >
                   <option value="">Seleccionar categoría</option>
@@ -977,7 +985,7 @@ export default function ProductsPage() {
               </div>
             )}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">
                 {newCategoryForm.isSubcategory || newCategoryForm.editingSubcategoryId ? 'Nombre de la subcategoría' : 'Nombre de la categoría'}
               </label>
               <Input
@@ -987,46 +995,46 @@ export default function ProductsPage() {
                   : setNewCategoryForm({ ...newCategoryForm, category: e.target.value })
                 }
                 placeholder="Nombre..."
-                className="text-sm rounded-xl border-slate-200"
+                className="text-sm rounded-xl"
               />
             </div>
           </div>
           <div className="flex justify-end gap-2">
             {newCategoryForm.isEditing && (
-              <Button variant="ghost" onClick={() => setNewCategoryForm({ category: "", subcategory: "", isSubcategory: false, selectedParentCategory: "", editingCategoryId: null, editingSubcategoryId: null, isEditing: false })} className="text-sm border border-slate-200 rounded-xl px-4 py-2">
+              <Button variant="ghost" onClick={() => setNewCategoryForm({ category: "", subcategory: "", isSubcategory: false, selectedParentCategory: "", editingCategoryId: null, editingSubcategoryId: null, isEditing: false })} className="text-sm text-[#5E7184] dark:text-[#B8C2D1] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-4 py-2">
                 Cancelar edición
               </Button>
             )}
-            <Button onClick={handleAddCategory} className="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2">
+            <Button onClick={handleAddCategory} className="text-sm bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 shadow-sm">
               {newCategoryForm.isEditing ? "Actualizar" : "Agregar"}
             </Button>
           </div>
 
           {/* Existing categories list */}
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Categorías existentes</p>
-            <div className="max-h-72 overflow-y-auto space-y-2">
+          <div className="border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] pt-4">
+            <p className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest mb-3">Categorías existentes</p>
+            <div className="category-list-scroll max-h-72 overflow-y-auto space-y-1.5 pr-1">
               {categoriesData.categories?.map((category: any) => (
-                <div key={category.id} className="rounded-xl border border-slate-100 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 bg-slate-50">
+                <div key={category.id} className="rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.12)] overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-[#F8FDFF] dark:bg-[#0A1220]">
                     <div className="flex items-center gap-2">
-                      <Tag size={13} className="text-blue-500 shrink-0" />
-                      <span className="text-sm font-semibold text-slate-700">{category.nombre}</span>
+                      <Tag size={13} className="text-[#2EA7D8] dark:text-[#48B9E6] shrink-0" />
+                      <span className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">{category.nombre}</span>
                     </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => handleEditCategory(category.nombre, category.id)} className="p-1 hover:bg-blue-50 rounded-lg text-blue-500 transition-colors"><Pencil size={13} /></button>
-                      <button onClick={() => handleDeleteCategory(category.id, category.nombre)} className="p-1 hover:bg-red-50 rounded-lg text-red-500 transition-colors"><Trash2 size={13} /></button>
+                    <div className="flex gap-0.5">
+                      <button onClick={() => handleEditCategory(category.nombre, category.id)} className="p-1.5 rounded-lg text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"><Pencil size={13} /></button>
+                      <button onClick={() => handleDeleteCategory(category.id, category.nombre)} className="p-1.5 rounded-lg text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"><Trash2 size={13} /></button>
                     </div>
                   </div>
                   {categoriesData.subcategories?.filter((sub: any) => sub.categoria_id === category.id).map((sub: any) => (
-                    <div key={sub.id} className="flex items-center justify-between px-3 py-1.5 border-t border-slate-100 ml-4">
+                    <div key={sub.id} className="flex items-center justify-between px-3 py-2 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.10)] bg-white dark:bg-[#0D1526] ml-4">
                       <div className="flex items-center gap-2">
-                        <ChevronDown size={12} className="text-slate-300 shrink-0" />
-                        <span className="text-xs text-slate-600">{sub.nombre}</span>
+                        <ChevronDown size={11} className="text-[#7F8A99] shrink-0" />
+                        <span className="text-xs text-[#5E7184] dark:text-[#B8C2D1]">{sub.nombre}</span>
                       </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleEditSubcategory(category.nombre, sub.nombre, sub.id)} className="p-1 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors"><Pencil size={11} /></button>
-                        <button onClick={() => handleDeleteSubcategory(sub.id, sub.nombre)} className="p-1 hover:bg-red-50 rounded-lg text-red-400 transition-colors"><Trash2 size={11} /></button>
+                      <div className="flex gap-0.5">
+                        <button onClick={() => handleEditSubcategory(category.nombre, sub.nombre, sub.id)} className="p-1.5 rounded-lg text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"><Pencil size={11} /></button>
+                        <button onClick={() => handleDeleteSubcategory(sub.id, sub.nombre)} className="p-1.5 rounded-lg text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"><Trash2 size={11} /></button>
                       </div>
                     </div>
                   ))}
@@ -1034,11 +1042,11 @@ export default function ProductsPage() {
               ))}
             </div>
           </div>
-          <div className="flex justify-end border-t border-slate-100 pt-3">
+          <div className="flex justify-end border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] pt-3">
             <Button variant="ghost" onClick={() => {
               setShowAddCategoryModal(false);
               setNewCategoryForm({ category: "", subcategory: "", isSubcategory: false, selectedParentCategory: "", editingCategoryId: null, editingSubcategoryId: null, isEditing: false });
-            }} className="text-sm border border-slate-200 rounded-xl px-4 py-2">
+            }} className="text-sm text-[#5E7184] dark:text-[#B8C2D1] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-4 py-2">
               Cerrar
             </Button>
           </div>

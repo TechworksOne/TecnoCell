@@ -77,6 +77,14 @@ table td {
   border-color: var(--color-border);
 }
 
+/* ─── Sidebar background gradient (light / dark) ───────────────────────── */
+.sidebar-bg {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F6FCFF 100%);
+}
+.dark .sidebar-bg {
+  background: linear-gradient(180deg, #08111F 0%, #060B14 100%);
+}
+
 /* ─── Sidebar nav — scrollbar discreto ─────────────────────────────────── */
 .sidebar-nav {
   flex: 1;
@@ -116,41 +124,25 @@ table td {
   display: none;
 }
 
-/* ─── Sidebar nav — scrollbar discreto ──────────────────────────────────── */
-.sidebar-nav {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+/* ─── Category list scrollbar discreto ─────────────────────────────────── */
+.category-list-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(72, 185, 230, 0.22) transparent;
 }
 
-.sidebar-nav::-webkit-scrollbar {
+.category-list-scroll::-webkit-scrollbar {
   width: 4px;
 }
 
-.sidebar-nav::-webkit-scrollbar-track {
+.category-list-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(72, 185, 230, 0.18);
+.category-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(72, 185, 230, 0.20);
   border-radius: 999px;
 }
 
-.sidebar-nav:hover::-webkit-scrollbar-thumb {
-  background: rgba(72, 185, 230, 0.42);
-}
-
-/* En modo colapsado: ocultar scrollbar visualmente, mantener funcionalidad */
-.sidebar-nav-collapsed {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.sidebar-nav-collapsed::-webkit-scrollbar {
-  width: 0;
-  display: none;
+.category-list-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(72, 185, 230, 0.45);
 }
