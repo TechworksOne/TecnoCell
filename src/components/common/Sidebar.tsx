@@ -74,26 +74,11 @@ export default function Sidebar() {
       >
         {isOpen ? (
           <div className="flex items-center gap-3 overflow-hidden w-full">
-            <div
-              className="shrink-0 rounded-xl flex items-center justify-center"
-              style={{
-                width: 38, height: 38,
-                background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
-                boxShadow: "0 4px 12px rgba(72,185,230,0.35)",
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src={tecnocellLogo}
-                alt="TC"
-                style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4, filter: "brightness(0) invert(1)" }}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
-                }}
-              />
-              <span className="hidden font-black text-sm text-white">TC</span>
-            </div>
+            <img
+              src={tecnocellLogo}
+              alt="TECNOCELL"
+              style={{ height: 36, width: "auto", objectFit: "contain", flexShrink: 0 }}
+            />
             <div className="leading-tight overflow-hidden">
               <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", color: "var(--color-text)", whiteSpace: "nowrap" }}>
                 TECNOCELL
@@ -104,25 +89,11 @@ export default function Sidebar() {
             </div>
           </div>
         ) : (
-          <div
-            className="rounded-xl flex items-center justify-center"
-            style={{
-              width: 38, height: 38,
-              background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
-              boxShadow: "0 4px 12px rgba(72,185,230,0.35)",
-            }}
-          >
-            <img
-              src={tecnocellLogo}
-              alt="TC"
-              style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4, filter: "brightness(0) invert(1)" }}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-                (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
-              }}
-            />
-            <span className="hidden font-black text-sm text-white">TC</span>
-          </div>
+          <img
+            src={tecnocellLogo}
+            alt="TC"
+            style={{ height: 32, width: 32, objectFit: "contain" }}
+          />
         )}
       </div>
 

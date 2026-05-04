@@ -2,7 +2,6 @@ import { LogOut, Moon, Sun, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../store/useAuth";
-import Button from "../ui/Button";
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -16,33 +15,35 @@ export default function Topbar() {
 
   return (
     <header
-      className="flex items-center justify-between px-4 py-3 border-b"
+      className="sticky top-0 z-40 flex items-center justify-between px-5 py-2.5"
       style={{
-        background:  "var(--color-surface)",
-        borderColor: "var(--color-border)",
-        transition:  "background 250ms ease, border-color 250ms ease",
+        background:   "var(--color-surface)",
+        borderBottom: "1px solid var(--color-border)",
+        boxShadow:    "0 1px 8px rgba(0,0,0,0.07)",
+        transition:   "background 250ms ease, border-color 250ms ease",
+        minHeight:    52,
       }}
     >
       {/* Izquierda: branding TECNOCELL */}
-      <div className="flex items-center gap-2">
-        {/* Pastilla de color con inicial */}
+      <div className="flex items-center gap-3">
         <div
-          className="shrink-0 flex items-center justify-center rounded-lg font-black text-white text-sm"
+          className="shrink-0 flex items-center justify-center rounded-lg font-black text-white text-sm select-none"
           style={{
-            width: 32,
-            height: 32,
-            background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))",
+            width: 34,
+            height: 34,
+            background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
+            boxShadow: "0 2px 8px rgba(72,185,230,0.35)",
             letterSpacing: "-0.5px",
+            fontSize: 13,
           }}
         >
           TC
         </div>
 
-        {/* Texto — oculto en pantallas muy pequeñas */}
-        <div className="hidden xs:flex sm:flex flex-col leading-tight">
+        <div className="flex flex-col leading-tight">
           <span
-            className="text-sm font-bold tracking-wider"
-            style={{ color: "var(--color-text)" }}
+            className="text-sm font-extrabold tracking-widest"
+            style={{ color: "var(--color-text)", letterSpacing: "0.1em" }}
           >
             TECNOCELL
           </span>
@@ -53,17 +54,28 @@ export default function Topbar() {
             Sistema comercial
           </span>
         </div>
+
+        {/* Separador vertical */}
+        <div
+          className="hidden sm:block self-stretch w-px mx-1"
+          style={{ background: "var(--color-border)" }}
+        />
+
+        {/* Hora actual */}
+        <span className="hidden sm:block text-xs font-mono" style={{ color: "var(--color-text-sec)" }}>
+          {new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}
+        </span>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2">
         {/* Toggle de tema */}
         <button
           onClick={toggleTheme}
           title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
           className="rounded-xl transition-all flex items-center justify-center shrink-0"
           style={{
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             background: "var(--color-surface-soft)",
             border: "1px solid var(--color-border)",
             color: "var(--color-text-sec)",
@@ -77,37 +89,64 @@ export default function Topbar() {
             (e.currentTarget as HTMLElement).style.color      = "var(--color-text-sec)";
           }}
         >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
         </button>
 
         {/* Información del usuario */}
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-xl"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
           style={{
             background: "var(--color-surface-soft)",
             border:     "1px solid var(--color-border)",
           }}
         >
-          <User size={17} style={{ color: "var(--color-text-sec)" }} />
+          {/* Avatar con inicial */}
+          <div
+            className="flex items-center justify-center rounded-lg text-white font-bold text-xs shrink-0"
+            style={{
+              width: 26,
+              height: 26,
+              background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
+            }}
+          >
+            {user?.name?.[0]?.toUpperCase() ?? <User size={13} />}
+          </div>
           <div className="text-sm hidden sm:block">
-            <p className="font-semibold leading-none" style={{ color: "var(--color-text)" }}>
+            <p className="font-semibold leading-none" style={{ color: "var(--color-text)", fontSize: 12.5 }}>
               {user?.name}
             </p>
-            <p className="text-xs mt-0.5 capitalize" style={{ color: "var(--color-text-sec)" }}>
+            <p className="text-xs mt-0.5 capitalize" style={{ color: "var(--color-text-sec)", fontSize: 10 }}>
               {user?.role === "admin" ? "Administrador" : user?.role === "tecnico" ? "Técnico" : "Empleado"}
             </p>
           </div>
         </div>
 
         {/* Cerrar sesión */}
-        <Button
+        <button
           onClick={handleLogout}
-          variant="outline"
-          className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950 dark:border-red-800 dark:text-red-400"
+          title="Cerrar sesión"
+          className="rounded-xl transition-all flex items-center gap-1.5 px-3 shrink-0"
+          style={{
+            height: 34,
+            background: "var(--color-surface-soft)",
+            border: "1px solid var(--color-border)",
+            color: "var(--color-text-sec)",
+            fontSize: 13,
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.4)";
+            (e.currentTarget as HTMLElement).style.color = "#ef4444";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "var(--color-surface-soft)";
+            (e.currentTarget as HTMLElement).style.borderColor = "var(--color-border)";
+            (e.currentTarget as HTMLElement).style.color = "var(--color-text-sec)";
+          }}
         >
-          <LogOut size={17} />
-          <span className="hidden sm:inline">Cerrar Sesión</span>
-        </Button>
+          <LogOut size={14} />
+          <span className="hidden sm:inline font-medium">Salir</span>
+        </button>
       </div>
     </header>
   );
