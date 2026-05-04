@@ -1,185 +1,547 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Users, Plus, Search, RefreshCw, AlertCircle,
-  DollarSign, CheckCircle, Clock, TrendingDown,
-  Eye, Ban, CreditCard, X, ChevronDown,
+  Plus, Search, RefreshCw, AlertCircle,
+  TrendingDown, Eye, Ban, CreditCard, X, ChevronDown,
+  ShoppingCart, Wrench, FileText, Trash2, ArrowLeft, ArrowRight,
+  CheckCircle, Package, Calendar,
 } from 'lucide-react';
-import { deudoresService, Deudor, DeudoresResumen } from '../../services/deudoresService';
+import {
+  deudoresService, Deudor, DeudoresResumen,
+  ItemCarritoVenta, ReparacionBusqueda, TipoOrigen, FrecuenciaPago,
+} from '../../services/deudoresService';
 import { useAuth } from '../../store/useAuth';
 import CustomerPicker from '../../components/customers/CustomerPicker';
 import type { Customer } from '../../types/customer';
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 const fmt = (v: number | string) =>
   `Q${Number(v || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const toNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
 const ESTADO_BADGE: Record<string, string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-700',
-  PARCIAL:   'bg-blue-100 text-blue-700',
-  PAGADO:    'bg-emerald-100 text-emerald-700',
-  ANULADO:   'bg-slate-100 text-slate-500',
+  PENDIENTE: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300',
+  PARCIAL:   'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300',
+  PAGADO:    'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300',
+  ANULADO:   'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+  VENCIDO:   'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400',
 };
 
-// ── Modal Nuevo Crédito ───────────────────────────────────────────────────
-function ModalNuevo({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { user } = useAuth();
-  const [cliente, setCliente] = useState<Customer | undefined>();
-  const [form, setForm] = useState({ descripcion: '', monto_total: '', fecha_vencimiento: '', notas: '' });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+const TIPO_BADGE: Record<TipoOrigen, string> = {
+  VENTA:      'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300',
+  REPARACION: 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300',
+  MANUAL:     'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
+};
 
-  const handleSubmit = async () => {
-    if (!cliente) { setErr('Selecciona un cliente'); return; }
-    if (!form.monto_total || parseFloat(form.monto_total) <= 0) { setErr('El monto debe ser mayor a 0'); return; }
-    setLoading(true); setErr('');
-    try {
-      await deudoresService.create({
-        cliente_id: cliente.id ? parseInt(String(cliente.id)) : null,
-        cliente_nombre: cliente.nombre || `${cliente.firstName || ''} ${cliente.lastName || ''}`.trim(),
-        cliente_telefono: cliente.telefono || cliente.phone,
-        descripcion: form.descripcion,
-        monto_total: parseFloat(form.monto_total),
-        fecha_vencimiento: form.fecha_vencimiento || undefined,
-        notas: form.notas,
-        created_by: user?.username || user?.nombre || 'Sistema',
-      });
-      onCreated();
-      onClose();
-    } catch (e: any) {
-      setErr(e?.response?.data?.error || 'Error al crear el crédito');
-    } finally {
-      setLoading(false);
-    }
-  };
+const TIPO_LABEL: Record<TipoOrigen, string> = {
+  VENTA: 'Venta', REPARACION: 'Reparación', MANUAL: 'Manual',
+};
 
+type FrecuenciaDias = 7 | 15 | 'month';
+const FRECUENCIA_DIAS: Record<FrecuenciaPago, FrecuenciaDias> = {
+  SEMANAL: 7, QUINCENAL: 15, MENSUAL: 'month',
+};
+
+function addPeriod(date: Date, freq: FrecuenciaPago): Date {
+  const d = new Date(date);
+  const delta = FRECUENCIA_DIAS[freq];
+  if (delta === 'month') d.setMonth(d.getMonth() + 1);
+  else d.setDate(d.getDate() + (delta as number));
+  return d;
+}
+
+function calcCuotas(total: number, numCuotas: number, freq: FrecuenciaPago, primerFecha: string) {
+  const cuotaBase = Math.floor((total / numCuotas) * 100) / 100;
+  const cuotaUlt  = parseFloat((total - cuotaBase * (numCuotas - 1)).toFixed(2));
+  const rows: { numero: number; monto: number; fecha: Date }[] = [];
+  let fecha = new Date(primerFecha + 'T12:00:00');
+  for (let i = 1; i <= numCuotas; i++) {
+    rows.push({ numero: i, monto: i === numCuotas ? cuotaUlt : cuotaBase, fecha: new Date(fecha) });
+    fecha = addPeriod(fecha, freq);
+  }
+  return rows;
+}
+
+function useDebounce<T>(value: T, ms: number): T {
+  const [dv, setDv] = useState<T>(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDv(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return dv;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIZARD STATE
+// ─────────────────────────────────────────────────────────────────────────────
+type WizardStep = 1 | 2 | 3 | 4;
+
+interface WizardState {
+  cliente?: Customer;
+  tipoOrigen: TipoOrigen;
+  carrito: ItemCarritoVenta[];
+  reparacion?: ReparacionBusqueda;
+  descripcion: string;
+  montoManual: string;
+  numeroCuotas: number;
+  frecuenciaPago: FrecuenciaPago;
+  fechaPrimerPago: string;
+  fechaVencimiento: string;
+  notas: string;
+}
+
+const INITIAL_WIZARD: WizardState = {
+  tipoOrigen: 'MANUAL', carrito: [], descripcion: '', montoManual: '',
+  numeroCuotas: 1, frecuenciaPago: 'MENSUAL', fechaPrimerPago: '', fechaVencimiento: '', notas: '',
+};
+
+// ─── Step 1 ───────────────────────────────────────────────────────────────
+function Step1({ state, setState }: { state: WizardState; setState: React.Dispatch<React.SetStateAction<WizardState>> }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-800">Nuevo crédito interno</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          {err && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Cliente *</label>
-            <CustomerPicker value={cliente} onChange={setCliente} allowCreate placeholder="Buscar cliente..." />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Descripción</label>
-            <input
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Ej: Venta a crédito, Reparación fiada..."
-              value={form.descripcion}
-              onChange={e => setForm({ ...form, descripcion: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Monto total (Q) *</label>
-              <input
-                type="number" min="0" step="0.01"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="0.00"
-                value={form.monto_total}
-                onChange={e => setForm({ ...form, monto_total: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Fecha vencimiento</label>
-              <input
-                type="date"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 bg-white"
-                value={form.fecha_vencimiento}
-                onChange={e => setForm({ ...form, fecha_vencimiento: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Notas</label>
-            <textarea
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              rows={2} placeholder="Observaciones opcionales..."
-              value={form.notas}
-              onChange={e => setForm({ ...form, notas: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="flex gap-3 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 border border-slate-300 rounded-xl py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
-          <button
-            onClick={handleSubmit} disabled={loading}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-semibold disabled:opacity-50"
-          >
-            {loading ? 'Guardando...' : 'Crear crédito'}
-          </button>
+    <div className="space-y-5">
+      <div>
+        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Cliente *</label>
+        <CustomerPicker value={state.cliente} onChange={c => setState(s => ({ ...s, cliente: c || undefined }))} allowCreate placeholder="Buscar o crear cliente..." />
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">Tipo de crédito *</label>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { key: 'VENTA' as TipoOrigen, icon: <ShoppingCart size={18} />, label: 'Venta', desc: 'Productos' },
+            { key: 'REPARACION' as TipoOrigen, icon: <Wrench size={18} />, label: 'Reparación', desc: 'Servicio' },
+            { key: 'MANUAL' as TipoOrigen, icon: <FileText size={18} />, label: 'Manual', desc: 'Libre' },
+          ] as const).map(({ key, icon, label, desc }) => (
+            <button key={key} type="button"
+              onClick={() => setState(s => ({ ...s, tipoOrigen: key, carrito: [], reparacion: undefined, montoManual: '', descripcion: '' }))}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all ${
+                state.tipoOrigen === key
+                  ? 'border-[#48B9E6] bg-[#48B9E6]/10 text-[#48B9E6]'
+                  : 'border-slate-200 dark:border-[rgba(72,185,230,0.16)] text-slate-600 dark:text-slate-300 hover:border-slate-300'
+              }`}>
+              {icon}
+              <span className="text-xs font-semibold">{label}</span>
+              <span className="text-[10px] opacity-70">{desc}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ── Modal Registrar Pago ──────────────────────────────────────────────────
+// ─── Step 2 ───────────────────────────────────────────────────────────────
+function Step2({ state, setState }: { state: WizardState; setState: React.Dispatch<React.SetStateAction<WizardState>> }) {
+  const [q, setQ] = useState('');
+  const dq = useDebounce(q, 320);
+  const [results, setResults] = useState<unknown[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!dq.trim()) { setResults([]); return; }
+    setSearching(true);
+    const fn = state.tipoOrigen === 'VENTA'
+      ? deudoresService.searchProductos(dq)
+      : deudoresService.searchReparaciones(dq);
+    fn.then(d => setResults(d as unknown[])).catch(() => setResults([])).finally(() => setSearching(false));
+  }, [dq, state.tipoOrigen]);
+
+  const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#48B9E6]";
+
+  if (state.tipoOrigen === 'MANUAL') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Descripción</label>
+          <input className={inputCls} placeholder="Ej: Préstamo, servicio especial..." value={state.descripcion}
+            onChange={e => setState(s => ({ ...s, descripcion: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Monto total (Q) *</label>
+          <input type="number" min="0" step="0.01" className={inputCls} placeholder="0.00" value={state.montoManual}
+            onChange={e => setState(s => ({ ...s, montoManual: e.target.value }))} />
+        </div>
+      </div>
+    );
+  }
+
+  if (state.tipoOrigen === 'REPARACION') {
+    return (
+      <div className="space-y-3">
+        {state.reparacion ? (
+          <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 rounded-xl p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-semibold text-violet-900 dark:text-violet-200">{state.reparacion.cliente_nombre}</p>
+                <p className="text-sm text-violet-700 dark:text-violet-300 mt-0.5">{state.reparacion.marca} {state.reparacion.modelo}</p>
+                {state.reparacion.numero_reparacion && <p className="text-xs text-violet-500 font-mono mt-0.5">#{state.reparacion.numero_reparacion}</p>}
+                <p className="text-sm font-bold text-violet-900 dark:text-violet-100 mt-1">Total: {fmt(state.reparacion.total)}</p>
+              </div>
+              <button onClick={() => { setState(s => ({ ...s, reparacion: undefined })); setQ(''); }}
+                className="p-1.5 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/30 text-violet-400">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className={`${inputCls} pl-9`} placeholder="Buscar por cliente, marca, modelo..." value={q} onChange={e => setQ(e.target.value)} />
+            </div>
+            {searching && <p className="text-xs text-slate-400 text-center py-1">Buscando...</p>}
+            {results.length > 0 && (
+              <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                {(results as ReparacionBusqueda[]).map(r => (
+                  <button key={r.id} type="button"
+                    onClick={() => { setState(s => ({ ...s, reparacion: r })); setQ(''); setResults([]); }}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-[#0A1220] border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC]">{r.cliente_nombre}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{r.marca} {r.modelo}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-[#48B9E6]">{fmt(r.total)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // VENTA
+  type ProdResult = { id: number; nombre: string; sku?: string; precio_venta: number; stock: number };
+  const totalCarrito = state.carrito.reduce((s, i) => s + i.subtotal, 0);
+  const agregarProducto = (p: ProdResult) => {
+    setState(s => {
+      const exist = s.carrito.find(i => i.id === p.id);
+      if (exist) return { ...s, carrito: s.carrito.map(i => i.id === p.id ? { ...i, cantidad: i.cantidad + 1, subtotal: (i.cantidad + 1) * i.precio_unitario } : i) };
+      return { ...s, carrito: [...s.carrito, { id: p.id, nombre: p.nombre, sku: p.sku, precio_unitario: p.precio_venta, cantidad: 1, subtotal: p.precio_venta }] };
+    });
+    setQ(''); setResults([]);
+  };
+  const quitarItem = (id: number) => setState(s => ({ ...s, carrito: s.carrito.filter(i => i.id !== id) }));
+  const cambiarQty = (id: number, qty: number) => {
+    if (qty <= 0) { quitarItem(id); return; }
+    setState(s => ({ ...s, carrito: s.carrito.map(i => i.id === id ? { ...i, cantidad: qty, subtotal: qty * i.precio_unitario } : i) }));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input className={`${inputCls} pl-9`} placeholder="Buscar producto por nombre o SKU..." value={q} onChange={e => setQ(e.target.value)} />
+      </div>
+      {searching && <p className="text-xs text-slate-400 text-center py-1">Buscando...</p>}
+      {results.length > 0 && (
+        <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden max-h-40 overflow-y-auto">
+          {(results as ProdResult[]).map(p => (
+            <button key={p.id} type="button" onClick={() => agregarProducto(p)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-[#0A1220] border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+              <div>
+                <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC]">{p.nombre}</p>
+                {p.sku && <p className="text-xs text-slate-400 font-mono">{p.sku}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-[#48B9E6]">{fmt(p.precio_venta)}</p>
+                <p className="text-xs text-slate-400">Stock: {p.stock}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {state.carrito.length > 0 && (
+        <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden">
+          {state.carrito.map(item => (
+            <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+              <Package size={14} className="text-slate-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC] truncate">{item.nombre}</p>
+                <p className="text-xs text-slate-400">{fmt(item.precio_unitario)} c/u</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => cambiarQty(item.id, item.cantidad - 1)} className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold flex items-center justify-center hover:bg-slate-200">−</button>
+                <span className="text-sm font-semibold text-slate-800 dark:text-[#F8FAFC] w-6 text-center">{item.cantidad}</span>
+                <button onClick={() => cambiarQty(item.id, item.cantidad + 1)} className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold flex items-center justify-center hover:bg-slate-200">+</button>
+              </div>
+              <span className="text-sm font-semibold text-[#48B9E6] w-20 text-right">{fmt(item.subtotal)}</span>
+              <button onClick={() => quitarItem(item.id)} className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-400"><Trash2 size={13} /></button>
+            </div>
+          ))}
+          <div className="px-3 py-2 bg-slate-50 dark:bg-[#0A1220] flex justify-between items-center">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total carrito</span>
+            <span className="text-base font-bold text-[#48B9E6]">{fmt(totalCarrito)}</span>
+          </div>
+        </div>
+      )}
+      {state.carrito.length === 0 && !q && (
+        <div className="text-center py-4 text-slate-400 dark:text-slate-500 text-sm">Busca productos para agregar al crédito</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Step 3 ───────────────────────────────────────────────────────────────
+function Step3({ state, setState, montoTotal }: { state: WizardState; setState: React.Dispatch<React.SetStateAction<WizardState>>; montoTotal: number }) {
+  const cuotaPreview = state.numeroCuotas > 0 ? montoTotal / state.numeroCuotas : 0;
+  const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#48B9E6]";
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#48B9E6]/10 border border-[#48B9E6]/30 rounded-xl p-3 flex items-center justify-between">
+        <span className="text-sm text-slate-600 dark:text-slate-300">Monto total del crédito</span>
+        <span className="text-lg font-bold text-[#48B9E6]">{fmt(montoTotal)}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Núm. cuotas *</label>
+          <input type="number" min="1" max="60" className={inputCls} value={state.numeroCuotas}
+            onChange={e => setState(s => ({ ...s, numeroCuotas: Math.max(1, parseInt(e.target.value) || 1) }))} />
+          {state.numeroCuotas > 1 && <p className="text-xs text-[#48B9E6] mt-1 font-medium">≈ {fmt(cuotaPreview)} por cuota</p>}
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Frecuencia</label>
+          <select className={inputCls} value={state.frecuenciaPago} onChange={e => setState(s => ({ ...s, frecuenciaPago: e.target.value as FrecuenciaPago }))}>
+            <option value="SEMANAL">Semanal</option>
+            <option value="QUINCENAL">Quincenal</option>
+            <option value="MENSUAL">Mensual</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Primer pago{state.numeroCuotas > 1 && ' *'}</label>
+          <input type="date" className={inputCls} value={state.fechaPrimerPago} onChange={e => setState(s => ({ ...s, fechaPrimerPago: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Vencimiento límite</label>
+          <input type="date" className={inputCls} value={state.fechaVencimiento} onChange={e => setState(s => ({ ...s, fechaVencimiento: e.target.value }))} />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Notas</label>
+        <textarea rows={2} className={`${inputCls} resize-none`} placeholder="Observaciones, condiciones..." value={state.notas}
+          onChange={e => setState(s => ({ ...s, notas: e.target.value }))} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4 ───────────────────────────────────────────────────────────────
+function Step4({ state, montoTotal }: { state: WizardState; montoTotal: number }) {
+  const cuotas = state.fechaPrimerPago && state.numeroCuotas > 1
+    ? calcCuotas(montoTotal, state.numeroCuotas, state.frecuenciaPago, state.fechaPrimerPago)
+    : null;
+  const lbl = (label: string, value: string) => (
+    <div className="flex justify-between py-1.5 text-sm border-b border-slate-100 dark:border-[rgba(72,185,230,0.08)] last:border-b-0">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{value}</span>
+    </div>
+  );
+  const nombreCliente = state.cliente?.nombre || `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim() || '—';
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-[#0A1220] border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl p-4 space-y-0.5">
+        {lbl('Cliente', nombreCliente)}
+        {lbl('Tipo', TIPO_LABEL[state.tipoOrigen])}
+        {lbl('Monto total', fmt(montoTotal))}
+        {lbl('Cuotas', `${state.numeroCuotas} × ${state.frecuenciaPago.toLowerCase()}`)}
+        {state.fechaPrimerPago && lbl('Primer pago', new Date(state.fechaPrimerPago + 'T12:00:00').toLocaleDateString('es-GT'))}
+        {state.notas && lbl('Notas', state.notas)}
+      </div>
+      {state.tipoOrigen === 'VENTA' && state.carrito.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Productos</p>
+          <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden">
+            {state.carrito.map(i => (
+              <div key={i.id} className="flex justify-between items-center px-3 py-2 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                <span className="text-slate-700 dark:text-slate-300">{i.nombre} <span className="text-slate-400 text-xs">×{i.cantidad}</span></span>
+                <span className="font-semibold text-[#48B9E6]">{fmt(i.subtotal)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {cuotas && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Plan de cuotas</p>
+          <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+            <div className="flex bg-slate-50 dark:bg-[#060B14] px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-b border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+              <span className="w-10">N°</span><span className="flex-1">Fecha</span><span>Monto</span>
+            </div>
+            {cuotas.map(c => (
+              <div key={c.numero} className="flex items-center px-3 py-2 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                <span className="w-10 text-slate-400 text-xs">#{c.numero}</span>
+                <span className="flex-1 text-slate-700 dark:text-slate-300">{c.fecha.toLocaleDateString('es-GT')}</span>
+                <span className="font-semibold text-[#48B9E6]">{fmt(c.monto)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Wizard container ─────────────────────────────────────────────────────
+function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { user } = useAuth();
+  const [step, setStep] = useState<WizardStep>(1);
+  const [state, setState] = useState<WizardState>(INITIAL_WIZARD);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const montoTotal = (() => {
+    if (state.tipoOrigen === 'MANUAL') return toNum(state.montoManual);
+    if (state.tipoOrigen === 'REPARACION') return toNum(state.reparacion?.total);
+    return state.carrito.reduce((s, i) => s + i.subtotal, 0);
+  })();
+
+  const canNext = useCallback((): boolean => {
+    if (step === 1) return !!state.cliente;
+    if (step === 2) {
+      if (state.tipoOrigen === 'MANUAL') return toNum(state.montoManual) > 0;
+      if (state.tipoOrigen === 'REPARACION') return !!state.reparacion;
+      return state.carrito.length > 0;
+    }
+    if (step === 3) {
+      if (state.numeroCuotas > 1 && !state.fechaPrimerPago) return false;
+      return montoTotal > 0;
+    }
+    return true;
+  }, [step, state, montoTotal]);
+
+  const next = () => { if (!canNext()) { setErr('Completa los campos requeridos'); return; } setErr(''); setStep(s => (s + 1) as WizardStep); };
+  const back = () => { setErr(''); setStep(s => (s - 1) as WizardStep); };
+
+  const handleSubmit = async () => {
+    setLoading(true); setErr('');
+    try {
+      const nombre = state.cliente!.nombre || `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim();
+      await deudoresService.create({
+        cliente_id: state.cliente!.id ? parseInt(String(state.cliente!.id)) : null,
+        cliente_nombre: nombre,
+        cliente_telefono: state.cliente!.telefono || (state.cliente as any).phone,
+        descripcion: state.tipoOrigen === 'MANUAL' ? state.descripcion : undefined,
+        monto_total: montoTotal,
+        tipo_origen: state.tipoOrigen,
+        numero_cuotas: state.numeroCuotas,
+        frecuencia_pago: state.frecuenciaPago,
+        fecha_primer_pago: state.fechaPrimerPago || undefined,
+        fecha_vencimiento: state.fechaVencimiento || undefined,
+        items_detalle: state.tipoOrigen === 'VENTA' && state.carrito.length > 0 ? state.carrito : null,
+        referencia_reparacion_id: state.reparacion?.id,
+        notas: state.notas || undefined,
+        created_by: user?.username || user?.nombre || 'Sistema',
+      });
+      onCreated(); onClose();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || e?.response?.data?.message || 'Error al crear el crédito');
+      setLoading(false);
+    }
+  };
+
+  const STEPS = ['Cliente', 'Origen', 'Plan de pagos', 'Resumen'];
+  const btnBase = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]";
+  const btnPrimary = "flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#48B9E6] to-[#2196c4] hover:from-[#3aace0] hover:to-[#1a84b0] disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold shadow-sm";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-[#F8FAFC]">Nuevo crédito interno</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Paso {step} de 4 — {STEPS[step - 1]}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#0A1220] text-slate-500"><X size={18} /></button>
+        </div>
+        <div className="h-1 bg-slate-100 dark:bg-[#0A1220] shrink-0">
+          <div className="h-full bg-[#48B9E6] transition-all duration-300" style={{ width: `${(step / 4) * 100}%` }} />
+        </div>
+        <div className="flex px-6 py-3 gap-2 shrink-0">
+          {STEPS.map((label, i) => (
+            <div key={i} className={`flex items-center gap-1.5 flex-1 ${i < step - 1 ? 'text-[#48B9E6]' : i === step - 1 ? 'text-slate-800 dark:text-[#F8FAFC]' : 'text-slate-300 dark:text-slate-600'}`}>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                i < step - 1 ? 'bg-[#48B9E6] text-white' : i === step - 1 ? 'bg-slate-800 dark:bg-[#48B9E6] text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+              }`}>
+                {i < step - 1 ? <CheckCircle size={12} /> : i + 1}
+              </div>
+              <span className="text-[10px] font-semibold hidden sm:block truncate">{label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {err && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 rounded-xl px-3 py-2 mb-4">{err}</p>}
+          {step === 1 && <Step1 state={state} setState={setState} />}
+          {step === 2 && <Step2 state={state} setState={setState} />}
+          {step === 3 && <Step3 state={state} setState={setState} montoTotal={montoTotal} />}
+          {step === 4 && <Step4 state={state} montoTotal={montoTotal} />}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          {step > 1
+            ? <button onClick={back} className="flex items-center gap-1.5 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]"><ArrowLeft size={15} /> Atrás</button>
+            : <button onClick={onClose} className={btnBase}>Cancelar</button>
+          }
+          {step < 4
+            ? <button onClick={next} className={btnPrimary}>Siguiente <ArrowRight size={15} /></button>
+            : <button onClick={handleSubmit} disabled={loading} className={btnPrimary}>{loading ? 'Guardando...' : <><CheckCircle size={15} /> Crear crédito</>}</button>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL PAGO
+// ─────────────────────────────────────────────────────────────────────────────
 function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () => void; onPaid: () => void }) {
   const { user } = useAuth();
-  const [monto, setMonto] = useState(String(Number(deudor.saldo_pendiente).toFixed(2)));
+  const [monto, setMonto] = useState(toNum(deudor.saldo_pendiente).toFixed(2));
   const [metodo, setMetodo] = useState('EFECTIVO');
   const [referencia, setReferencia] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
   const handlePagar = async () => {
-    const montoNum = parseFloat(monto);
-    if (!montoNum || montoNum <= 0) { setErr('Ingresa un monto válido'); return; }
+    const n = parseFloat(monto);
+    if (!n || n <= 0) { setErr('Ingresa un monto válido'); return; }
     setLoading(true); setErr('');
     try {
-      await deudoresService.registrarPago(deudor.id, {
-        monto: montoNum,
-        metodo_pago: metodo,
-        referencia,
-        realizado_por: user?.username || user?.nombre || 'Sistema',
-      });
+      await deudoresService.registrarPago(deudor.id, { monto: n, metodo_pago: metodo, referencia, realizado_por: user?.username || user?.nombre || 'Sistema' });
       onPaid(); onClose();
     } catch (e: any) {
       setErr(e?.response?.data?.error || 'Error al registrar el pago');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+  const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-emerald-400";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-800">Registrar pago</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[rgba(72,185,230,0.16)]">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-[#F8FAFC]">Registrar pago</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#0A1220] text-slate-500"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
-          {err && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
-          <div className="bg-slate-50 rounded-xl p-3 text-sm">
-            <p className="font-medium text-slate-800">{deudor.cliente_nombre}</p>
-            <p className="text-slate-500 mt-0.5">Saldo pendiente: <span className="font-semibold text-red-600">{fmt(deudor.saldo_pendiente)}</span></p>
+          {err && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-xl px-3 py-2">{err}</p>}
+          <div className="bg-slate-50 dark:bg-[#0A1220] rounded-xl p-3 text-sm">
+            <p className="font-medium text-slate-800 dark:text-[#F8FAFC]">{deudor.cliente_nombre}</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5">Saldo: <span className="font-semibold text-red-600 dark:text-red-400">{fmt(deudor.saldo_pendiente)}</span></p>
+            {deudor.numero_cuotas && deudor.numero_cuotas > 1 && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Cuota aprox: {fmt(deudor.monto_cuota || 0)} · {deudor.frecuencia_pago?.toLowerCase()}</p>
+            )}
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Monto a abonar (Q)</label>
-            <input
-              type="number" min="0.01" step="0.01"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              value={monto}
-              onChange={e => setMonto(e.target.value)}
-            />
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Monto a abonar (Q)</label>
+            <input type="number" min="0.01" step="0.01" className={inputCls} value={monto} onChange={e => setMonto(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Método</label>
-              <select
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"
-                value={metodo} onChange={e => setMetodo(e.target.value)}
-              >
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Método</label>
+              <select className={inputCls} value={metodo} onChange={e => setMetodo(e.target.value)}>
                 <option value="EFECTIVO">Efectivo</option>
                 <option value="TRANSFERENCIA">Transferencia</option>
                 <option value="TARJETA_BAC">Tarjeta BAC</option>
@@ -187,121 +549,155 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1 block">Referencia</label>
-              <input
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                placeholder="Opcional"
-                value={referencia} onChange={e => setReferencia(e.target.value)}
-              />
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Referencia</label>
+              <input className={inputCls} placeholder="Opcional" value={referencia} onChange={e => setReferencia(e.target.value)} />
             </div>
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 border border-slate-300 rounded-xl py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
-          <button
-            onClick={handlePagar} disabled={loading}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 text-sm font-semibold disabled:opacity-50"
-          >
-            {loading ? 'Registrando...' : 'Registrar pago'}
-          </button>
+          <button onClick={onClose} className="flex-1 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]">Cancelar</button>
+          <button onClick={handlePagar} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold">{loading ? 'Registrando...' : 'Registrar pago'}</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Modal Detalle ─────────────────────────────────────────────────────────
-function ModalDetalle({ deudor: initial, onClose, onAction }: { deudor: Deudor; onClose: () => void; onAction: () => void }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL DETALLE
+// ─────────────────────────────────────────────────────────────────────────────
+function ModalDetalle({ initial, onClose, onAction }: { initial: Deudor; onClose: () => void; onAction: () => void }) {
   const [deudor, setDeudor] = useState<Deudor>(initial);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    deudoresService.getById(initial.id).then(d => { setDeudor(d); setLoading(false); }).catch(() => setLoading(false));
+    deudoresService.getById(initial.id).then(d => setDeudor(d)).catch(() => {}).finally(() => setLoading(false));
   }, [initial.id]);
 
-  const porcentaje = deudor.monto_total > 0
-    ? Math.min(100, (Number(deudor.monto_pagado) / Number(deudor.monto_total)) * 100)
-    : 0;
+  const porcentaje = toNum(deudor.monto_total) > 0 ? Math.min(100, (toNum(deudor.monto_pagado) / toNum(deudor.monto_total)) * 100) : 0;
+  let itemsDetalle: ItemCarritoVenta[] | null = null;
+  try { if (deudor.items_detalle) itemsDetalle = JSON.parse(deudor.items_detalle); } catch {}
+  const cuotasPlan = deudor.numero_cuotas && deudor.numero_cuotas > 1 && deudor.fecha_primer_pago
+    ? calcCuotas(toNum(deudor.monto_total), deudor.numero_cuotas, deudor.frecuencia_pago || 'MENSUAL', deudor.fecha_primer_pago) : null;
+  const pagosReales = (deudor.pagos || []).filter(p => p.fecha_pago && toNum(p.monto) > 0);
+
+  // onAction is available for future use (e.g. refresh after action from detail)
+  void onAction;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white">
-          <h2 className="text-lg font-semibold text-slate-800">{deudor.numero_credito}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-[#F8FAFC] font-mono">{deudor.numero_credito}</h2>
+            {deudor.tipo_origen && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${TIPO_BADGE[deudor.tipo_origen]}`}>{TIPO_LABEL[deudor.tipo_origen]}</span>
+            )}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#0A1220] text-slate-500"><X size={18} /></button>
         </div>
         {loading ? (
-          <div className="p-10 text-center text-slate-400">Cargando...</div>
+          <div className="p-10 text-center text-slate-400 dark:text-slate-500">Cargando...</div>
         ) : (
-          <div className="p-6 space-y-5">
-            {/* Info cliente */}
-            <div className="bg-slate-50 rounded-xl p-4">
-              <p className="font-semibold text-slate-800">{deudor.cliente_nombre}</p>
-              {deudor.cliente_telefono && <p className="text-sm text-slate-500 mt-0.5">📞 {deudor.cliente_telefono}</p>}
-              {deudor.descripcion && <p className="text-sm text-slate-600 mt-1">{deudor.descripcion}</p>}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="bg-slate-50 dark:bg-[#0A1220] rounded-xl p-4">
+              <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{deudor.cliente_nombre}</p>
+              {deudor.cliente_telefono && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">📞 {deudor.cliente_telefono}</p>}
+              {deudor.descripcion && <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{deudor.descripcion}</p>}
             </div>
-
-            {/* Montos */}
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-slate-50 rounded-xl p-3">
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Total</p>
-                <p className="font-bold text-slate-800 mt-1">{fmt(deudor.monto_total)}</p>
+              <div className="bg-slate-50 dark:bg-[#0A1220] rounded-xl p-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</p>
+                <p className="font-bold text-slate-800 dark:text-[#F8FAFC] mt-1">{fmt(deudor.monto_total)}</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl p-3">
-                <p className="text-xs text-emerald-600 uppercase tracking-wide">Pagado</p>
-                <p className="font-bold text-emerald-700 mt-1">{fmt(deudor.monto_pagado)}</p>
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Pagado</p>
+                <p className="font-bold text-emerald-700 dark:text-emerald-300 mt-1">{fmt(deudor.monto_pagado)}</p>
               </div>
-              <div className="bg-red-50 rounded-xl p-3">
-                <p className="text-xs text-red-500 uppercase tracking-wide">Pendiente</p>
-                <p className="font-bold text-red-600 mt-1">{fmt(deudor.saldo_pendiente)}</p>
+              <div className="bg-red-50 dark:bg-red-950/20 rounded-xl p-3">
+                <p className="text-xs text-red-500 dark:text-red-400 uppercase tracking-wide">Pendiente</p>
+                <p className="font-bold text-red-600 dark:text-red-400 mt-1">{fmt(deudor.saldo_pendiente)}</p>
               </div>
             </div>
-
-            {/* Progreso */}
             <div>
-              <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Progreso de pago</span>
-                <span>{porcentaje.toFixed(0)}%</span>
+              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+                <span>Progreso de pago</span><span>{porcentaje.toFixed(0)}%</span>
               </div>
-              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${porcentaje}%` }} />
               </div>
             </div>
-
-            {/* Historial pagos */}
-            {deudor.pagos && deudor.pagos.length > 0 && (
+            {deudor.numero_cuotas && deudor.numero_cuotas > 1 && (
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Historial de pagos</p>
-                <div className="space-y-2">
-                  {deudor.pagos.map(p => (
-                    <div key={p.id} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
-                      <div>
-                        <span className="font-medium text-slate-800">{fmt(p.monto)}</span>
-                        <span className="text-slate-400 ml-2">— {p.metodo_pago}</span>
-                        {p.referencia && <span className="text-slate-400 ml-1">#{p.referencia}</span>}
-                      </div>
-                      <span className="text-xs text-slate-400">{new Date(p.fecha_pago).toLocaleDateString('es-GT')}</span>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Calendar size={12} /> Plan de pagos · {deudor.frecuencia_pago?.toLowerCase()}
+                </p>
+                <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden max-h-40 overflow-y-auto">
+                  <div className="flex bg-slate-50 dark:bg-[#060B14] px-3 py-1.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-b border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                    <span className="w-8">N°</span><span className="flex-1">Fecha</span><span>Monto</span>
+                  </div>
+                  {(cuotasPlan || []).map(c => (
+                    <div key={c.numero} className="flex items-center px-3 py-1.5 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                      <span className="w-8 text-slate-400 text-xs">#{c.numero}</span>
+                      <span className="flex-1 text-slate-600 dark:text-slate-300 text-xs">{c.fecha.toLocaleDateString('es-GT')}</span>
+                      <span className="text-xs font-semibold text-[#48B9E6]">{fmt(c.monto)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
+            {itemsDetalle && itemsDetalle.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1"><ShoppingCart size={12} /> Productos incluidos</p>
+                <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden">
+                  {itemsDetalle.map((i, idx) => (
+                    <div key={idx} className="flex items-center justify-between px-3 py-2 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                      <span className="text-slate-700 dark:text-slate-300">{i.nombre} <span className="text-slate-400 text-xs">×{i.cantidad}</span></span>
+                      <span className="font-semibold text-[#48B9E6]">{fmt(i.subtotal)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {pagosReales.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Historial de pagos</p>
+                <div className="space-y-2">
+                  {pagosReales.map(p => (
+                    <div key={p.id} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-[#0A1220] rounded-xl px-3 py-2">
+                      <div>
+                        <span className="font-medium text-slate-800 dark:text-[#F8FAFC]">{fmt(p.monto)}</span>
+                        <span className="text-slate-400 dark:text-slate-500 ml-2">— {p.metodo_pago}</span>
+                        {p.referencia && <span className="text-slate-400 dark:text-slate-500 ml-1">#{p.referencia}</span>}
+                      </div>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        {p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-GT') : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {deudor.notas && (
-              <div className="bg-amber-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Notas</p>
-                <p className="text-sm text-amber-800 whitespace-pre-line">{deudor.notas}</p>
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">Notas</p>
+                <p className="text-sm text-amber-800 dark:text-amber-300 whitespace-pre-line">{deudor.notas}</p>
               </div>
             )}
           </div>
         )}
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          <button onClick={onClose} className="w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]">Cerrar</button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Página Principal ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PÁGINA PRINCIPAL
+// ─────────────────────────────────────────────────────────────────────────────
 export default function DeudoresPage() {
   const [deudores, setDeudores] = useState<Deudor[]>([]);
   const [resumen, setResumen] = useState<DeudoresResumen | null>(null);
@@ -309,7 +705,7 @@ export default function DeudoresPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
-
+  const [filtroTipo, setFiltroTipo] = useState('');
   const [showNuevo, setShowNuevo] = useState(false);
   const [pagoTarget, setPagoTarget] = useState<Deudor | null>(null);
   const [detalleTarget, setDetalleTarget] = useState<Deudor | null>(null);
@@ -318,202 +714,232 @@ export default function DeudoresPage() {
     setLoading(true); setError('');
     try {
       const [data, stats] = await Promise.all([
-        deudoresService.getAll({ estado: filtroEstado || undefined, search: search || undefined }),
+        deudoresService.getAll({ estado: filtroEstado || undefined, search: search || undefined, tipo_origen: filtroTipo || undefined }),
         deudoresService.getResumen(),
       ]);
-      setDeudores(data);
-      setResumen(stats);
+      setDeudores(data); setResumen(stats);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Error al cargar datos');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [filtroEstado]);
+  useEffect(() => { load(); }, [filtroEstado, filtroTipo]);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); load(); };
 
   const handleAnular = async (d: Deudor) => {
     const motivo = window.prompt(`Motivo para anular el crédito de ${d.cliente_nombre}:`);
     if (!motivo) return;
-    try {
-      await deudoresService.anular(d.id, motivo);
-      load();
-    } catch (e: any) {
-      alert(e?.response?.data?.error || 'Error al anular');
-    }
+    try { await deudoresService.anular(d.id, motivo); load(); }
+    catch (e: any) { alert(e?.response?.data?.error || 'Error al anular'); }
   };
 
-  const vencido = (d: Deudor) =>
-    d.fecha_vencimiento && d.estado !== 'PAGADO' && d.estado !== 'ANULADO' &&
-    new Date(d.fecha_vencimiento) < new Date();
+  const isVencido = (d: Deudor) =>
+    !!d.fecha_vencimiento && d.estado !== 'PAGADO' && d.estado !== 'ANULADO' && new Date(d.fecha_vencimiento) < new Date();
+
+  const selectCls = "appearance-none border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 pr-7 text-sm bg-white dark:bg-[#0A1220] text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#48B9E6]";
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Deudores / Crédito interno</h1>
-          <p className="text-slate-500 text-sm mt-1">Control de créditos y cuentas por cobrar</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#14324A] dark:text-[#F8FAFC]">Deudores / Crédito interno</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Control de créditos y cuentas por cobrar</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={15} />Actualizar
+          <button onClick={load} className="flex items-center gap-1.5 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]">
+            <RefreshCw size={15} /> Actualizar
           </button>
-          <button
-            onClick={() => setShowNuevo(true)}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-sm font-semibold"
-          >
-            <Plus size={16} />Nuevo crédito
+          <button onClick={() => setShowNuevo(true)} className="flex items-center gap-1.5 bg-gradient-to-r from-[#48B9E6] to-[#2196c4] hover:from-[#3aace0] hover:to-[#1a84b0] text-white rounded-xl px-4 py-2 text-sm font-semibold shadow-sm">
+            <Plus size={16} /> Nuevo crédito
           </button>
         </div>
       </div>
 
-      {/* Resumen cards */}
       {resumen && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total pendiente</p>
-            <p className="text-2xl font-bold text-red-600 mt-1">{fmt(resumen.total_pendiente)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{resumen.pendientes + resumen.parciales} créditos activos</p>
+          <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-200 dark:border-[rgba(72,185,230,0.16)] shadow-sm p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total pendiente</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{fmt(resumen.total_pendiente)}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{resumen.pendientes + resumen.parciales} activos</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total cobrado</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{fmt(resumen.total_cobrado)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{resumen.pagados} créditos pagados</p>
+          <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-200 dark:border-[rgba(72,185,230,0.16)] shadow-sm p-4">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total cobrado</p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{fmt(resumen.total_cobrado)}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{resumen.pagados} pagados</p>
           </div>
-          <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">Pendientes</p>
-            <p className="text-2xl font-bold text-amber-700 mt-1">{resumen.pendientes}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Sin abonos</p>
+          <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-amber-200 dark:border-amber-800/30 shadow-sm p-4">
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">Pendientes</p>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{resumen.pendientes}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Sin abonos</p>
           </div>
-          <div className="bg-white rounded-2xl border border-blue-200 shadow-sm p-4">
-            <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Parciales</p>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{resumen.parciales}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Con abonos</p>
+          <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-blue-200 dark:border-blue-800/30 shadow-sm p-4">
+            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Parciales</p>
+            <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">{resumen.parciales}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Con abonos</p>
           </div>
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
-          <div className="relative flex-1">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-200 dark:border-[rgba(72,185,230,0.16)] shadow-sm p-4 flex flex-col sm:flex-row gap-3 flex-wrap">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              placeholder="Buscar cliente, número..."
-              value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#48B9E6]"
+              placeholder="Buscar cliente, número..." value={search} onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button type="submit" className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-blue-700">Buscar</button>
+          <button type="submit" className="bg-[#48B9E6] hover:bg-[#3aace0] text-white rounded-xl px-4 py-2 text-sm font-medium shrink-0">Buscar</button>
         </form>
-        <div className="relative">
-          <select
-            className="appearance-none border border-slate-200 rounded-xl px-4 py-2 pr-8 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 text-slate-700"
-            value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-          >
-            <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="PARCIAL">Parciales</option>
-            <option value="PAGADO">Pagados</option>
-            <option value="ANULADO">Anulados</option>
-          </select>
-          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative">
+            <select className={selectCls} value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
+              <option value="">Todos los estados</option>
+              <option value="PENDIENTE">Pendientes</option>
+              <option value="PARCIAL">Parciales</option>
+              <option value="PAGADO">Pagados</option>
+              <option value="ANULADO">Anulados</option>
+            </select>
+            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select className={selectCls} value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
+              <option value="">Todos los tipos</option>
+              <option value="VENTA">Venta</option>
+              <option value="REPARACION">Reparación</option>
+              <option value="MANUAL">Manual</option>
+            </select>
+            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-200 dark:border-[rgba(72,185,230,0.16)] shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-10 text-center text-slate-400 animate-pulse">Cargando...</div>
+          <div className="p-10 text-center text-slate-400 dark:text-slate-500 animate-pulse">Cargando...</div>
         ) : error ? (
-          <div className="p-10 text-center flex flex-col items-center gap-2 text-slate-500">
+          <div className="p-10 text-center flex flex-col items-center gap-2 text-slate-500 dark:text-slate-400">
             <AlertCircle size={36} className="text-red-400" />
             <p>{error}</p>
-            <button onClick={load} className="text-blue-600 underline text-sm">Reintentar</button>
+            <button onClick={load} className="text-[#48B9E6] underline text-sm">Reintentar</button>
           </div>
         ) : deudores.length === 0 ? (
-          <div className="p-12 text-center text-slate-400">
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500">
             <TrendingDown size={40} className="mx-auto mb-3 opacity-30" />
             <p className="font-medium">No hay créditos registrados</p>
             <p className="text-sm mt-1">Crea el primero con el botón "Nuevo crédito"</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm hidden md:table">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">N° Crédito</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cliente</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Pagado</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Pendiente</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Vence</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Acciones</th>
+                <tr className="border-b border-slate-100 dark:border-[rgba(72,185,230,0.1)] bg-slate-50 dark:bg-[#0A1220]">
+                  {['N° Crédito','Cliente','Tipo','Total','Pendiente','Cuotas','Estado','Vence','Acciones'].map(h => (
+                    <th key={h} className={`px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide ${h === 'Cliente' || h === 'N° Crédito' ? 'text-left' : 'text-center'}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {deudores.map(d => (
-                  <tr key={d.id} className={`hover:bg-slate-50 ${vencido(d) ? 'bg-red-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{d.numero_credito}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800">{d.cliente_nombre}</p>
-                      {d.cliente_telefono && <p className="text-xs text-slate-400">{d.cliente_telefono}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-700">{fmt(d.monto_total)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-600 font-medium">{fmt(d.monto_pagado)}</td>
-                    <td className="px-4 py-3 text-right text-red-600 font-semibold">{fmt(d.saldo_pendiente)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ESTADO_BADGE[d.estado] || 'bg-slate-100 text-slate-500'}`}>
-                        {d.estado}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-xs text-slate-500">
-                      {d.fecha_vencimiento ? (
-                        <span className={vencido(d) ? 'text-red-600 font-semibold' : ''}>
-                          {new Date(d.fecha_vencimiento).toLocaleDateString('es-GT')}
-                          {vencido(d) && ' ⚠️'}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          title="Ver detalle"
-                          onClick={() => setDetalleTarget(d)}
-                          className="p-1.5 rounded hover:bg-indigo-50 text-indigo-600"
-                        ><Eye size={14} /></button>
-                        {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && (
-                          <button
-                            title="Registrar pago"
-                            onClick={() => setPagoTarget(d)}
-                            className="p-1.5 rounded hover:bg-emerald-50 text-emerald-600"
-                          ><CreditCard size={14} /></button>
-                        )}
-                        {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
-                          <button
-                            title="Anular"
-                            onClick={() => handleAnular(d)}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-500"
-                          ><Ban size={14} /></button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-slate-100 dark:divide-[rgba(72,185,230,0.08)]">
+                {deudores.map(d => {
+                  const vencido = isVencido(d);
+                  const estadoKey = vencido ? 'VENCIDO' : d.estado;
+                  return (
+                    <tr key={d.id} className={`hover:bg-slate-50 dark:hover:bg-[#0A1220]/60 transition-colors ${vencido ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{d.numero_credito}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800 dark:text-[#F8FAFC]">{d.cliente_nombre}</p>
+                        {d.cliente_telefono && <p className="text-xs text-slate-400 dark:text-slate-500">{d.cliente_telefono}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {d.tipo_origen ? <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${TIPO_BADGE[d.tipo_origen]}`}>{TIPO_LABEL[d.tipo_origen]}</span> : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-700 dark:text-slate-200">{fmt(d.monto_total)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">{fmt(d.saldo_pendiente)}</td>
+                      <td className="px-4 py-3 text-center text-xs">
+                        {d.numero_cuotas && d.numero_cuotas > 1
+                          ? <span className="font-semibold text-[#48B9E6]">{d.numero_cuotas}×</span>
+                          : <span className="text-slate-300 dark:text-slate-600">1×</span>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ESTADO_BADGE[estadoKey] || ESTADO_BADGE.PENDIENTE}`}>{estadoKey}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
+                        {d.fecha_vencimiento ? <span className={vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{new Date(d.fecha_vencimiento).toLocaleDateString('es-GT')}{vencido && ' ⚠'}</span> : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button title="Ver detalle" onClick={() => setDetalleTarget(d)} className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400"><Eye size={14} /></button>
+                          {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && (
+                            <button title="Registrar pago" onClick={() => setPagoTarget(d)} className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"><CreditCard size={14} /></button>
+                          )}
+                          {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
+                            <button title="Anular" onClick={() => handleAnular(d)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-[rgba(72,185,230,0.08)]">
+              {deudores.map(d => {
+                const vencido = isVencido(d);
+                const estadoKey = vencido ? 'VENCIDO' : d.estado;
+                return (
+                  <div key={d.id} className={`p-4 ${vencido ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{d.cliente_nombre}</p>
+                        <p className="font-mono text-xs text-slate-400 dark:text-slate-500">{d.numero_credito}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {d.tipo_origen && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${TIPO_BADGE[d.tipo_origen]}`}>{TIPO_LABEL[d.tipo_origen]}</span>}
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${ESTADO_BADGE[estadoKey] || ESTADO_BADGE.PENDIENTE}`}>{estadoKey}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                      <div className="bg-slate-50 dark:bg-[#0A1220] rounded-lg p-1.5">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500">Total</p>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{fmt(d.monto_total)}</p>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-1.5">
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Pagado</p>
+                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{fmt(d.monto_pagado)}</p>
+                      </div>
+                      <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-1.5">
+                        <p className="text-[10px] text-red-500 dark:text-red-400">Pendiente</p>
+                        <p className="text-xs font-semibold text-red-600 dark:text-red-400">{fmt(d.saldo_pendiente)}</p>
+                      </div>
+                    </div>
+                    {d.fecha_vencimiento && (
+                      <p className={`text-xs mb-2 ${vencido ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>
+                        <Calendar size={11} className="inline mr-1" />Vence: {new Date(d.fecha_vencimiento).toLocaleDateString('es-GT')}
+                        {d.numero_cuotas && d.numero_cuotas > 1 && ` · ${d.numero_cuotas} cuotas`}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button onClick={() => setDetalleTarget(d)} className="flex-1 flex items-center justify-center gap-1 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]"><Eye size={12} /> Detalle</button>
+                      {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && (
+                        <button onClick={() => setPagoTarget(d)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl py-1.5 text-xs font-medium text-white"><CreditCard size={12} /> Pagar</button>
+                      )}
+                      {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
+                        <button onClick={() => handleAnular(d)} className="p-1.5 rounded-xl border border-red-200 dark:border-red-800/30 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Modals */}
-      {showNuevo   && <ModalNuevo   onClose={() => setShowNuevo(false)}   onCreated={load} />}
-      {pagoTarget  && <ModalPago    deudor={pagoTarget}  onClose={() => setPagoTarget(null)}  onPaid={load} />}
-      {detalleTarget && <ModalDetalle deudor={detalleTarget} onClose={() => setDetalleTarget(null)} onAction={load} />}
+      {showNuevo && <WizardNuevoCredito onClose={() => setShowNuevo(false)} onCreated={load} />}
+      {pagoTarget && <ModalPago deudor={pagoTarget} onClose={() => setPagoTarget(null)} onPaid={load} />}
+      {detalleTarget && <ModalDetalle initial={detalleTarget} onClose={() => setDetalleTarget(null)} onAction={load} />}
     </div>
   );
 }

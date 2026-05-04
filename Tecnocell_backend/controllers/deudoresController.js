@@ -3,7 +3,7 @@ const db = require('../config/database');
 // ── Listar todos los créditos ──────────────────────────────────────────────
 exports.getDeudores = async (req, res) => {
   try {
-    const { estado, cliente_id, search } = req.query;
+    const { estado, cliente_id, search, tipo_origen } = req.query;
 
     let query = `
       SELECT 
@@ -23,6 +23,10 @@ exports.getDeudores = async (req, res) => {
     if (cliente_id) {
       query += ' AND d.cliente_id = ?';
       params.push(cliente_id);
+    }
+    if (tipo_origen) {
+      query += ' AND d.tipo_origen = ?';
+      params.push(tipo_origen);
     }
     if (search) {
       query += ' AND (d.cliente_nombre LIKE ? OR d.descripcion LIKE ? OR d.numero_credito LIKE ?)';
@@ -53,9 +57,10 @@ exports.getDeudorById = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ success: false, message: 'Crédito no encontrado' });
 
     const deudor = rows[0];
-    // Pagos del crédito
+    // Pagos del crédito (incluye cuotas pre-programadas y pagos reales)
     const [pagos] = await db.query(
-      'SELECT * FROM deudores_pagos WHERE deudor_id = ? ORDER BY fecha_pago DESC',
+      `SELECT * FROM deudores_pagos WHERE deudor_id = ?
+       ORDER BY numero_cuota ASC, fecha_pago ASC`,
       [id]
     );
     deudor.pagos = pagos;
@@ -68,36 +73,121 @@ exports.getDeudorById = async (req, res) => {
 
 // ── Crear crédito ──────────────────────────────────────────────────────────
 exports.createDeudor = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
+
     const {
       cliente_id, cliente_nombre, cliente_telefono,
       descripcion, monto_total, fecha_vencimiento,
       referencia_venta_id, referencia_reparacion_id,
+      tipo_origen = 'MANUAL',
+      numero_cuotas = 1,
+      frecuencia_pago = 'MENSUAL',
+      fecha_primer_pago,
+      items_detalle,
       notas, created_by
     } = req.body;
 
-    if (!cliente_nombre) return res.status(400).json({ error: 'El nombre del cliente es requerido' });
-    if (!monto_total || monto_total <= 0) return res.status(400).json({ error: 'El monto debe ser mayor a 0' });
+    if (!cliente_nombre) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El nombre del cliente es requerido' });
+    }
+    if (!monto_total || Number(monto_total) <= 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El monto debe ser mayor a 0' });
+    }
 
-    const [result] = await db.query(
+    const cuotas   = Math.max(1, parseInt(numero_cuotas) || 1);
+    const total    = parseFloat(monto_total);
+    const cuotaBase = parseFloat((total / cuotas).toFixed(2));
+    const cuotaUlt  = parseFloat((total - cuotaBase * (cuotas - 1)).toFixed(2));
+
+    const [result] = await connection.query(
       `INSERT INTO deudores
          (cliente_id, cliente_nombre, cliente_telefono, descripcion,
           monto_total, monto_pagado, saldo_pendiente,
           fecha_vencimiento, referencia_venta_id, referencia_reparacion_id,
-          notas, estado, created_by)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 'PENDIENTE', ?)`,
+          tipo_origen, numero_cuotas, monto_cuota, frecuencia_pago, fecha_primer_pago,
+          items_detalle, notas, estado, created_by)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', ?)`,
       [
         cliente_id || null, cliente_nombre, cliente_telefono || null,
-        descripcion || null, monto_total, monto_total,
-        fecha_vencimiento || null, referencia_venta_id || null,
-        referencia_reparacion_id || null, notas || null, created_by || null
+        descripcion || null, total, total,
+        fecha_vencimiento || null,
+        referencia_venta_id || null,
+        referencia_reparacion_id || null,
+        tipo_origen,
+        cuotas, cuotaBase, frecuencia_pago || 'MENSUAL',
+        fecha_primer_pago || null,
+        items_detalle ? JSON.stringify(items_detalle) : null,
+        notas || null, created_by || null
       ]
     );
 
-    const [rows] = await db.query('SELECT * FROM deudores WHERE id = ?', [result.insertId]);
+    const deudorId = result.insertId;
+
+    // Crear plan de cuotas pre-programadas
+    if (cuotas > 1 && fecha_primer_pago) {
+      const cuotasRows = [];
+      let fecha = new Date(fecha_primer_pago + 'T12:00:00');
+      for (let i = 1; i <= cuotas; i++) {
+        const montoCuota = i === cuotas ? cuotaUlt : cuotaBase;
+        cuotasRows.push([
+          deudorId,
+          i,
+          0,                            // monto pagado = 0
+          montoCuota,                   // monto_programado
+          fecha.toISOString().split('T')[0], // fecha_vencimiento
+          'PENDIENTE',
+          'SISTEMA',
+        ]);
+        if (frecuencia_pago === 'SEMANAL')    fecha.setDate(fecha.getDate() + 7);
+        else if (frecuencia_pago === 'QUINCENAL') fecha.setDate(fecha.getDate() + 15);
+        else fecha.setMonth(fecha.getMonth() + 1);
+      }
+      for (const row of cuotasRows) {
+        await connection.query(
+          `INSERT INTO deudores_pagos
+             (deudor_id, numero_cuota, monto, monto_programado, fecha_vencimiento, estado_cuota, realizado_por)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          row
+        );
+      }
+    }
+
+    await connection.commit();
+    const [rows] = await db.query('SELECT * FROM deudores WHERE id = ?', [deudorId]);
     res.status(201).json({ success: true, data: rows[0] });
   } catch (error) {
+    await connection.rollback();
     console.error('Error al crear crédito:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// ── Buscar reparaciones para vincular ─────────────────────────────────────
+exports.searchReparaciones = async (req, res) => {
+  try {
+    const { search = '', limit = 15 } = req.query;
+    const like = `%${search}%`;
+    const [rows] = await db.query(
+      `SELECT id, sticker_serie_interna AS numero_reparacion,
+              cliente_nombre, cliente_telefono,
+              marca, modelo, total, saldo_anticipo
+       FROM reparaciones
+       WHERE (cliente_nombre LIKE ? OR marca LIKE ? OR modelo LIKE ?
+              OR sticker_serie_interna LIKE ?)
+         AND estado NOT IN ('CANCELADA','ENTREGADA')
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      [like, like, like, like, parseInt(limit)]
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Error búsqueda reparaciones:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

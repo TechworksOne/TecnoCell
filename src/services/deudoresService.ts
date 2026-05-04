@@ -6,6 +6,29 @@ const getConfig = () => {
   return { headers: { Authorization: `Bearer ${token}` } };
 };
 
+export type TipoOrigen = 'VENTA' | 'REPARACION' | 'MANUAL';
+export type FrecuenciaPago = 'SEMANAL' | 'QUINCENAL' | 'MENSUAL';
+
+export interface ItemCarritoVenta {
+  id: number;
+  nombre: string;
+  sku?: string;
+  precio_unitario: number;
+  cantidad: number;
+  subtotal: number;
+}
+
+export interface ReparacionBusqueda {
+  id: number;
+  numero_reparacion?: string;
+  cliente_nombre: string;
+  cliente_telefono?: string;
+  marca: string;
+  modelo: string;
+  total: number;
+  saldo_anticipo?: number;
+}
+
 export interface Deudor {
   id: number;
   numero_credito: string;
@@ -18,6 +41,12 @@ export interface Deudor {
   saldo_pendiente: number;
   fecha_vencimiento?: string;
   estado: 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'ANULADO';
+  tipo_origen?: TipoOrigen;
+  numero_cuotas?: number;
+  monto_cuota?: number;
+  frecuencia_pago?: FrecuenciaPago;
+  fecha_primer_pago?: string;
+  items_detalle?: string;
   referencia_venta_id?: number;
   referencia_reparacion_id?: number;
   notas?: string;
@@ -32,12 +61,16 @@ export interface Deudor {
 export interface DeudorPago {
   id: number;
   deudor_id: number;
+  numero_cuota?: number;
   monto: number;
+  monto_programado?: number;
   metodo_pago: string;
   referencia?: string;
   notas?: string;
   realizado_por?: string;
-  fecha_pago: string;
+  fecha_pago?: string;
+  fecha_vencimiento?: string;
+  estado_cuota?: 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'VENCIDO';
 }
 
 export interface DeudoresResumen {
@@ -51,10 +84,11 @@ export interface DeudoresResumen {
 }
 
 export const deudoresService = {
-  getAll: async (filters?: { estado?: string; search?: string }): Promise<Deudor[]> => {
+  getAll: async (filters?: { estado?: string; search?: string; tipo_origen?: string }): Promise<Deudor[]> => {
     const params = new URLSearchParams();
     if (filters?.estado) params.append('estado', filters.estado);
     if (filters?.search) params.append('search', filters.search);
+    if (filters?.tipo_origen) params.append('tipo_origen', filters.tipo_origen);
     const { data } = await axios.get(`${API_URL}/deudores?${params}`, getConfig());
     return data.data;
   },
@@ -71,6 +105,11 @@ export const deudoresService = {
     descripcion?: string;
     monto_total: number;
     fecha_vencimiento?: string;
+    tipo_origen?: TipoOrigen;
+    numero_cuotas?: number;
+    frecuencia_pago?: FrecuenciaPago;
+    fecha_primer_pago?: string;
+    items_detalle?: ItemCarritoVenta[] | null;
     referencia_venta_id?: number;
     referencia_reparacion_id?: number;
     notas?: string;
@@ -98,5 +137,23 @@ export const deudoresService = {
   getResumen: async (): Promise<DeudoresResumen> => {
     const { data } = await axios.get(`${API_URL}/deudores/resumen`, getConfig());
     return data.data;
+  },
+
+  searchProductos: async (q: string) => {
+    const { data } = await axios.get(
+      `${API_URL}/products?search=${encodeURIComponent(q)}&activo=true&limit=8`,
+      getConfig()
+    );
+    return (data.data || []) as Array<{
+      id: number; nombre: string; sku?: string; precio_venta: number; stock: number;
+    }>;
+  },
+
+  searchReparaciones: async (q: string): Promise<ReparacionBusqueda[]> => {
+    const { data } = await axios.get(
+      `${API_URL}/deudores/buscar/reparaciones?search=${encodeURIComponent(q)}&limit=15`,
+      getConfig()
+    );
+    return data.data || [];
   },
 };
