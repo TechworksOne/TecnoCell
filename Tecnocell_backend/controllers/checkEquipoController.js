@@ -171,8 +171,7 @@ exports.createCheckEquipo = async (req, res) => {
         );
       } else if (metodoAnticipo === 'tarjeta_bac') {
         const [cuentaBac] = await connection.query(
-          'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
-          ['BAC']
+          "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%BAC%' OR pos_asociado LIKE '%BAC%') AND activa = TRUE ORDER BY id LIMIT 1"
         );
         const cuentaId = cuentaBac.length > 0 ? cuentaBac[0].id : null;
         if (cuentaId) {
@@ -185,8 +184,7 @@ exports.createCheckEquipo = async (req, res) => {
         }
       } else if (metodoAnticipo === 'tarjeta_neonet') {
         const [cuentaIndustrial] = await connection.query(
-          'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
-          ['Banco Industrial']
+          "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%Industrial%' OR nombre LIKE '%Neonet%' OR pos_asociado LIKE '%NEONET%' OR pos_asociado LIKE '%Industrial%') AND activa = TRUE ORDER BY id LIMIT 1"
         );
         const cuentaId = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].id : null;
         if (cuentaId) {

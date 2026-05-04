@@ -355,8 +355,7 @@ exports.registrarMovimientoVenta = async (
       }
     } else if (metodoPago === 'TARJETA_BAC') {
       const [cuentaBac] = await dbConn.query(
-        'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
-        ['BAC']
+        "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%BAC%' OR pos_asociado LIKE '%BAC%') AND activa = TRUE ORDER BY id LIMIT 1"
       );
       let cuentaId = cuentaBac.length > 0 ? cuentaBac[0].id : null;
       if (!cuentaId) {
@@ -375,8 +374,7 @@ exports.registrarMovimientoVenta = async (
       }
     } else if (metodoPago === 'TARJETA_NEONET') {
       const [cuentaIndustrial] = await dbConn.query(
-        'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
-        ['Banco Industrial']
+        "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%Industrial%' OR nombre LIKE '%Neonet%' OR pos_asociado LIKE '%NEONET%' OR pos_asociado LIKE '%Industrial%') AND activa = TRUE ORDER BY id LIMIT 1"
       );
       let cuentaId = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].id : null;
       if (!cuentaId) {

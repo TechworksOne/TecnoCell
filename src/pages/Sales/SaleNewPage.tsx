@@ -510,6 +510,7 @@ export default function SaleNewPage() {
           subtotal: ventaService.quetzalesACentavos(subtotal),
           impuestos: ventaService.quetzalesACentavos(impuestos || 0),
           total: ventaService.quetzalesACentavos(totalConInteres), // Total con interés incluido
+          monto_pagado: ventaService.quetzalesACentavos(totalConInteres), // Venta pagada al momento
           metodo_pago: pagosArray.length === 1 ? pagosArray[0].metodo : 'MIXTO',
           pagos: pagosArray,
           interes_tarjeta: isCardMethod(metodo) ? interesMontoTarjeta : 0,
