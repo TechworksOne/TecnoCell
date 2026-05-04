@@ -85,20 +85,19 @@ export default function LoginPage() {
         {/* ── Logo + nombre ──────────────────────────────── */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            {/* Logo TECNOCELL — reemplaza la imagen en assets/tecnocell-logo.png */}
-            <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center bg-white"
-              style={{ boxShadow: "0 4px 20px rgba(72,185,230,0.28)" }}>
+            {/* Logo TECNOCELL */}
+            <div className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center bg-white p-1"
+              style={{ boxShadow: "0 6px 28px rgba(72,185,230,0.32)" }}>
               <img
                 src={tecnocellLogo}
                 alt="TECNOCELL"
                 className="w-full h-full object-contain"
                 onError={(e) => {
-                  // Fallback al placeholder "TC" si la imagen no carga
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                   (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
                 }}
               />
-              <span className="hidden text-white font-black text-sm tracking-tight">TC</span>
+              <span className="hidden font-black text-lg tracking-tight" style={{ color: "#48B9E6" }}>TC</span>
             </div>
             <span className="font-bold text-sm tracking-widest uppercase" style={{ color: "#A8B3C7" }}>
               TECNOCELL
@@ -204,8 +203,8 @@ export default function LoginPage() {
 
           {/* Cabecera de marca — solo en móvil */}
           <div className="lg:hidden text-center space-y-3">
-            <div className="w-14 h-14 mx-auto rounded-2xl overflow-hidden flex items-center justify-center bg-white"
-              style={{ boxShadow: "0 6px 24px rgba(72,185,230,0.32)" }}>
+            <div className="w-28 h-28 mx-auto rounded-2xl overflow-hidden flex items-center justify-center bg-white p-1"
+              style={{ boxShadow: "0 6px 28px rgba(72,185,230,0.32)" }}>
               <img
                 src={tecnocellLogo}
                 alt="TECNOCELL"
