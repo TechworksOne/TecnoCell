@@ -739,21 +739,21 @@ export default function ProductsPage() {
         onClose={() => setShowProductModal(false)}
         title={editingProduct ? "Editar Producto" : "Nuevo Producto"}
       >
-        <div className="flex flex-col lg:flex-row gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: image */}
-          <div className="flex flex-col items-center gap-3 lg:w-44 shrink-0">
-            <div className="w-36 h-36 rounded-2xl border-2 border-dashed border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center">
+          <div className="lg:col-span-3 flex flex-col items-center gap-3">
+            <div className="w-full max-w-[160px] mx-auto aspect-square rounded-3xl border-2 border-dashed border-[#D6EEF8] dark:border-[rgba(72,185,230,0.25)] overflow-hidden bg-[#F8FDFF] dark:bg-[#060B14] flex items-center justify-center hover:border-[#48B9E6] transition-colors cursor-pointer">
               {productForm.image ? (
                 <img
                   src={productForm.image}
                   alt="Vista previa"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover rounded-3xl"
                   onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }}
                 />
               ) : (
                 <div className="text-center px-2">
-                  <Package size={28} className="mx-auto text-slate-300 mb-1" />
-                  <p className="text-[10px] text-slate-400">Sin imagen</p>
+                  <Package size={28} className="mx-auto text-[#D6EEF8] dark:text-[rgba(72,185,230,0.30)] mb-1" />
+                  <p className="text-[10px] text-[#7F8A99] dark:text-[#5E7184]">Sin imagen</p>
                 </div>
               )}
             </div>
@@ -765,7 +765,7 @@ export default function ProductsPage() {
                 reader.readAsDataURL(file);
               }
             }} className="hidden" id="imageUpload" />
-            <label htmlFor="imageUpload" className="cursor-pointer text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+            <label htmlFor="imageUpload" className="cursor-pointer text-xs font-semibold text-[#48B9E6] bg-[#F0FAFF] dark:bg-[rgba(72,185,230,0.10)] hover:bg-[#E0F5FF] dark:hover:bg-[rgba(72,185,230,0.18)] border border-[#C4E8F7] dark:border-[rgba(72,185,230,0.25)] px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5">
               <Sparkles size={12} />
               Subir imagen
             </label>
@@ -774,36 +774,36 @@ export default function ProductsPage() {
                 type="checkbox"
                 checked={productForm.aplica_serie}
                 onChange={(e) => setProductForm({ ...productForm, aplica_serie: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded"
+                className="w-4 h-4 accent-[#48B9E6] rounded focus:ring-[#48B9E6]"
               />
-              <span className="text-xs text-slate-600 leading-tight">Aplica Serie/IMEI</span>
+              <span className="text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] leading-tight">Aplica Serie/IMEI</span>
             </label>
           </div>
 
           {/* Right: form */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="lg:col-span-9 space-y-4 min-w-0">
             {/* SKU notice */}
-            <div className="bg-cyan-50 border border-cyan-200 rounded-xl px-3 py-2 flex items-center gap-2">
-              <Sparkles size={13} className="text-cyan-500 shrink-0" />
-              <p className="text-[11px] text-cyan-700"><span className="font-semibold">SKU automático:</span> se generará como TEC_PROD###</p>
+            <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-2xl px-4 py-3 flex items-center gap-2">
+              <Sparkles size={13} className="text-cyan-500 dark:text-cyan-400 shrink-0" />
+              <p className="text-[11px] text-cyan-800 dark:text-cyan-200"><span className="font-semibold">SKU automático:</span> se generará como TEC_PROD###</p>
             </div>
 
             {/* Nombre + Descripción */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Nombre <span className="text-red-400">*</span></label>
+              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Nombre <span className="text-red-400">*</span></label>
               <Input
                 value={productForm.name}
                 onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                 placeholder="Nombre descriptivo del producto"
-                className="text-sm rounded-xl border-slate-200"
+                className="text-sm rounded-2xl w-full focus:ring-2 focus:ring-[#48B9E6]/20"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Descripción</label>
+              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Descripción</label>
               <textarea
                 value={productForm.description}
                 onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="w-full px-4 py-3 text-sm border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 resize-none transition-colors"
                 rows={2}
                 placeholder="Descripción del producto..."
               />
@@ -812,94 +812,93 @@ export default function ProductsPage() {
             {/* Categorización */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Categorización</label>
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Categorización</label>
                 <button
                   type="button"
                   onClick={() => setShowAddCategoryModal(true)}
-                  className="text-[11px] text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  className="text-[11px] font-medium text-[#48B9E6] hover:text-[#2EA7D8] flex items-center gap-1"
                 >
                   <Plus size={11} /> Gestionar
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <Select
-                    value={productForm.category}
-                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value, subcategory: "" })}
-                    className="text-sm rounded-xl border-slate-200 w-full"
-                  >
-                    <option value="">Categoría *</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="relative">
-                  <Select
-                    value={productForm.subcategory}
-                    onChange={(e) => setProductForm({ ...productForm, subcategory: e.target.value })}
-                    className="text-sm rounded-xl border-slate-200 w-full"
-                    disabled={!productForm.category}
-                  >
-                    <option value="">Subcategoría</option>
-                    {productForm.category && getSubcategories(productForm.category).map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </Select>
-                </div>
+                <Select
+                  value={productForm.category}
+                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value, subcategory: "" })}
+                  className="text-sm rounded-2xl w-full"
+                >
+                  <option value="">Categoría *</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </Select>
+                <Select
+                  value={productForm.subcategory}
+                  onChange={(e) => setProductForm({ ...productForm, subcategory: e.target.value })}
+                  className="text-sm rounded-2xl w-full"
+                  disabled={!productForm.category}
+                >
+                  <option value="">Subcategoría</option>
+                  {productForm.category && getSubcategories(productForm.category).map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </Select>
               </div>
             </div>
 
             {/* Precios + Stock */}
-            <div className="grid grid-cols-3 gap-3">
-              {showCost && (
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Costo <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Q</span>
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Precios y stock</label>
+              <div className="grid grid-cols-3 gap-3">
+                {showCost && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-[#7F8A99] dark:text-[#B8C2D1] uppercase tracking-widest">Costo <span className="text-red-400">*</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99] dark:text-[#5E7184]">Q</span>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={productForm.precioProducto}
+                      onChange={(e) => setProductForm({ ...productForm, precioProducto: Number(e.target.value) })}
+                      className="pl-7 text-sm rounded-2xl focus:ring-2 focus:ring-[#48B9E6]/20"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-[#7F8A99] dark:text-[#B8C2D1] uppercase tracking-widest">Venta <span className="text-red-400">*</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99] dark:text-[#5E7184]">Q</span>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={productForm.precioPublico}
+                      onChange={(e) => {
+                        const precio = Number(e.target.value);
+                        setProductForm({ ...productForm, precioPublico: precio, price: precio });
+                      }}
+                      className="pl-7 text-sm rounded-2xl focus:ring-2 focus:ring-[#48B9E6]/20"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-[#7F8A99] dark:text-[#B8C2D1] uppercase tracking-widest">Stock mín.</label>
                   <Input
-                    type="number" step="0.01" min="0"
-                    value={productForm.precioProducto}
-                    onChange={(e) => setProductForm({ ...productForm, precioProducto: Number(e.target.value) })}
-                    className="pl-6 text-sm rounded-xl border-slate-200"
-                    placeholder="0.00"
+                    type="number" min="0"
+                    value={productForm.stockMin}
+                    onChange={(e) => setProductForm({ ...productForm, stockMin: Number(e.target.value) })}
+                    className="text-sm rounded-2xl focus:ring-2 focus:ring-[#48B9E6]/20"
+                    placeholder="0"
                   />
                 </div>
-              </div>
-              )}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Venta <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Q</span>
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={productForm.precioPublico}
-                    onChange={(e) => {
-                      const precio = Number(e.target.value);
-                      setProductForm({ ...productForm, precioPublico: precio, price: precio });
-                    }}
-                    className="pl-6 text-sm rounded-xl border-slate-200"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Stock mín.</label>
-                <Input
-                  type="number" min="0"
-                  value={productForm.stockMin}
-                  onChange={(e) => setProductForm({ ...productForm, stockMin: Number(e.target.value) })}
-                  className="text-sm rounded-xl border-slate-200"
-                  placeholder="0"
-                />
               </div>
             </div>
 
             {/* Margin preview */}
             {showCost && productForm.precioProducto > 0 && productForm.precioPublico > 0 && (
-              <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-violet-600">Margen de ganancia</span>
-                <span className="text-sm font-bold text-violet-700">
+              <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/40 rounded-2xl px-4 py-3 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-violet-600 dark:text-violet-300">Margen de ganancia</span>
+                <span className="text-sm font-bold text-violet-700 dark:text-violet-200">
                   Q{(productForm.precioPublico - productForm.precioProducto).toFixed(2)}
                   {' '}
                   <span className="font-normal text-[11px]">
@@ -910,18 +909,18 @@ export default function ProductsPage() {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.14)]">
               <Button
                 variant="ghost"
                 onClick={() => setShowProductModal(false)}
-                className="text-sm border border-slate-200 rounded-xl px-4 py-2"
+                className="text-sm rounded-xl px-4 py-2 bg-transparent border border-[#D6EEF8] dark:border-[rgba(248,250,252,0.18)] text-[#14324A] dark:text-[#F8FAFC] hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220]"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSaveProduct}
                 disabled={!productForm.name || !productForm.category}
-                className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-5 py-2 disabled:opacity-50"
+                className="text-sm bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:brightness-110 text-white font-semibold rounded-xl px-5 py-2 shadow-lg shadow-sky-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:brightness-100"
               >
                 {editingProduct ? "Actualizar" : "Crear Producto"}
               </Button>

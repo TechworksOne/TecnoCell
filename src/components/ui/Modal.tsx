@@ -51,14 +51,14 @@ export default function Modal({
   };
   
   return (
-    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 dark:bg-black/70 backdrop-blur-md backdrop-saturate-150 p-4">
       <div
-        className={`bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl dark:shadow-none border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto`}
-        style={{ boxShadow: "0 24px 80px rgba(20,50,74,0.18)" }}
+        className={`relative z-[110] bg-white dark:bg-[#0D1526] rounded-3xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] w-full ${sizeClasses[size]} max-h-[92vh] overflow-hidden flex flex-col`}
+        style={{ boxShadow: "0 24px 80px rgba(14,30,50,0.38), 0 0 0 1px rgba(72,185,230,0.06)" }}
       >
         {/* Header del modal */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] sticky top-0 bg-white dark:bg-[#0D1526] rounded-t-2xl z-10">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] shrink-0 bg-white dark:bg-[#0D1526] rounded-t-3xl">
             <h3 className="text-base font-bold text-[#14324A] dark:text-[#F8FAFC]">{title}</h3>
             {onClose && (
               <button
@@ -85,7 +85,7 @@ export default function Modal({
         )}
 
         {/* Contenido del modal */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1">
           {children}
         </div>
       </div>
