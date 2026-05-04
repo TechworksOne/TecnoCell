@@ -452,7 +452,8 @@ export default function SaleNewPage() {
           banco_id: p.metodo === 'TRANSFERENCIA' ? bancoSeleccionado : null,
         }));
       } else {
-        const montoPago = metodo === 'EFECTIVO' ? montoRecibido : (isCardMethod(metodo) ? totalConInteres : total);
+        // El banco recibe solo el monto base (sin el interés/recargo, que se lo queda el banco)
+        const montoPago = metodo === 'EFECTIVO' ? montoRecibido : total;
         pagosArray = [{
           metodo,
           monto: ventaService.quetzalesACentavos(montoPago),
