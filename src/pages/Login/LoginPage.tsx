@@ -1,6 +1,4 @@
 import {
-  BarChart2,
-  Building2,
   Eye,
   EyeOff,
   Lock,
@@ -13,18 +11,19 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import tecnocellLogo from "../../assets/tecnocell-logo.png";
 import { useAuth } from "../../store/useAuth";
 import { useBusiness } from "../../store/useBusiness";
 
-// ─── Feature list ─────────────────────────────────────────────────────────────
+// ─── Módulos principales de la tienda ────────────────────────────────────────
 const FEATURES = [
-  { icon: BarChart2, label: "Reportes",   sub: "Analítica en tiempo real",  color: "text-violet-300" },
-  { icon: Users,     label: "Clientes",   sub: "CRM integrado",             color: "text-blue-300"   },
-  { icon: ShoppingCart, label: "Ventas",  sub: "POS y facturación",         color: "text-cyan-300"   },
-  { icon: Package,   label: "Inventario", sub: "Control de stock",          color: "text-indigo-300" },
+  { icon: ShoppingCart, label: "Ventas",       sub: "Facturación y control de caja",       color: "text-cyan-400"    },
+  { icon: Wrench,       label: "Reparaciones", sub: "Seguimiento de equipos técnicos",     color: "text-blue-400"    },
+  { icon: Users,        label: "Clientes",     sub: "Historial de compras y servicios",    color: "text-teal-400"    },
+  { icon: Package,      label: "Inventario",   sub: "Stock de repuestos y accesorios",     color: "text-emerald-400" },
 ];
 
-// ─── Fake metric cards for the mock dashboard ────────────────────────────────
+// ─── Métricas del resumen diario ─────────────────────────────────────────────
 const MOCK_STATS = [
   { label: "Ventas hoy",   value: "Q 4,320", delta: "+12%", up: true  },
   { label: "Reparaciones", value: "18",       delta: "+3",   up: true  },
@@ -32,12 +31,12 @@ const MOCK_STATS = [
 ];
 
 export default function LoginPage() {
-  const [username, setUsername]       = useState("");
-  const [password, setPassword]       = useState("");
+  const [username, setUsername]         = useState("");
+  const [password, setPassword]         = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, error }   = useAuth();
-  const { businessInfo }              = useBusiness();
-  const navigate                      = useNavigate();
+  const { login, isLoading, error }     = useAuth();
+  const { businessInfo }                = useBusiness();
+  const navigate                        = useNavigate();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,82 +49,118 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-950 font-sans">
+    <div className="min-h-screen flex font-sans" style={{ backgroundColor: "#070B16" }}>
 
       {/* ═══════════════════════════════════════════════
-          LEFT — branding panel (hidden on mobile)
+          LEFT — panel de marca (oculto en móvil)
       ═══════════════════════════════════════════════ */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden flex-col justify-between p-10 xl:p-14">
 
-        {/* Multi-layer gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900" />
-        {/* Glowing orbs */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/2 -right-20 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 left-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
-        {/* Subtle grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]"
+        {/* Fondo con degradado oscuro tecnológico */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #070B16 0%, #08111F 50%, #0A1628 100%)" }} />
+
+        {/* Orbes de luz azul/cyan — sin morado */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(0,194,255,0.12)" }} />
+        <div className="absolute top-1/2 -right-20 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(0,109,255,0.10)" }} />
+        <div className="absolute -bottom-24 left-1/3 w-72 h-72 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(34,230,168,0.08)" }} />
+
+        {/* Grid tecnológico sutil */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)",
-            backgroundSize: "40px 40px",
+              "linear-gradient(rgba(0,194,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,0.8) 1px,transparent 1px)",
+            backgroundSize: "44px 44px",
           }}
         />
+        {/* Patrón radial central para profundidad */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0,109,255,0.07) 0%, transparent 70%)" }}
+        />
 
-        {/* ── Logo + brand ──────────────────────────────── */}
+        {/* ── Logo + nombre ──────────────────────────────── */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-              {businessInfo?.businessLogo ? (
-                <img src={businessInfo.businessLogo} alt="Logo" className="w-full h-full object-contain rounded-xl" />
-              ) : (
-                <Wrench size={20} className="text-white" />
-              )}
+            {/* Placeholder de logo — reemplaza con <img> cuando tengas el PNG/SVG final */}
+            <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #006DFF, #00C2FF)", boxShadow: "0 4px 20px rgba(0,194,255,0.30)" }}>
+              <img
+                src={tecnocellLogo}
+                alt="TECNOCELL"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  // Fallback al placeholder "TC" si la imagen no carga
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
+                }}
+              />
+              <span className="hidden text-white font-black text-sm tracking-tight">TC</span>
             </div>
-            <span className="text-white/90 font-semibold text-sm tracking-wide">
-              TECNOCELL · EMPRENDE360
+            <span className="font-bold text-sm tracking-widest uppercase" style={{ color: "#A8B3C7" }}>
+              TECNOCELL
             </span>
           </div>
         </div>
 
-        {/* ── Main copy ─────────────────────────────────── */}
+        {/* ── Copia principal ───────────────────────────── */}
         <div className="relative z-10 space-y-8">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1.5">
-              <Zap size={12} className="text-violet-400" />
-              <span className="text-violet-300 text-xs font-medium tracking-widest uppercase">Sistema ERP</span>
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5"
+              style={{ background: "rgba(0,194,255,0.08)", border: "1px solid rgba(0,194,255,0.20)" }}>
+              <Zap size={12} style={{ color: "#00C2FF" }} />
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#00C2FF" }}>
+                Sistema comercial y técnico
+              </span>
             </div>
+
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
-              Gestión inteligente<br />
-              <span className="bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                para tu negocio
+              Control inteligente<br />
+              <span style={{
+                background: "linear-gradient(90deg, #00C2FF 0%, #006DFF 50%, #22E6A8 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>
+                para TECNOCELL
               </span>
             </h1>
-            <p className="text-slate-400 text-lg leading-relaxed max-w-sm">
-              Control total de ventas, clientes e inventario en tiempo real.
+
+            <p className="text-lg leading-relaxed max-w-sm" style={{ color: "#A8B3C7" }}>
+              Administra ventas, reparaciones, clientes, inventario y caja desde un solo sistema.
             </p>
           </div>
 
-          {/* Feature grid */}
+          {/* Tarjetas de módulos con glassmorphism */}
           <div className="grid grid-cols-2 gap-3">
             {FEATURES.map(({ icon: Icon, label, sub, color }) => (
               <div
                 key={label}
-                className="group bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.07] rounded-2xl p-4 transition-all duration-300 cursor-default"
+                className="group rounded-2xl p-4 transition-all duration-300 cursor-default"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  backdropFilter: "blur(8px)",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,194,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,194,255,0.18)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
               >
                 <Icon size={20} className={`${color} mb-2.5 transition-transform duration-300 group-hover:scale-110`} />
                 <p className="text-white font-semibold text-sm">{label}</p>
-                <p className="text-slate-500 text-xs mt-0.5">{sub}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#64748B" }}>{sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── Mock dashboard card ────────────────────────── */}
+        {/* ── Tarjeta resumen del día ────────────────────── */}
         <div className="relative z-10">
-          <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-5 backdrop-blur-sm">
+          <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(8px)" }}>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-white/70 text-xs font-semibold uppercase tracking-widest">Resumen del día</span>
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>
+                Resumen del día
+              </span>
               <div className="flex gap-1">
                 <div className="w-2 h-2 rounded-full bg-red-400/70" />
                 <div className="w-2 h-2 rounded-full bg-yellow-400/70" />
@@ -134,8 +169,8 @@ export default function LoginPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {MOCK_STATS.map(({ label, value, delta, up }) => (
-                <div key={label} className="bg-white/[0.04] rounded-xl p-3">
-                  <p className="text-slate-500 text-[10px] uppercase tracking-wider">{label}</p>
+                <div key={label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "#64748B" }}>{label}</p>
                   <p className="text-white font-bold text-base mt-1">{value}</p>
                   <p className={`text-[11px] font-medium mt-0.5 flex items-center gap-0.5 ${up ? "text-emerald-400" : "text-rose-400"}`}>
                     <TrendingUp size={10} className={up ? "" : "rotate-180"} />
@@ -144,13 +179,13 @@ export default function LoginPage() {
                 </div>
               ))}
             </div>
-            {/* Fake sparkline */}
+            {/* Sparkline en azul/cyan */}
             <div className="mt-4 flex items-end gap-1 h-10">
               {[30, 55, 40, 70, 50, 80, 65, 90, 75, 95, 80, 100].map((h, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded-sm bg-gradient-to-t from-violet-600/40 to-blue-500/40"
-                  style={{ height: `${h}%` }}
+                  className="flex-1 rounded-sm"
+                  style={{ height: `${h}%`, background: "linear-gradient(to top, rgba(0,109,255,0.45), rgba(0,194,255,0.45))" }}
                 />
               ))}
             </div>
@@ -159,110 +194,153 @@ export default function LoginPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════
-          RIGHT — login form
+          RIGHT — formulario de inicio de sesión
       ═══════════════════════════════════════════════ */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-slate-950 lg:bg-slate-900/50">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10" style={{ backgroundColor: "#070B16" }}>
         <div className="w-full max-w-[420px] space-y-8">
 
-          {/* Mobile-only brand header */}
+          {/* Cabecera de marca — solo en móvil */}
           <div className="lg:hidden text-center space-y-3">
-            <div className="w-12 h-12 mx-auto bg-gradient-to-br from-violet-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-              {businessInfo?.businessLogo ? (
-                <img src={businessInfo.businessLogo} alt="Logo" className="w-full h-full object-contain rounded-2xl" />
-              ) : (
-                <Wrench size={22} className="text-white" />
-              )}
+            <div className="w-14 h-14 mx-auto rounded-2xl overflow-hidden flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #006DFF, #00C2FF)", boxShadow: "0 6px 24px rgba(0,194,255,0.35)" }}>
+              <img
+                src={tecnocellLogo}
+                alt="TECNOCELL"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
+                }}
+              />
+              <span className="hidden text-white font-black text-base tracking-tight">TC</span>
             </div>
-            <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">TECNOCELL · EMPRENDE360</p>
+            <p className="text-xs font-bold tracking-widest uppercase" style={{ color: "#A8B3C7" }}>TECNOCELL</p>
           </div>
 
-          {/* Form card */}
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-3xl shadow-2xl shadow-black/40 p-8 backdrop-blur-sm space-y-7">
-
-            {/* Heading */}
+          {/* Tarjeta del formulario */}
+          <div
+            className="rounded-3xl shadow-2xl p-8 space-y-7"
+            style={{
+              background: "#0D1324",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,194,255,0.05)",
+            }}
+          >
+            {/* Encabezado del formulario */}
             <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-white tracking-tight">Iniciar Sesión</h2>
-              <p className="text-slate-400 text-sm">
-                {businessInfo ? `Bienvenido a ${businessInfo.businessName}` : "Accede a tu cuenta para continuar"}
+              <h2 className="text-2xl font-bold text-white tracking-tight">Iniciar sesión</h2>
+              <p className="text-sm" style={{ color: "#A8B3C7" }}>
+                {businessInfo
+                  ? `Accede al panel administrativo de ${businessInfo.businessName}`
+                  : "Accede al panel administrativo de TECNOCELL"}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
 
-              {/* Error alert */}
+              {/* Alerta de error */}
               {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                <div className="rounded-xl px-4 py-3 flex items-start gap-2.5"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.28)" }}>
                   <span className="text-red-400 text-lg leading-none mt-0.5">⚠</span>
                   <p className="text-red-300 text-sm font-medium">{error}</p>
                 </div>
               )}
 
-              {/* Username */}
+              {/* Campo: Usuario */}
               <div className="space-y-2">
-                <label htmlFor="username" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                <label htmlFor="username" className="block text-xs font-semibold uppercase tracking-widest" style={{ color: "#A8B3C7" }}>
                   Usuario
                 </label>
                 <div className="relative group">
-                  <Building2
+                  <Wrench
                     size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-violet-400 transition-colors pointer-events-none"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors pointer-events-none"
+                    style={{ color: "#64748B" }}
                   />
                   <input
                     id="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Tu nombre de usuario"
+                    placeholder="Ingresa tu usuario"
                     required
                     disabled={isLoading}
                     autoComplete="username"
-                    className="w-full pl-11 pr-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all duration-200 disabled:opacity-50"
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white text-sm transition-all duration-200 disabled:opacity-50 focus:outline-none"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      color: "#fff",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(0,194,255,0.55)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,194,255,0.12)"; }}
+                    onBlur={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow = "none"; }}
                   />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Campo: Contraseña */}
               <div className="space-y-2">
-                <label htmlFor="password" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-widest" style={{ color: "#A8B3C7" }}>
                   Contraseña
                 </label>
                 <div className="relative group">
                   <Lock
                     size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-violet-400 transition-colors pointer-events-none"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: "#64748B" }}
                   />
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Ingresa tu contraseña"
                     required
                     disabled={isLoading}
                     autoComplete="current-password"
-                    className="w-full pl-11 pr-12 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all duration-200 disabled:opacity-50"
+                    className="w-full pl-11 pr-12 py-3.5 rounded-xl text-white text-sm transition-all duration-200 disabled:opacity-50 focus:outline-none"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      color: "#fff",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(0,194,255,0.55)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,194,255,0.12)"; }}
+                    onBlur={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow = "none"; }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300 transition-colors rounded-lg"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
+                    style={{ color: "#64748B" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#A8B3C7"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
-              {/* Submit */}
+              {/* Botón de ingreso */}
               <button
                 type="submit"
                 disabled={isLoading || !username || !password}
-                className="relative w-full py-3.5 rounded-xl font-semibold text-sm text-white overflow-hidden group transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                className="relative w-full py-3.5 rounded-xl font-semibold text-sm text-white overflow-hidden group transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
+                style={{ boxShadow: "0 4px 20px rgba(0,194,255,0.25)" }}
+                onFocus={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,194,255,0.30), 0 4px 20px rgba(0,194,255,0.25)"; }}
+                onBlur={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,194,255,0.25)"; }}
               >
-                {/* gradient bg */}
-                <span className="absolute inset-0 bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-600 transition-all duration-300 group-hover:from-violet-500 group-hover:via-blue-500 group-hover:to-cyan-500" />
-                {/* glow */}
-                <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-600" />
+                {/* Gradiente del botón */}
+                <span
+                  className="absolute inset-0 transition-opacity duration-300"
+                  style={{ background: "linear-gradient(90deg, #006DFF 0%, #00C2FF 100%)" }}
+                />
+                {/* Glow hover */}
+                <span
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-lg"
+                  style={{ background: "linear-gradient(90deg, #006DFF, #00C2FF)" }}
+                />
                 <span className="relative flex items-center justify-center gap-2">
                   {isLoading ? (
                     <>
@@ -270,27 +348,37 @@ export default function LoginPage() {
                       Ingresando...
                     </>
                   ) : (
-                    <>
-                      Ingresar
-                    </>
+                    "Ingresar al sistema"
                   )}
                 </span>
               </button>
             </form>
 
-            {/* Footer */}
-            <p className="text-center text-xs text-slate-600">
+            {/* Texto de ayuda */}
+            <p className="text-center text-xs" style={{ color: "#64748B" }}>
               ¿Problemas para ingresar?{" "}
-              <a href="#" className="text-slate-400 hover:text-violet-400 transition-colors font-medium">
+              <a
+                href="#"
+                className="transition-colors font-medium"
+                style={{ color: "#A8B3C7" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#00C2FF"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#A8B3C7"; }}
+              >
                 Contacta al administrador
               </a>
             </p>
           </div>
 
-          {/* Bottom caption */}
-          <p className="text-center text-xs text-slate-700">
-            Sistema de gestión comercial · v2.0 · TECNOCELL
-          </p>
+          {/* Footer */}
+          <div className="text-center space-y-1">
+            <p className="text-xs" style={{ color: "#64748B" }}>
+              Sistema de gestión comercial · TECNOCELL
+            </p>
+            <p className="text-xs" style={{ color: "#374151" }}>
+              Desarrollado por{" "}
+              <span className="font-semibold" style={{ color: "#4B5563" }}>TechWorksOne</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
