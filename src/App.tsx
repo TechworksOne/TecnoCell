@@ -38,7 +38,10 @@ export default function App() {
     <ToastProvider>
       <div className="min-h-screen">
         <Sidebar />
-        <div className={`${isOpen ? "ml-64" : "ml-16"} flex flex-col transition-all duration-300 ease-in-out`}>
+        <div
+            style={{ marginLeft: isOpen ? 272 : 72, transition: "margin-left 300ms ease" }}
+            className="flex flex-col"
+          >
           <Topbar />
           <main className="p-6">
             <Routes>
