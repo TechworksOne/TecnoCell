@@ -306,10 +306,19 @@ exports.registrarMovimientoVenta = async (
   const dbConn = connection || db;
 
   try {
-    const concepto = `Venta ${ventaId}`;
-    const metodo = String(metodoPago || '').toUpperCase();
-    const montoQuetzales = Number(monto || 0) / 100;
+  const concepto = `Venta ${ventaId}`;
+  const metodo = String(metodoPago || '').toUpperCase();
+  const montoQuetzales = Number(monto || 0) / 100;
 
+  const ventaIdNumerico = Number.isInteger(Number(ventaId))
+    ? Number(ventaId)
+    : null;
+
+  if (ventaIdNumerico === null) {
+    console.warn(
+      `⚠️ venta_id recibido como correlativo (${ventaId}). Se registrará el movimiento bancario sin venta_id numérico.`
+    );
+  }
     const buscarPrimeraCuentaActiva = async () => {
       const [cuentas] = await dbConn.query(
         'SELECT id, nombre FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1'
@@ -386,13 +395,13 @@ exports.registrarMovimientoVenta = async (
 
       await dbConn.query(
         `INSERT INTO movimientos_bancarios 
-         (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
-         VALUES (?, 'INGRESO', ?, ?, ?, ?, 'PENDIENTE', ?, ?)`,
+        (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
+        VALUES (?, 'INGRESO', ?, ?, ?, ?, 'PENDIENTE', ?, ?)`,
         [
           cuenta.id,
           montoQuetzales,
           concepto,
-          ventaId,
+          ventaIdNumerico,
           categoria,
           referencia,
           usuarioNombre,
