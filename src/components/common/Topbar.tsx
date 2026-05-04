@@ -18,24 +18,49 @@ export default function Topbar() {
     <header
       className="flex items-center justify-between px-4 py-3 border-b"
       style={{
-        background:   "var(--color-surface)",
-        borderColor:  "var(--color-border)",
-        transition:   "background 250ms ease, border-color 250ms ease",
+        background:  "var(--color-surface)",
+        borderColor: "var(--color-border)",
+        transition:  "background 250ms ease, border-color 250ms ease",
       }}
     >
-      {/* Izquierda: badge de marca */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
-          TECNOCELL by EMPRENDE360
+      {/* Izquierda: branding TECNOCELL */}
+      <div className="flex items-center gap-2">
+        {/* Pastilla de color con inicial */}
+        <div
+          className="shrink-0 flex items-center justify-center rounded-lg font-black text-white text-sm"
+          style={{
+            width: 32,
+            height: 32,
+            background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))",
+            letterSpacing: "-0.5px",
+          }}
+        >
+          TC
+        </div>
+
+        {/* Texto — oculto en pantallas muy pequeñas */}
+        <div className="hidden xs:flex sm:flex flex-col leading-tight">
+          <span
+            className="text-sm font-bold tracking-wider"
+            style={{ color: "var(--color-text)" }}
+          >
+            TECNOCELL
+          </span>
+          <span
+            className="text-[9px] font-medium uppercase tracking-widest hidden sm:block"
+            style={{ color: "var(--color-text-sec)" }}
+          >
+            Sistema comercial
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Toggle de tema */}
         <button
           onClick={toggleTheme}
           title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-          className="rounded-xl transition-all flex items-center justify-center"
+          className="rounded-xl transition-all flex items-center justify-center shrink-0"
           style={{
             width: 36,
             height: 36,
@@ -59,12 +84,12 @@ export default function Topbar() {
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-xl"
           style={{
-            background:  "var(--color-surface-soft)",
-            border:      "1px solid var(--color-border)",
+            background: "var(--color-surface-soft)",
+            border:     "1px solid var(--color-border)",
           }}
         >
           <User size={17} style={{ color: "var(--color-text-sec)" }} />
-          <div className="text-sm">
+          <div className="text-sm hidden sm:block">
             <p className="font-semibold leading-none" style={{ color: "var(--color-text)" }}>
               {user?.name}
             </p>
@@ -81,7 +106,7 @@ export default function Topbar() {
           className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950 dark:border-red-800 dark:text-red-400"
         >
           <LogOut size={17} />
-          <span>Cerrar Sesión</span>
+          <span className="hidden sm:inline">Cerrar Sesión</span>
         </Button>
       </div>
     </header>
