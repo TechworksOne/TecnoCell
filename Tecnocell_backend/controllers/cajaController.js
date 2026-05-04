@@ -355,12 +355,15 @@ exports.registrarMovimientoVenta = async (
       }
     } else if (metodoPago === 'TARJETA_BAC') {
       const [cuentaBac] = await dbConn.query(
-        "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%BAC%' OR pos_asociado LIKE '%BAC%') AND activa = TRUE ORDER BY id LIMIT 1"
+        "SELECT id, nombre FROM cuentas_bancarias WHERE (nombre LIKE '%BAC%' OR pos_asociado LIKE '%BAC%') AND activa = TRUE ORDER BY id LIMIT 1"
       );
       let cuentaId = cuentaBac.length > 0 ? cuentaBac[0].id : null;
+      let cuentaNombre = cuentaBac.length > 0 ? cuentaBac[0].nombre : null;
       if (!cuentaId) {
-        const [cuentas] = await dbConn.query('SELECT id FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
+        console.warn('⚠️  No se encontró cuenta BAC, usando primera cuenta activa');
+        const [cuentas] = await dbConn.query('SELECT id, nombre FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
         cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
+        cuentaNombre = cuentas.length > 0 ? cuentas[0].nombre : null;
       }
       if (cuentaId) {
         const montoQuetzales = monto / 100;
@@ -370,14 +373,22 @@ exports.registrarMovimientoVenta = async (
            VALUES (?, 'INGRESO', ?, ?, ?, 'POS', 'PENDIENTE', ?, ?)`,
           [cuentaId, montoQuetzales, concepto, ventaId, referencia, usuarioNombre]
         );
-        console.log(`✅ Movimiento PENDIENTE registrado en BANCO (BAC): Q${montoQuetzales} - Venta ${ventaId}`);
+        console.log(`✅ Movimiento PENDIENTE registrado en BANCO (${cuentaNombre} id=${cuentaId}): Q${montoQuetzales} - Venta ${ventaId}`);
+      } else {
+        console.error('❌ No se encontró ninguna cuenta bancaria activa para TARJETA_BAC');
       }
     } else if (metodoPago === 'TARJETA_NEONET') {
       const [cuentaIndustrial] = await dbConn.query(
-        "SELECT id FROM cuentas_bancarias WHERE (nombre LIKE '%Industrial%' OR nombre LIKE '%Neonet%' OR pos_asociado LIKE '%NEONET%' OR pos_asociado LIKE '%Industrial%') AND activa = TRUE ORDER BY id LIMIT 1"
+        "SELECT id, nombre FROM cuentas_bancarias WHERE (nombre LIKE '%Industrial%' OR nombre LIKE '%Neonet%' OR pos_asociado LIKE '%NEONET%' OR pos_asociado LIKE '%Industrial%') AND activa = TRUE ORDER BY id LIMIT 1"
       );
       let cuentaId = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].id : null;
+      let cuentaNombre = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].nombre : null;
       if (!cuentaId) {
+        console.warn('⚠️  No se encontró cuenta Neonet/Industrial, usando primera cuenta activa');
+        const [cuentas] = await dbConn.query('SELECT id, nombre FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
+        cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
+        cuentaNombre = cuentas.length > 0 ? cuentas[0].nombre : null;
+      }
         const [cuentas] = await dbConn.query('SELECT id FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
         cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
       }
