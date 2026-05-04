@@ -30,7 +30,7 @@ export interface VentaItem {
 }
 
 export interface VentaPago {
-  metodo: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
+  metodo: 'EFECTIVO' | 'TARJETA' | 'TARJETA_BAC' | 'TARJETA_NEONET' | 'TARJETA_OTRA' | 'TRANSFERENCIA';
   monto: number;
   referencia?: string;
   comprobanteUrl?: string;
@@ -56,7 +56,7 @@ export interface VentaData {
   descuento?: number; // en centavos
   total: number; // en centavos
   estado?: 'PENDIENTE' | 'PAGADA' | 'PARCIAL' | 'ANULADA';
-  metodo_pago?: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'MIXTO';
+  metodo_pago?: 'EFECTIVO' | 'TARJETA' | 'TARJETA_BAC' | 'TARJETA_NEONET' | 'TARJETA_OTRA' | 'TRANSFERENCIA' | 'MIXTO';
   pagos?: VentaPago[];
   monto_pagado?: number; // en centavos
   saldo_pendiente?: number; // en centavos

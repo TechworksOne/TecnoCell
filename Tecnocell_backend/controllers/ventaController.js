@@ -1,6 +1,34 @@
 const db = require('../config/database');
 const cajaController = require('./cajaController');
 
+// Valores permitidos para metodo_pago (deben coincidir con el ENUM de la DB)
+const VALID_METODOS_PAGO = [
+  'EFECTIVO', 'TRANSFERENCIA',
+  'TARJETA', // legado
+  'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA',
+  'MIXTO'
+];
+
+/**
+ * Normaliza el metodo_pago al valor que acepta el ENUM de la DB.
+ * Si viene en minúsculas o es un alias, lo convierte.
+ */
+function normalizeMetodoPago(metodo) {
+  if (!metodo) return null;
+  const upper = metodo.toUpperCase();
+  // Mapear alias legacy lowercase
+  const MAP = {
+    'TARJETA': 'TARJETA',
+    'TARJETA_BAC': 'TARJETA_BAC',
+    'TARJETA_NEONET': 'TARJETA_NEONET',
+    'TARJETA_OTRA': 'TARJETA_OTRA',
+    'EFECTIVO': 'EFECTIVO',
+    'TRANSFERENCIA': 'TRANSFERENCIA',
+    'MIXTO': 'MIXTO',
+  };
+  return MAP[upper] || null;
+}
+
 /**
  * Crear una nueva venta
  * POST /api/ventas
@@ -28,6 +56,29 @@ exports.createVenta = async (req, res) => {
       return res.status(400).json({ error: 'El total debe ser mayor a 0' });
     }
 
+    if (!metodo_pago) {
+      return res.status(400).json({ error: 'El método de pago es requerido' });
+    }
+
+    // Normalizar y validar metodo_pago
+    const metodoPagoNorm = normalizeMetodoPago(metodo_pago);
+    if (!metodoPagoNorm) {
+      return res.status(400).json({
+        error: `Método de pago inválido: "${metodo_pago}". Valores permitidos: ${VALID_METODOS_PAGO.join(', ')}`
+      });
+    }
+
+    // Validar también los métodos de los pagos individuales (modo MIXTO)
+    if (pagos && Array.isArray(pagos)) {
+      for (const pago of pagos) {
+        if (!normalizeMetodoPago(pago.metodo)) {
+          return res.status(400).json({
+            error: `Método de pago inválido en pago: "${pago.metodo}"`
+          });
+        }
+      }
+    }
+
     // Convertir items a JSON
     const itemsJSON = JSON.stringify(items);
     const pagosJSON = pagos ? JSON.stringify(pagos) : null;
@@ -47,7 +98,7 @@ exports.createVenta = async (req, res) => {
       cliente_nit || null, cliente_direccion || null, cotizacion_id || null, numero_cotizacion || null,
       tipo_venta || 'PRODUCTOS', itemsJSON, subtotal || 0, impuestos || 0, descuento || 0, 
       interes_tarjeta || 0, total,
-      metodo_pago || null, pagosJSON, monto_pagado || 0, observaciones || null, notas_internas || null,
+      metodoPagoNorm, pagosJSON, monto_pagado || 0, observaciones || null, notas_internas || null,
       created_by || null
     ]);
 
@@ -93,6 +144,14 @@ exports.createVenta = async (req, res) => {
     res.status(201).json(venta);
   } catch (error) {
     console.error('Error al crear venta:', error);
+    // Detectar error de ENUM de MySQL (1292 = Data truncated, 1265 = Warn truncated)
+    if (error.code === 'ER_WARN_DATA_TRUNCATED' || error.code === 'ER_BAD_NULL_ERROR' || error.errno === 1292 || error.errno === 1265) {
+      return res.status(400).json({
+        error: 'Valor inválido para la base de datos. Puede que el ENUM de metodo_pago necesite migración.',
+        details: error.message,
+        migration_hint: 'Ejecute: ALTER TABLE ventas MODIFY COLUMN metodo_pago ENUM(\'EFECTIVO\',\'TARJETA\',\'TARJETA_BAC\',\'TARJETA_NEONET\',\'TARJETA_OTRA\',\'TRANSFERENCIA\',\'MIXTO\') DEFAULT NULL;'
+      });
+    }
     res.status(500).json({ 
       error: 'Error al crear la venta',
       details: error.message 
@@ -108,6 +167,25 @@ exports.createVentaFromQuote = async (req, res) => {
   try {
     const { cotizacionId } = req.params;
     const { pagos, metodo_pago, observaciones, created_by } = req.body;
+
+    // Normalizar y validar metodo_pago
+    const metodoPagoNorm = normalizeMetodoPago(metodo_pago);
+    if (metodo_pago && !metodoPagoNorm) {
+      return res.status(400).json({
+        error: `Método de pago inválido: "${metodo_pago}". Valores permitidos: ${VALID_METODOS_PAGO.join(', ')}`
+      });
+    }
+
+    // Validar pagos individuales
+    if (pagos && Array.isArray(pagos)) {
+      for (const pago of pagos) {
+        if (!normalizeMetodoPago(pago.metodo)) {
+          return res.status(400).json({
+            error: `Método de pago inválido en pago: "${pago.metodo}"`
+          });
+        }
+      }
+    }
 
     // Obtener cotización
     const [cotizaciones] = await db.query(
@@ -179,7 +257,7 @@ exports.createVentaFromQuote = async (req, res) => {
       impuestosCentavos,
       0, // descuento
       totalCentavos,
-      metodo_pago || null,
+      metodoPagoNorm || null,
       pagosJSON,
       montoPagadoCentavos,
       observaciones || cotizacion.observaciones,
@@ -227,6 +305,13 @@ exports.createVentaFromQuote = async (req, res) => {
     res.status(201).json(venta);
   } catch (error) {
     console.error('Error al convertir cotización a venta:', error);
+    if (error.code === 'ER_WARN_DATA_TRUNCATED' || error.errno === 1292 || error.errno === 1265) {
+      return res.status(400).json({
+        error: 'Valor inválido para la DB. El ENUM de metodo_pago necesita migración.',
+        details: error.message,
+        migration_hint: "ALTER TABLE ventas MODIFY COLUMN metodo_pago ENUM('EFECTIVO','TARJETA','TARJETA_BAC','TARJETA_NEONET','TARJETA_OTRA','TRANSFERENCIA','MIXTO') DEFAULT NULL;"
+      });
+    }
     res.status(500).json({ 
       error: 'Error al convertir cotización a venta',
       details: error.message 

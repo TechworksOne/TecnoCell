@@ -986,7 +986,7 @@ CREATE TABLE `reparaciones` (
   `total` int(11) DEFAULT 0,
   `monto_anticipo` int(11) DEFAULT 0,
   `saldo_anticipo` int(11) DEFAULT 0,
-  `metodo_anticipo` enum('efectivo','transferencia') DEFAULT NULL,
+  `metodo_anticipo` enum('efectivo','transferencia','tarjeta_bac','tarjeta_neonet','tarjeta_otra') DEFAULT NULL,
   `total_invertido` int(11) DEFAULT 0,
   `diferencia_reparacion` int(11) DEFAULT 0,
   `total_ganancia` int(11) DEFAULT 0,
@@ -2485,7 +2485,7 @@ CREATE TABLE `ventas` (
   `interes_tarjeta` int(11) DEFAULT 0 COMMENT 'InterÚs/recargo de POS en centavos',
   `total` int(11) NOT NULL DEFAULT 0 COMMENT 'Total en centavos',
   `estado` enum('PENDIENTE','PAGADA','PARCIAL','ANULADA') NOT NULL DEFAULT 'PENDIENTE',
-  `metodo_pago` enum('EFECTIVO','TARJETA','TRANSFERENCIA','MIXTO') DEFAULT NULL,
+  `metodo_pago` enum('EFECTIVO','TARJETA','TARJETA_BAC','TARJETA_NEONET','TARJETA_OTRA','TRANSFERENCIA','MIXTO') DEFAULT NULL,
   `pagos` longtext DEFAULT NULL COMMENT 'Array de pagos: [{metodo, monto, referencia, fecha, comprobanteUrl}]' CHECK (json_valid(`pagos`)),
   `monto_pagado` int(11) NOT NULL DEFAULT 0 COMMENT 'Total pagado en centavos',
   `saldo_pendiente` int(11) NOT NULL DEFAULT 0 COMMENT 'Saldo pendiente en centavos',
@@ -2750,7 +2750,7 @@ CREATE TABLE `v_ventas_completas` (
 ,`descuento_quetzales` decimal(14,4)
 ,`total_quetzales` decimal(14,4)
 ,`estado` enum('PENDIENTE','PAGADA','PARCIAL','ANULADA')
-,`metodo_pago` enum('EFECTIVO','TARJETA','TRANSFERENCIA','MIXTO')
+,`metodo_pago` enum('EFECTIVO','TARJETA','TARJETA_BAC','TARJETA_NEONET','TARJETA_OTRA','TRANSFERENCIA','MIXTO')
 ,`pagos` longtext
 ,`monto_pagado_quetzales` decimal(14,4)
 ,`saldo_pendiente_quetzales` decimal(14,4)
