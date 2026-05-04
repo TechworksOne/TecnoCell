@@ -57,10 +57,10 @@ export default function Sidebar() {
     <aside
       style={{
         width: isOpen ? 272 : 72,
-        background: "linear-gradient(180deg, #FFFFFF 0%, #F6FCFF 100%)",
-        borderRight: "1px solid #D6EEF8",
+        background: "var(--color-sidebar)",
+        borderRight: "1px solid var(--color-border)",
         boxShadow: "8px 0 30px rgba(20,50,74,0.05)",
-        transition: "width 300ms ease",
+        transition: "width 300ms ease, background 250ms ease",
       }}
       className="flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
     >
@@ -69,16 +69,21 @@ export default function Sidebar() {
         className="flex items-center shrink-0"
         style={{
           height: 68,
-          borderBottom: "1px solid #D6EEF8",
+          borderBottom: "1px solid var(--color-border)",
           padding: isOpen ? "0 16px" : "0",
           justifyContent: "center",
+          transition: "border-color 250ms ease",
         }}
       >
         {isOpen ? (
           <div className="flex items-center gap-2.5 overflow-hidden w-full">
             <div
-              className="shrink-0 bg-white rounded-xl flex items-center justify-center"
-              style={{ width: 42, height: 42, boxShadow: "0 2px 10px rgba(72,185,230,0.18)" }}
+              className="shrink-0 rounded-xl flex items-center justify-center"
+              style={{
+                width: 42, height: 42,
+                background: "var(--color-surface)",
+                boxShadow: "0 2px 10px rgba(72,185,230,0.18)",
+              }}
             >
               <img
                 src={tecnocellLogo}
@@ -92,18 +97,22 @@ export default function Sidebar() {
               <span className="hidden font-black text-xs" style={{ color: "#2EA7D8" }}>TC</span>
             </div>
             <div className="leading-tight overflow-hidden">
-              <p className="font-bold text-sm tracking-wider truncate" style={{ color: "#14324A" }}>
+              <p className="font-bold text-sm tracking-wider truncate" style={{ color: "var(--color-text)" }}>
                 TECNOCELL
               </p>
-              <p className="text-[10px] tracking-widest truncate" style={{ color: "#5E7184" }}>
+              <p className="text-[10px] tracking-widest truncate" style={{ color: "var(--color-text-sec)" }}>
                 SISTEMA COMERCIAL
               </p>
             </div>
           </div>
         ) : (
           <div
-            className="bg-white rounded-xl flex items-center justify-center"
-            style={{ width: 40, height: 40, boxShadow: "0 2px 10px rgba(72,185,230,0.18)" }}
+            className="rounded-xl flex items-center justify-center"
+            style={{
+              width: 40, height: 40,
+              background: "var(--color-surface)",
+              boxShadow: "0 2px 10px rgba(72,185,230,0.18)",
+            }}
           >
             <img
               src={tecnocellLogo}
@@ -135,7 +144,7 @@ export default function Sidebar() {
                   className="font-semibold uppercase tracking-widest"
                   style={{
                     fontSize: 9,
-                    color: "#A8BDD0",
+                    color: "var(--color-text-muted)",
                     padding: "8px 10px 3px",
                     letterSpacing: "0.12em",
                   }}
@@ -145,7 +154,7 @@ export default function Sidebar() {
               )}
               {/* Separador en modo colapsado */}
               {!isOpen && gi > 0 && (
-                <div style={{ height: 1, background: "#D6EEF8", margin: "4px 10px" }} />
+                <div style={{ height: 1, background: "var(--color-border)", margin: "4px 10px" }} />
               )}
 
               <div className="flex flex-col" style={{ gap: 1 }}>
@@ -166,10 +175,12 @@ export default function Sidebar() {
                           height: 40,
                           borderRadius: 10,
                           background: isActive
-                            ? "linear-gradient(90deg, rgba(72,185,230,0.22), rgba(72,185,230,0.10))"
+                            ? "var(--color-active-bg)"
                             : "transparent",
-                          border: isActive ? "1px solid rgba(72,185,230,0.30)" : "1px solid transparent",
-                          color: isActive ? "#14324A" : "#5E7184",
+                          border: isActive
+                            ? "1px solid var(--color-active-border)"
+                            : "1px solid transparent",
+                          color: isActive ? "var(--color-text)" : "var(--color-text-sec)",
                           fontWeight: isActive ? 600 : 400,
                         }}
                         onMouseEnter={(e) => {
@@ -181,7 +192,7 @@ export default function Sidebar() {
                       >
                         <span
                           className="shrink-0"
-                          style={{ color: isActive ? "#2EA7D8" : "#8AAABB" }}
+                          style={{ color: isActive ? "#2EA7D8" : "var(--color-text-muted)" }}
                         >
                           {item.icon}
                         </span>
@@ -205,9 +216,10 @@ export default function Sidebar() {
         className="shrink-0 flex items-center"
         style={{
           height: 52,
-          borderTop: "1px solid #D6EEF8",
+          borderTop: "1px solid var(--color-border)",
           padding: isOpen ? "0 12px 0 16px" : "0",
           justifyContent: isOpen ? "flex-end" : "center",
+          transition: "border-color 250ms ease",
         }}
       >
         <button
@@ -220,12 +232,18 @@ export default function Sidebar() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#5E7184",
-            border: "1px solid #D6EEF8",
-            background: "#FFFFFF",
+            color: "var(--color-text-sec)",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.10)"; (e.currentTarget as HTMLElement).style.color = "#2EA7D8"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#FFFFFF"; (e.currentTarget as HTMLElement).style.color = "#5E7184"; }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.12)";
+            (e.currentTarget as HTMLElement).style.color      = "#2EA7D8";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "var(--color-surface)";
+            (e.currentTarget as HTMLElement).style.color      = "var(--color-text-sec)";
+          }}
         >
           {isOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
         </button>

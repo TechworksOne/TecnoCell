@@ -45,7 +45,7 @@ export default function App() {
     <ToastProvider>
       {/* Guard de inactividad — solo activo con sesión */}
       <IdleLogoutGuard />
-      <div className="min-h-screen">
+      <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
         <Sidebar />
         <div
             style={{ marginLeft: isOpen ? 272 : 72, transition: "margin-left 300ms ease" }}
