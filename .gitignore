@@ -1,1 +1,18 @@
 node_modules/
+
+# ─── Variables de entorno — NUNCA versionar archivos reales ───────────────────
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ─── Directorio backend ───────────────────────────────────────────────────────
+Tecnocell_backend/.env
+Tecnocell_backend/.env.*
+!Tecnocell_backend/.env.example
+!Tecnocell_backend/.env.*.example
+
+# ─── Misceláneos ─────────────────────────────────────────────────────────────
+.DS_Store
+*.log
+dist/
