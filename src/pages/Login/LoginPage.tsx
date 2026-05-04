@@ -15,12 +15,15 @@ import tecnocellLogo from "../../assets/tecnocell-logo.png";
 import { useAuth } from "../../store/useAuth";
 import { useBusiness } from "../../store/useBusiness";
 
+// Color de acento principal del logo TECNOCELL
+const BRAND = "#48B9E6";
+
 // ─── Módulos principales de la tienda ────────────────────────────────────────
 const FEATURES = [
-  { icon: ShoppingCart, label: "Ventas",       sub: "Facturación y control de caja",       color: "text-cyan-400"    },
-  { icon: Wrench,       label: "Reparaciones", sub: "Seguimiento de equipos técnicos",     color: "text-blue-400"    },
-  { icon: Users,        label: "Clientes",     sub: "Historial de compras y servicios",    color: "text-teal-400"    },
-  { icon: Package,      label: "Inventario",   sub: "Stock de repuestos y accesorios",     color: "text-emerald-400" },
+  { icon: ShoppingCart, label: "Ventas",       sub: "Facturación y control de caja"      },
+  { icon: Wrench,       label: "Reparaciones", sub: "Seguimiento de equipos técnicos"    },
+  { icon: Users,        label: "Clientes",     sub: "Historial de compras y servicios"   },
+  { icon: Package,      label: "Inventario",   sub: "Stock de repuestos y accesorios"    },
 ];
 
 // ─── Métricas del resumen diario ─────────────────────────────────────────────
@@ -49,7 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex font-sans" style={{ backgroundColor: "#070B16" }}>
+    <div className="min-h-screen flex font-sans" style={{ backgroundColor: "#060B14" }}>
 
       {/* ═══════════════════════════════════════════════
           LEFT — panel de marca (oculto en móvil)
@@ -57,34 +60,34 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden flex-col justify-between p-10 xl:p-14">
 
         {/* Fondo con degradado oscuro tecnológico */}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #070B16 0%, #08111F 50%, #0A1628 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #060B14 0%, #0A1220 50%, #0D1526 100%)" }} />
 
-        {/* Orbes de luz azul/cyan — sin morado */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(0,194,255,0.12)" }} />
-        <div className="absolute top-1/2 -right-20 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(0,109,255,0.10)" }} />
-        <div className="absolute -bottom-24 left-1/3 w-72 h-72 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(34,230,168,0.08)" }} />
+        {/* Orbes de luz celeste — paleta del logo */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(72,185,230,0.10)" }} />
+        <div className="absolute top-1/2 -right-20 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(46,167,216,0.08)" }} />
+        <div className="absolute -bottom-24 left-1/3 w-72 h-72 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(72,185,230,0.06)" }} />
 
         {/* Grid tecnológico sutil */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(0,194,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,0.8) 1px,transparent 1px)",
+              "linear-gradient(rgba(72,185,230,0.9) 1px,transparent 1px),linear-gradient(90deg,rgba(72,185,230,0.9) 1px,transparent 1px)",
             backgroundSize: "44px 44px",
           }}
         />
         {/* Patrón radial central para profundidad */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0,109,255,0.07) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(72,185,230,0.05) 0%, transparent 70%)" }}
         />
 
         {/* ── Logo + nombre ──────────────────────────────── */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            {/* Placeholder de logo — reemplaza con <img> cuando tengas el PNG/SVG final */}
-            <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #006DFF, #00C2FF)", boxShadow: "0 4px 20px rgba(0,194,255,0.30)" }}>
+            {/* Logo TECNOCELL — reemplaza la imagen en assets/tecnocell-logo.png */}
+            <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center bg-white"
+              style={{ boxShadow: "0 4px 20px rgba(72,185,230,0.28)" }}>
               <img
                 src={tecnocellLogo}
                 alt="TECNOCELL"
@@ -108,9 +111,9 @@ export default function LoginPage() {
           <div className="space-y-4">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5"
-              style={{ background: "rgba(0,194,255,0.08)", border: "1px solid rgba(0,194,255,0.20)" }}>
-              <Zap size={12} style={{ color: "#00C2FF" }} />
-              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#00C2FF" }}>
+              style={{ background: "rgba(72,185,230,0.08)", border: "1px solid rgba(72,185,230,0.22)" }}>
+              <Zap size={12} style={{ color: BRAND }} />
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
                 Sistema comercial y técnico
               </span>
             </div>
@@ -118,7 +121,7 @@ export default function LoginPage() {
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
               Control inteligente<br />
               <span style={{
-                background: "linear-gradient(90deg, #00C2FF 0%, #006DFF 50%, #22E6A8 100%)",
+                background: "linear-gradient(90deg, #48B9E6 0%, #2EA7D8 60%, #48B9E6 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -134,21 +137,21 @@ export default function LoginPage() {
 
           {/* Tarjetas de módulos con glassmorphism */}
           <div className="grid grid-cols-2 gap-3">
-            {FEATURES.map(({ icon: Icon, label, sub, color }) => (
+            {FEATURES.map(({ icon: Icon, label, sub }) => (
               <div
                 key={label}
                 className="group rounded-2xl p-4 transition-all duration-300 cursor-default"
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: "rgba(13,21,38,0.70)",
+                  border: "1px solid rgba(72,185,230,0.10)",
                   backdropFilter: "blur(8px)",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,194,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,194,255,0.18)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(72,185,230,0.22)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(13,21,38,0.70)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(72,185,230,0.10)"; }}
               >
-                <Icon size={20} className={`${color} mb-2.5 transition-transform duration-300 group-hover:scale-110`} />
+                <Icon size={20} className="mb-2.5 transition-transform duration-300 group-hover:scale-110" style={{ color: BRAND }} />
                 <p className="text-white font-semibold text-sm">{label}</p>
-                <p className="text-xs mt-0.5" style={{ color: "#64748B" }}>{sub}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#7F8A99" }}>{sub}</p>
               </div>
             ))}
           </div>
@@ -156,9 +159,9 @@ export default function LoginPage() {
 
         {/* ── Tarjeta resumen del día ────────────────────── */}
         <div className="relative z-10">
-          <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(8px)" }}>
+          <div className="rounded-2xl p-5" style={{ background: "rgba(13,21,38,0.75)", border: "1px solid rgba(72,185,230,0.10)", backdropFilter: "blur(8px)" }}>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                 Resumen del día
               </span>
               <div className="flex gap-1">
@@ -169,8 +172,8 @@ export default function LoginPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {MOCK_STATS.map(({ label, value, delta, up }) => (
-                <div key={label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)" }}>
-                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "#64748B" }}>{label}</p>
+                <div key={label} className="rounded-xl p-3" style={{ background: "rgba(6,11,20,0.60)" }}>
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "#7F8A99" }}>{label}</p>
                   <p className="text-white font-bold text-base mt-1">{value}</p>
                   <p className={`text-[11px] font-medium mt-0.5 flex items-center gap-0.5 ${up ? "text-emerald-400" : "text-rose-400"}`}>
                     <TrendingUp size={10} className={up ? "" : "rotate-180"} />
@@ -185,7 +188,7 @@ export default function LoginPage() {
                 <div
                   key={i}
                   className="flex-1 rounded-sm"
-                  style={{ height: `${h}%`, background: "linear-gradient(to top, rgba(0,109,255,0.45), rgba(0,194,255,0.45))" }}
+                  style={{ height: `${h}%`, background: "linear-gradient(to top, rgba(46,167,216,0.40), rgba(72,185,230,0.50))" }}
                 />
               ))}
             </div>
@@ -196,13 +199,13 @@ export default function LoginPage() {
       {/* ═══════════════════════════════════════════════
           RIGHT — formulario de inicio de sesión
       ═══════════════════════════════════════════════ */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10" style={{ backgroundColor: "#070B16" }}>
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10" style={{ backgroundColor: "#060B14" }}>
         <div className="w-full max-w-[420px] space-y-8">
 
           {/* Cabecera de marca — solo en móvil */}
           <div className="lg:hidden text-center space-y-3">
-            <div className="w-14 h-14 mx-auto rounded-2xl overflow-hidden flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #006DFF, #00C2FF)", boxShadow: "0 6px 24px rgba(0,194,255,0.35)" }}>
+            <div className="w-14 h-14 mx-auto rounded-2xl overflow-hidden flex items-center justify-center bg-white"
+              style={{ boxShadow: "0 6px 24px rgba(72,185,230,0.32)" }}>
               <img
                 src={tecnocellLogo}
                 alt="TECNOCELL"
@@ -221,9 +224,9 @@ export default function LoginPage() {
           <div
             className="rounded-3xl shadow-2xl p-8 space-y-7"
             style={{
-              background: "#0D1324",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 25px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,194,255,0.05)",
+              background: "#0D1526",
+              border: "1px solid rgba(72,185,230,0.10)",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.60), 0 0 0 1px rgba(72,185,230,0.06)",
             }}
           >
             {/* Encabezado del formulario */}
@@ -273,7 +276,7 @@ export default function LoginPage() {
                       border: "1px solid rgba(255,255,255,0.10)",
                       color: "#fff",
                     }}
-                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(0,194,255,0.55)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,194,255,0.12)"; }}
+                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(72,185,230,0.60)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(72,185,230,0.12)"; }}
                     onBlur={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow = "none"; }}
                   />
                 </div>
@@ -305,7 +308,7 @@ export default function LoginPage() {
                       border: "1px solid rgba(255,255,255,0.10)",
                       color: "#fff",
                     }}
-                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(0,194,255,0.55)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,194,255,0.12)"; }}
+                    onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(72,185,230,0.60)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(72,185,230,0.12)"; }}
                     onBlur={(e) => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.10)"; e.currentTarget.style.boxShadow = "none"; }}
                   />
                   <button
@@ -327,19 +330,19 @@ export default function LoginPage() {
                 type="submit"
                 disabled={isLoading || !username || !password}
                 className="relative w-full py-3.5 rounded-xl font-semibold text-sm text-white overflow-hidden group transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
-                style={{ boxShadow: "0 4px 20px rgba(0,194,255,0.25)" }}
-                onFocus={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(0,194,255,0.30), 0 4px 20px rgba(0,194,255,0.25)"; }}
-                onBlur={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,194,255,0.25)"; }}
+                style={{ boxShadow: "0 4px 18px rgba(72,185,230,0.28)" }}
+                onFocus={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(72,185,230,0.28), 0 4px 18px rgba(72,185,230,0.22)"; }}
+                onBlur={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 18px rgba(72,185,230,0.28)"; }}
               >
-                {/* Gradiente del botón */}
+                {/* Gradiente del botón — celeste del logo */}
                 <span
                   className="absolute inset-0 transition-opacity duration-300"
-                  style={{ background: "linear-gradient(90deg, #006DFF 0%, #00C2FF 100%)" }}
+                  style={{ background: "linear-gradient(90deg, #2EA7D8 0%, #48B9E6 100%)" }}
                 />
                 {/* Glow hover */}
                 <span
                   className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-lg"
-                  style={{ background: "linear-gradient(90deg, #006DFF, #00C2FF)" }}
+                  style={{ background: "linear-gradient(90deg, #2EA7D8, #48B9E6)" }}
                 />
                 <span className="relative flex items-center justify-center gap-2">
                   {isLoading ? (
@@ -355,14 +358,14 @@ export default function LoginPage() {
             </form>
 
             {/* Texto de ayuda */}
-            <p className="text-center text-xs" style={{ color: "#64748B" }}>
+            <p className="text-center text-xs" style={{ color: "#7F8A99" }}>
               ¿Problemas para ingresar?{" "}
               <a
                 href="#"
                 className="transition-colors font-medium"
-                style={{ color: "#A8B3C7" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#00C2FF"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#A8B3C7"; }}
+                style={{ color: "#B8C2D1" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = BRAND; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#B8C2D1"; }}
               >
                 Contacta al administrador
               </a>
@@ -371,12 +374,12 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div className="text-center space-y-1">
-            <p className="text-xs" style={{ color: "#64748B" }}>
+            <p className="text-xs" style={{ color: "#7F8A99" }}>
               Sistema de gestión comercial · TECNOCELL
             </p>
-            <p className="text-xs" style={{ color: "#374151" }}>
+            <p className="text-xs" style={{ color: "#4B5563" }}>
               Desarrollado por{" "}
-              <span className="font-semibold" style={{ color: "#4B5563" }}>TechWorksOne</span>
+              <span className="font-medium" style={{ color: "#6B7A8D" }}>TechWorksOne</span>
             </p>
           </div>
         </div>
