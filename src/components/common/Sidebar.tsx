@@ -170,7 +170,10 @@ export default function Sidebar() {
       </div>
 
       {/* ── Navegación ─────────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: "10px 8px 80px" }}>
+      <nav
+        className={isOpen ? "sidebar-nav" : "sidebar-nav-collapsed"}
+        style={{ padding: isOpen ? "8px 8px 24px" : "8px 6px 80px" }}
+      >
         {GROUPS.map((group, gi) => {
           const visible = group.items.filter(item => !item.adminOnly || isAdmin);
           if (visible.length === 0) return null;
@@ -183,7 +186,7 @@ export default function Sidebar() {
                   style={{
                     fontSize: 9,
                     color: "#A8BDD0",
-                    padding: "10px 10px 4px",
+                    padding: "8px 10px 3px",
                     letterSpacing: "0.12em",
                   }}
                 >
@@ -192,10 +195,10 @@ export default function Sidebar() {
               )}
               {/* Separador en modo colapsado */}
               {!isOpen && gi > 0 && (
-                <div style={{ height: 1, background: "#D6EEF8", margin: "6px 8px" }} />
+                <div style={{ height: 1, background: "#D6EEF8", margin: "4px 10px" }} />
               )}
 
-              <div className="flex flex-col" style={{ gap: 2 }}>
+              <div className="flex flex-col" style={{ gap: 1 }}>
                 {visible.map((item) => (
                   <NavLink
                     key={item.to}
@@ -210,8 +213,8 @@ export default function Sidebar() {
                           gap: isOpen ? 10 : 0,
                           justifyContent: isOpen ? "flex-start" : "center",
                           padding: isOpen ? "0 10px" : "0",
-                          height: 44,
-                          borderRadius: 12,
+                          height: 40,
+                          borderRadius: 10,
                           background: isActive
                             ? "linear-gradient(90deg, rgba(72,185,230,0.22), rgba(72,185,230,0.10))"
                             : "transparent",

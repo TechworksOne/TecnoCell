@@ -19,3 +19,42 @@ body {
 .card {
   @apply bg-white rounded-2xl shadow-sm p-4;
 }
+
+/* ─── Sidebar nav — scrollbar discreto ──────────────────────────────────── */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(72, 185, 230, 0.22) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(72, 185, 230, 0.18);
+  border-radius: 999px;
+}
+
+.sidebar-nav:hover::-webkit-scrollbar-thumb {
+  background: rgba(72, 185, 230, 0.42);
+}
+
+/* En modo colapsado: ocultar scrollbar visualmente, mantener funcionalidad */
+.sidebar-nav-collapsed {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.sidebar-nav-collapsed::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
