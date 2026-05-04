@@ -9,9 +9,10 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
+import { SESSION_EXPIRED_KEY } from "../../hooks/useIdleLogout";
 import { useAuth } from "../../store/useAuth";
 import { useBusiness } from "../../store/useBusiness";
 
@@ -37,9 +38,18 @@ export default function LoginPage() {
   const [username, setUsername]         = useState("");
   const [password, setPassword]         = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const { login, isLoading, error }     = useAuth();
   const { businessInfo }                = useBusiness();
   const navigate                        = useNavigate();
+
+  // Detectar si la sesión fue cerrada por inactividad
+  useEffect(() => {
+    if (localStorage.getItem(SESSION_EXPIRED_KEY)) {
+      setSessionExpired(true);
+      localStorage.removeItem(SESSION_EXPIRED_KEY);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -239,6 +249,17 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Banner: sesión expirada por inactividad */}
+              {sessionExpired && (
+                <div className="rounded-xl px-4 py-3 flex items-start gap-2.5"
+                  style={{ background: "rgba(72,185,230,0.08)", border: "1px solid rgba(72,185,230,0.30)" }}>
+                  <span className="text-lg leading-none mt-0.5" style={{ color: "#48B9E6" }}>⏱</span>
+                  <p className="text-sm font-medium" style={{ color: "#48B9E6" }}>
+                    Tu sesión expiró por inactividad. Inicia sesión nuevamente.
+                  </p>
+                </div>
+              )}
 
               {/* Alerta de error */}
               {error && (

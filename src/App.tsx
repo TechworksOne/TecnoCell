@@ -3,10 +3,17 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Sidebar from "./components/common/Sidebar";
 import Topbar from "./components/common/Topbar";
 import { ToastProvider } from "./components/ui/Toast";
+import { useIdleLogout } from "./hooks/useIdleLogout";
 import LoginPage from "./pages/Login/LoginPage";
 import routes from "./routes";
 import { useAuth } from "./store/useAuth";
 import { useSidebar } from "./store/useSidebar";
+
+/** Activa el cierre por inactividad solo cuando hay sesión */
+function IdleLogoutGuard() {
+  useIdleLogout();
+  return null;
+}
 
 export default function App() {
   const role = useAuth((state) => state.role);
@@ -36,6 +43,8 @@ export default function App() {
   // Si hay usuario autenticado, mostrar la aplicación completa
   return (
     <ToastProvider>
+      {/* Guard de inactividad — solo activo con sesión */}
+      <IdleLogoutGuard />
       <div className="min-h-screen">
         <Sidebar />
         <div
