@@ -32,10 +32,21 @@ interface AuthState {
   hasRole: (role: string) => boolean;
 }
 
+// ── Lectura síncrona de localStorage al crear el store ────────────────────────
+// Esto evita que un F5 (refresh) redirija al login antes de que el useEffect
+// restaure la sesión, porque el store ya nace con los datos correctos.
+function readStoredAuth() {
+  const user  = authService.getUser();
+  const token = authService.getToken();
+  if (user && token) {
+    return { user: user as User, role: user.role as User["role"], token };
+  }
+  return { user: null, role: null, token: null };
+}
+
 export const useAuth = create<AuthState>((set) => ({
-  user: null,
-  role: null,
-  token: null,
+  // Estado inicial: leído SÍNCRONAMENTE desde localStorage
+  ...readStoredAuth(),
   isLoading: false,
   error: null,
 
@@ -45,8 +56,8 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       const response = await authService.login(credentials);
       set({
-        user: response.user,
-        role: response.user.role,
+        user: response.user as User,
+        role: response.user.role as User["role"],
         token: response.token,
         isLoading: false,
         error: null,
@@ -75,19 +86,16 @@ export const useAuth = create<AuthState>((set) => ({
     });
   },
 
-  // Mantener compatibilidad con el método anterior (para desarrollo)
+  // Mantener compatibilidad con el método anterior
   setRole: (role) => set({ role }),
 
-  // Inicializar autenticación desde localStorage
+  // initAuth sigue existiendo por compatibilidad, pero ahora es un no-op
+  // porque el store ya se inicializó síncronamente
   initAuth: () => {
-    const user = authService.getUser();
+    const user  = authService.getUser();
     const token = authService.getToken();
     if (user && token) {
-      set({
-        user,
-        role: user.role,
-        token,
-      });
+      set({ user: user as User, role: user.role as User["role"], token });
     }
   },
 
@@ -97,3 +105,4 @@ export const useAuth = create<AuthState>((set) => ({
     return state.user?.roles?.includes(role) ?? state.user?.role === role;
   },
 }));
+
