@@ -285,46 +285,170 @@ function Step2({ state, setState }: { state: WizardState; setState: React.Dispat
 }
 
 // ─── Step 3 ───────────────────────────────────────────────────────────────
+const FREQ_LABEL: Record<FrecuenciaPago, string> = {
+  SEMANAL: 'Semanal', QUINCENAL: 'Quincenal', MENSUAL: 'Mensual',
+};
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function Step3({ state, setState, montoTotal }: { state: WizardState; setState: React.Dispatch<React.SetStateAction<WizardState>>; montoTotal: number }) {
-  const cuotaPreview = state.numeroCuotas > 0 ? montoTotal / state.numeroCuotas : 0;
+  const numCuotas = Math.max(1, state.numeroCuotas || 1);
+
+  // Pre-calculate cuota amounts
+  const cuotaBase = (montoTotal > 0 && numCuotas > 0)
+    ? Math.floor((montoTotal / numCuotas) * 100) / 100 : 0;
+  const cuotaUlt = (montoTotal > 0 && numCuotas > 0)
+    ? parseFloat((montoTotal - cuotaBase * (numCuotas - 1)).toFixed(2)) : 0;
+
+  // Generate preview rows
+  const cuotasList = (state.fechaPrimerPago && montoTotal > 0)
+    ? calcCuotas(montoTotal, numCuotas, state.frecuenciaPago, state.fechaPrimerPago)
+    : null;
+
+  // Last cuota date → auto-populate fechaVencimiento
+  const lastDate = cuotasList?.at(-1)?.fecha ?? null;
+  const lastDateStr = lastDate ? toDateStr(lastDate) : '';
+  useEffect(() => {
+    setState(s => ({ ...s, fechaVencimiento: lastDateStr }));
+  }, [lastDateStr]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#48B9E6]";
+  const lbl = "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block";
+
   return (
     <div className="space-y-4">
+      {/* ── Monto badge ── */}
       <div className="bg-[#48B9E6]/10 border border-[#48B9E6]/30 rounded-xl p-3 flex items-center justify-between">
         <span className="text-sm text-slate-600 dark:text-slate-300">Monto total del crédito</span>
         <span className="text-lg font-bold text-[#48B9E6]">{fmt(montoTotal)}</span>
       </div>
+
+      {/* ── Cuotas + Frecuencia ── */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Núm. cuotas *</label>
-          <input type="number" min="1" max="60" className={inputCls} value={state.numeroCuotas}
+          <label className={lbl}>Núm. cuotas *</label>
+          <input type="number" min="1" max="60" className={inputCls}
+            value={state.numeroCuotas}
             onChange={e => setState(s => ({ ...s, numeroCuotas: Math.max(1, parseInt(e.target.value) || 1) }))} />
-          {state.numeroCuotas > 1 && <p className="text-xs text-[#48B9E6] mt-1 font-medium">≈ {fmt(cuotaPreview)} por cuota</p>}
+          {montoTotal > 0 && (
+            <p className="text-xs text-[#48B9E6] mt-1 font-medium">
+              {numCuotas === 1
+                ? `Pago único ${fmt(montoTotal)}`
+                : numCuotas > 1 && cuotaBase > 0
+                  ? cuotaBase === cuotaUlt
+                    ? `${numCuotas} × ${fmt(cuotaBase)}`
+                    : `${numCuotas - 1} × ${fmt(cuotaBase)} + ${fmt(cuotaUlt)}`
+                  : ''}
+            </p>
+          )}
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Frecuencia</label>
-          <select className={inputCls} value={state.frecuenciaPago} onChange={e => setState(s => ({ ...s, frecuenciaPago: e.target.value as FrecuenciaPago }))}>
+          <label className={lbl}>Frecuencia</label>
+          <select className={inputCls} value={state.frecuenciaPago}
+            onChange={e => setState(s => ({ ...s, frecuenciaPago: e.target.value as FrecuenciaPago }))}>
             <option value="SEMANAL">Semanal</option>
             <option value="QUINCENAL">Quincenal</option>
             <option value="MENSUAL">Mensual</option>
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Primer pago{state.numeroCuotas > 1 && ' *'}</label>
-          <input type="date" className={inputCls} value={state.fechaPrimerPago} onChange={e => setState(s => ({ ...s, fechaPrimerPago: e.target.value }))} />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Vencimiento límite</label>
-          <input type="date" className={inputCls} value={state.fechaVencimiento} onChange={e => setState(s => ({ ...s, fechaVencimiento: e.target.value }))} />
-        </div>
-      </div>
+
+      {/* ── Primer pago ── */}
       <div>
-        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Notas</label>
-        <textarea rows={2} className={`${inputCls} resize-none`} placeholder="Observaciones, condiciones..." value={state.notas}
+        <label className={lbl}>Fecha primer pago *</label>
+        <input type="date" className={inputCls}
+          value={state.fechaPrimerPago}
+          onChange={e => setState(s => ({ ...s, fechaPrimerPago: e.target.value }))} />
+        {!state.fechaPrimerPago && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+            <Calendar size={11} /> Requerido para generar el plan de cuotas
+          </p>
+        )}
+      </div>
+
+      {/* ── Vencimiento (auto-read-only) ── */}
+      {lastDateStr && (
+        <div>
+          <label className={lbl}>Vencimiento límite (última cuota)</label>
+          <div className="w-full border border-[#48B9E6]/30 rounded-xl px-3 py-2.5 text-sm bg-[#48B9E6]/5 dark:bg-[#48B9E6]/10 text-slate-600 dark:text-slate-300 flex items-center gap-2">
+            <Calendar size={14} className="text-[#48B9E6] shrink-0" />
+            {new Date(lastDateStr + 'T12:00:00').toLocaleDateString('es-GT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Notas ── */}
+      <div>
+        <label className={lbl}>Notas</label>
+        <textarea rows={2} className={`${inputCls} resize-none`}
+          placeholder="Observaciones, condiciones especiales..."
+          value={state.notas}
           onChange={e => setState(s => ({ ...s, notas: e.target.value }))} />
       </div>
+
+      {/* ── Resumen del plan ── */}
+      {cuotasList && montoTotal > 0 && (
+        <div className="space-y-3">
+          {/* Stats card */}
+          <div className="bg-slate-50 dark:bg-[#0A1220] border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-[rgba(72,185,230,0.08)] flex items-center gap-1.5">
+              <Calendar size={13} className="text-[#48B9E6]" />
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Resumen del plan</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-y divide-slate-100 dark:divide-[rgba(72,185,230,0.08)]">
+              <div className="px-4 py-3 text-center">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</p>
+                <p className="text-base font-bold text-[#48B9E6] mt-0.5">{fmt(montoTotal)}</p>
+              </div>
+              <div className="px-4 py-3 text-center">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Cuotas</p>
+                <p className="text-base font-bold text-slate-800 dark:text-[#F8FAFC] mt-0.5">{numCuotas}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">{FREQ_LABEL[state.frecuenciaPago]}</p>
+              </div>
+              <div className="px-4 py-3 text-center col-span-2 sm:col-span-1">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Por cuota</p>
+                <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{fmt(cuotaBase)}</p>
+                {cuotaBase !== cuotaUlt && (
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">última {fmt(cuotaUlt)}</p>
+                )}
+              </div>
+            </div>
+            <div className="px-4 py-2.5 bg-slate-100/60 dark:bg-[#060B14]/50 border-t border-slate-100 dark:border-[rgba(72,185,230,0.08)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-slate-500 dark:text-slate-400">
+              <span>Primer pago: <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date(state.fechaPrimerPago + 'T12:00:00').toLocaleDateString('es-GT')}</span></span>
+              <span>Último pago: <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date(lastDateStr + 'T12:00:00').toLocaleDateString('es-GT')}</span></span>
+            </div>
+          </div>
+
+          {/* Cuota preview table */}
+          <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden">
+            <div className="grid grid-cols-12 bg-slate-50 dark:bg-[#060B14] px-3 py-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+              <span className="col-span-2">N°</span>
+              <span className="col-span-5">Fecha vencimiento</span>
+              <span className="col-span-3 text-right">Monto</span>
+              <span className="col-span-2 text-right">Estado</span>
+            </div>
+            <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-[rgba(72,185,230,0.06)]">
+              {cuotasList.map(c => (
+                <div key={c.numero} className="grid grid-cols-12 items-center px-3 py-2 text-sm">
+                  <span className="col-span-2 text-slate-400 dark:text-slate-500 text-xs font-mono">#{c.numero}</span>
+                  <span className="col-span-5 text-slate-700 dark:text-slate-300 text-xs">{c.fecha.toLocaleDateString('es-GT')}</span>
+                  <span className="col-span-3 text-right font-semibold text-[#48B9E6] text-xs">{fmt(c.monto)}</span>
+                  <span className="col-span-2 text-right">
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">PEND.</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {numCuotas > 12 && (
+              <div className="px-3 py-2 bg-slate-50 dark:bg-[#060B14] border-t border-slate-100 dark:border-[rgba(72,185,230,0.08)] text-center text-xs text-slate-400 dark:text-slate-500">
+                {numCuotas} cuotas en total · suma exacta {fmt(montoTotal)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -407,7 +531,8 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
       return state.carrito.length > 0;
     }
     if (step === 3) {
-      if (state.numeroCuotas > 1 && !state.fechaPrimerPago) return false;
+      if (!state.fechaPrimerPago) return false;
+      if (state.numeroCuotas < 1) return false;
       return montoTotal > 0;
     }
     return true;
