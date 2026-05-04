@@ -528,274 +528,280 @@ export function RepuestosPage() {
       </div>
 
       {/* ── New Repuesto Modal ───────────────────────────────────────── */}
-      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title="Nuevo Repuesto">
-        <div className="space-y-4">
-          {/* SKU preview note */}
-          <div className="bg-cyan-50 border border-cyan-200 rounded-xl px-3 py-2 flex items-center gap-2">
-            <Sparkles size={13} className="text-cyan-500 shrink-0" />
-            <p className="text-[11px] text-cyan-700">
+      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title="Nuevo Repuesto" size="3xl">
+        <div className="space-y-5">
+
+          {/* SKU notice */}
+          <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-2xl px-4 py-3 flex items-center gap-2">
+            <Sparkles size={13} className="text-cyan-500 dark:text-cyan-400 shrink-0" />
+            <p className="text-[11px] text-cyan-700 dark:text-cyan-200">
               <span className="font-semibold">SKU automático:</span> se generará como TIPO_MARCA_MODELO_######
             </p>
           </div>
 
-          {/* Row 1: Nombre + Tipo */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2 space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Nombre <span className="text-red-400">*</span></label>
-              <Input
-                value={formData.nombre}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, nombre: e.target.value }))}
-                placeholder="Pantalla iPhone 15 Pro OLED Original"
-                className="text-sm rounded-xl border-slate-200"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Tipo <span className="text-red-400">*</span></label>
-              <Select
-                value={formData.tipo}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, tipo: e.target.value as RepuestoFormData['tipo'] }))}
-                className="text-sm rounded-xl border-slate-200 w-full"
-              >
-                {TIPOS_REPUESTO.map(t => <option key={t} value={t}>{t}</option>)}
-              </Select>
-            </div>
-          </div>
-
-          {/* Row 2: Marca + Línea + Modelo */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Marca <span className="text-red-400">*</span></label>
-              <Select
-                value={formData.marca}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, marca: e.target.value as RepuestoFormData['marca'], linea: '' }))}
-                className="text-sm rounded-xl border-slate-200 w-full"
-              >
-                <option value="">Seleccionar...</option>
-                {marcas.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Línea</label>
-              {lineas.length > 0 ? (
+          {/* ── Sección 1: Datos generales ─────────────────────────────── */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Datos generales</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Nombre <span className="text-red-400">*</span></label>
+                <Input
+                  value={formData.nombre}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, nombre: e.target.value }))}
+                  placeholder="Pantalla iPhone 15 Pro OLED Original"
+                  className="text-sm rounded-2xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Tipo <span className="text-red-400">*</span></label>
                 <Select
-                  value={formData.linea}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
-                  className="text-sm rounded-xl border-slate-200 w-full"
-                  disabled={!formData.marca}
+                  value={formData.tipo}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, tipo: e.target.value as RepuestoFormData['tipo'] }))}
+                  className="text-sm rounded-2xl w-full"
+                >
+                  {TIPOS_REPUESTO.map(t => <option key={t} value={t}>{t}</option>)}
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Marca <span className="text-red-400">*</span></label>
+                <Select
+                  value={formData.marca}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, marca: e.target.value as RepuestoFormData['marca'], linea: '' }))}
+                  className="text-sm rounded-2xl w-full"
                 >
                   <option value="">Seleccionar...</option>
-                  {lineas.map(l => <option key={l.id} value={l.nombre}>{l.nombre}</option>)}
+                  {marcas.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
                 </Select>
-              ) : (
-                <Input
-                  value={formData.linea}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
-                  placeholder="iPhone, Galaxy S..."
-                  className="text-sm rounded-xl border-slate-200"
-                  disabled={!formData.marca}
-                />
-              )}
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Modelo</label>
-              <Input
-                value={formData.modelo}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, modelo: e.target.value }))}
-                placeholder="15 Pro, S24, etc."
-                className="text-sm rounded-xl border-slate-200"
-              />
-            </div>
-          </div>
-
-          {/* Row 3: Condición + Color + Activo */}
-          <div className="grid grid-cols-3 gap-3 items-end">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Condición</label>
-              <Select
-                value={formData.condicion}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, condicion: e.target.value as RepuestoFormData['condicion'] }))}
-                className="text-sm rounded-xl border-slate-200 w-full"
-              >
-                {CONDICIONES.map(c => <option key={c} value={c}>{c}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Color</label>
-              <Input
-                value={formData.color}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, color: e.target.value }))}
-                placeholder="Negro, Blanco..."
-                className="text-sm rounded-xl border-slate-200"
-              />
-            </div>
-            <div className="flex items-center gap-2 pb-2">
-              <input
-                type="checkbox"
-                id="formActivo"
-                checked={formData.activo}
-                onChange={(e) => setFormData(p => ({ ...p, activo: e.target.checked }))}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <label htmlFor="formActivo" className="text-xs font-medium text-slate-600 cursor-pointer">Activo</label>
-            </div>
-          </div>
-
-          {/* Row 4: Precios + Stock mínimo */}
-          <div className="grid grid-cols-3 gap-3">
-            {showCost && (
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Precio Costo <span className="text-red-400">*</span></label>
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Q</span>
-                <Input
-                  type="number" step="0.01" min="0"
-                  value={formData.precioCosto}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precioCosto: Number(e.target.value) }))}
-                  className="pl-6 text-sm rounded-xl border-slate-200"
-                  placeholder="0.00"
-                />
               </div>
-            </div>
-            )}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Precio Venta <span className="text-red-400">*</span></label>
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Q</span>
-                <Input
-                  type="number" step="0.01" min="0"
-                  value={formData.precio}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precio: Number(e.target.value) }))}
-                  className="pl-6 text-sm rounded-xl border-slate-200"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Stock mínimo</label>
-              <Input
-                type="number" min="0"
-                value={formData.stockMinimo}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, stockMinimo: Number(e.target.value) }))}
-                className="text-sm rounded-xl border-slate-200"
-                placeholder="1"
-              />
-            </div>
-          </div>
-
-          {/* Margin preview */}
-          {showCost && formData.precioCosto > 0 && formData.precio > 0 && (
-            <div className={`rounded-xl px-3 py-2 flex items-center justify-between ${formData.precio <= formData.precioCosto ? 'bg-red-50 border border-red-200' : 'bg-violet-50 border border-violet-200'}`}>
-              <span className={`text-[11px] font-medium ${formData.precio <= formData.precioCosto ? 'text-red-600' : 'text-violet-600'}`}>
-                {formData.precio <= formData.precioCosto ? '⚠ Precio venta ≤ costo' : 'Margen de ganancia'}
-              </span>
-              <span className={`text-sm font-bold ${formData.precio <= formData.precioCosto ? 'text-red-700' : 'text-violet-700'}`}>
-                Q{(formData.precio - formData.precioCosto).toFixed(2)}
-                {formData.precio > formData.precioCosto && (
-                  <span className="font-normal text-[11px] ml-1">
-                    ({(((formData.precio - formData.precioCosto) / formData.precioCosto) * 100).toFixed(1)}%)
-                  </span>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Línea</label>
+                {lineas.length > 0 ? (
+                  <Select
+                    value={formData.linea}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
+                    className="text-sm rounded-2xl w-full"
+                    disabled={!formData.marca}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {lineas.map(l => <option key={l.id} value={l.nombre}>{l.nombre}</option>)}
+                  </Select>
+                ) : (
+                  <Input
+                    value={formData.linea}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
+                    placeholder="iPhone, Galaxy S..."
+                    className="text-sm rounded-2xl"
+                    disabled={!formData.marca}
+                  />
                 )}
-              </span>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Modelo</label>
+                <Input
+                  value={formData.modelo}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, modelo: e.target.value }))}
+                  placeholder="15 Pro, S24, etc."
+                  className="text-sm rounded-2xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Condición</label>
+                <Select
+                  value={formData.condicion}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, condicion: e.target.value as RepuestoFormData['condicion'] }))}
+                  className="text-sm rounded-2xl w-full"
+                >
+                  {CONDICIONES.map(c => <option key={c} value={c}>{c}</option>)}
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Color</label>
+                <Input
+                  value={formData.color}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, color: e.target.value }))}
+                  placeholder="Negro, Blanco..."
+                  className="text-sm rounded-2xl"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input
+                  type="checkbox"
+                  id="formActivo"
+                  checked={formData.activo}
+                  onChange={(e) => setFormData(p => ({ ...p, activo: e.target.checked }))}
+                  className="w-4 h-4 accent-[#48B9E6] rounded"
+                />
+                <label htmlFor="formActivo" className="text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] cursor-pointer">Activo</label>
+              </div>
             </div>
-          )}
+          </div>
 
-          {/* Proveedor */}
-          <div className="space-y-1" ref={suppliersRef}>
-            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              <Building2 size={11} /> Proveedor
-            </label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowSuppliersDropdown(p => !p)}
-                className="w-full text-left text-sm px-3 py-2 border border-slate-200 rounded-xl flex items-center justify-between hover:border-blue-300 transition-colors bg-white"
-              >
-                <span className={formData.proveedor ? 'text-slate-800 font-medium' : 'text-slate-400'}>
-                  {formData.proveedor || 'Seleccionar proveedor...'}
-                </span>
-                <ChevronDown size={14} className="text-slate-400 shrink-0" />
-              </button>
-              {showSuppliersDropdown && (
-                <div className="absolute z-30 w-full mt-1 max-h-48 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl">
-                  {suppliers.filter(s => s.activo).length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400">No hay proveedores registrados</div>
-                  ) : (
-                    suppliers.filter(s => s.activo).map(s => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => { setFormData(p => ({ ...p, proveedor: s.nombre })); setShowSuppliersDropdown(false); }}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0"
-                      >
-                        <p className="text-sm font-medium text-slate-800">{s.nombre}</p>
-                        {s.telefono && <p className="text-[11px] text-slate-400 mt-0.5">{s.telefono}</p>}
-                      </button>
-                    ))
-                  )}
+          {/* ── Sección 2: Información comercial ──────────────────────── */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Información comercial</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {showCost && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Precio Costo <span className="text-red-400">*</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={formData.precioCosto}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precioCosto: Number(e.target.value) }))}
+                      className="pl-7 text-sm rounded-2xl"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
               )}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Precio Venta <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={formData.precio}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precio: Number(e.target.value) }))}
+                    className="pl-7 text-sm rounded-2xl"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Stock mínimo</label>
+                <Input
+                  type="number" min="0"
+                  value={formData.stockMinimo}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, stockMinimo: Number(e.target.value) }))}
+                  className="text-sm rounded-2xl"
+                  placeholder="1"
+                />
+              </div>
             </div>
-            <Input
-              value={formData.proveedor}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, proveedor: e.target.value }))}
-              placeholder="O escribe el nombre manualmente"
-              className="text-sm rounded-xl border-slate-200 mt-1.5"
-            />
-            <p className="text-[11px] text-slate-400">El stock inicial siempre es 0. Actualiza el inventario en Compras.</p>
-          </div>
 
-          {/* Compatibilidad */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Compatibilidad</label>
-            <div className="flex gap-2">
-              <Input
-                value={newCompatible}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCompatible(e.target.value)}
-                placeholder="iPhone 15 Pro, Samsung S24..."
-                className="text-sm rounded-xl border-slate-200 flex-1"
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCompatible(); }}}
-              />
-              <Button type="button" onClick={handleAddCompatible} className="text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl px-3 py-2">
-                <Plus size={14} />
-              </Button>
-            </div>
-            {formData.compatibilidad && formData.compatibilidad.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {formData.compatibilidad.map((c, i) => (
-                  <span key={i} className="text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full flex items-center gap-1">
-                    {c}
-                    <button type="button" onClick={() => setFormData(p => ({ ...p, compatibilidad: p.compatibilidad?.filter((_, j) => j !== i) || [] }))} className="hover:text-blue-900">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
+            {/* Margin preview */}
+            {showCost && formData.precioCosto > 0 && formData.precio > 0 && (
+              <div className={`mt-3 rounded-2xl px-3 py-2 flex items-center justify-between ${formData.precio <= formData.precioCosto ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40' : 'bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/40'}`}>
+                <span className={`text-[11px] font-medium ${formData.precio <= formData.precioCosto ? 'text-red-600 dark:text-red-400' : 'text-violet-600 dark:text-violet-400'}`}>
+                  {formData.precio <= formData.precioCosto ? '⚠ Precio venta ≤ costo' : 'Margen de ganancia'}
+                </span>
+                <span className={`text-sm font-bold ${formData.precio <= formData.precioCosto ? 'text-red-700 dark:text-red-300' : 'text-violet-700 dark:text-violet-300'}`}>
+                  Q{(formData.precio - formData.precioCosto).toFixed(2)}
+                  {formData.precio > formData.precioCosto && (
+                    <span className="font-normal text-[11px] ml-1">
+                      ({(((formData.precio - formData.precioCosto) / formData.precioCosto) * 100).toFixed(1)}%)
+                    </span>
+                  )}
+                </span>
               </div>
             )}
+
+            {/* Proveedor */}
+            <div className="mt-4 space-y-1.5" ref={suppliersRef}>
+              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest flex items-center gap-1">
+                <Building2 size={11} /> Proveedor
+              </label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowSuppliersDropdown(p => !p)}
+                  className="w-full h-12 text-left text-sm px-4 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl flex items-center justify-between hover:border-[#48B9E6] dark:hover:border-[#48B9E6] transition-colors bg-[#F8FDFF] dark:bg-[#060B14]"
+                >
+                  <span className={formData.proveedor ? 'text-[#14324A] dark:text-[#F8FAFC] font-medium' : 'text-[#7F8A99]'}>
+                    {formData.proveedor || 'Seleccionar proveedor...'}
+                  </span>
+                  <ChevronDown size={14} className="text-[#7F8A99] shrink-0" />
+                </button>
+                {showSuppliersDropdown && (
+                  <div className="absolute z-30 w-full mt-1 max-h-48 overflow-y-auto border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl bg-white dark:bg-[#0D1526] shadow-xl dark:shadow-sky-950/40">
+                    {suppliers.filter(s => s.activo).length === 0 ? (
+                      <div className="p-3 text-center text-xs text-[#7F8A99]">No hay proveedores registrados</div>
+                    ) : (
+                      suppliers.filter(s => s.activo).map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => { setFormData(p => ({ ...p, proveedor: s.nombre })); setShowSuppliersDropdown(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-[#F0FAFF] dark:hover:bg-[#0A1220] transition-colors border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.08)] last:border-0"
+                        >
+                          <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">{s.nombre}</p>
+                          {s.telefono && <p className="text-[11px] text-[#7F8A99] mt-0.5">{s.telefono}</p>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <Input
+                value={formData.proveedor}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, proveedor: e.target.value }))}
+                placeholder="O escribe el nombre manualmente"
+                className="text-sm rounded-2xl mt-1.5"
+              />
+              <p className="text-[11px] text-[#7F8A99]">El stock inicial siempre es 0. Actualiza el inventario en Compras.</p>
+            </div>
           </div>
 
-          {/* Notas */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Notas</label>
-            <textarea
-              value={formData.notas}
-              onChange={(e) => setFormData(p => ({ ...p, notas: e.target.value }))}
-              placeholder="Información adicional..."
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              rows={2}
-            />
+          {/* ── Sección 3: Compatibilidad y observaciones ─────────────── */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Compatibilidad y observaciones</p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Compatibilidad</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCompatible}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCompatible(e.target.value)}
+                    placeholder="iPhone 15 Pro, Samsung S24..."
+                    className="text-sm rounded-2xl flex-1"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCompatible(); }}}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCompatible}
+                    className="h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] text-white hover:brightness-110 transition-all"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+                {formData.compatibilidad && formData.compatibilidad.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {formData.compatibilidad.map((c, i) => (
+                      <span key={i} className="text-[11px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/40 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        {c}
+                        <button type="button" onClick={() => setFormData(p => ({ ...p, compatibilidad: p.compatibilidad?.filter((_, j) => j !== i) || [] }))} className="hover:text-blue-900 dark:hover:text-blue-100">
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Notas</label>
+                <textarea
+                  value={formData.notas}
+                  onChange={(e) => setFormData(p => ({ ...p, notas: e.target.value }))}
+                  placeholder="Información adicional..."
+                  className="w-full text-sm px-4 py-3 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:ring-2 focus:ring-[#48B9E6]/20 focus:border-[#48B9E6] resize-none outline-none min-h-[80px]"
+                  rows={3}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row justify-between gap-2 pt-1 border-t border-slate-100">
-            <p className="text-[11px] text-slate-400 self-center">Para imágenes y etiquetas edita después de crear.</p>
+          {/* ── Footer ────────────────────────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.14)]">
+            <p className="text-[11px] text-[#7F8A99] self-center">Para imágenes y etiquetas edita después de crear.</p>
             <div className="flex gap-2 shrink-0">
-              <Button variant="ghost" onClick={() => setShowFormModal(false)} className="text-sm border border-slate-200 rounded-xl px-4 py-2">
+              <Button variant="ghost" onClick={() => setShowFormModal(false)} className="text-sm border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] text-[#5E7184] dark:text-[#B8C2D1] hover:bg-slate-50 dark:hover:bg-[#0A1220] rounded-2xl px-4 py-2">
                 Cancelar
               </Button>
               <Button
                 onClick={handleSaveRepuesto}
                 disabled={isSaving || !formData.nombre || !formData.tipo || !formData.marca}
-                className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-5 py-2 disabled:opacity-50"
+                className="text-sm bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:brightness-110 text-white font-semibold rounded-2xl px-5 py-2 disabled:opacity-50 transition-all"
               >
                 {isSaving ? 'Guardando...' : 'Crear Repuesto'}
               </Button>
