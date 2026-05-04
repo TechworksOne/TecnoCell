@@ -52,7 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex font-sans" style={{ backgroundColor: "#060B14" }}>
+    <div className="h-screen overflow-hidden flex font-sans" style={{ backgroundColor: "#060B14" }}>
 
       {/* ═══════════════════════════════════════════════
           LEFT — panel de marca (oculto en móvil)
