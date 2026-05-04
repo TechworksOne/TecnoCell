@@ -21,6 +21,13 @@ const fmt = (v: number | string) =>
 
 const toNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
+// Safe date formatter — handles MySQL 'YYYY-MM-DD HH:mm:ss' and ISO strings
+const fmtDate = (v?: string | null, opts?: Intl.DateTimeFormatOptions): string => {
+  if (!v) return '—';
+  const d = new Date(String(v).replace(' ', 'T'));
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-GT', opts);
+};
+
 const ESTADO_BADGE: Record<string, string> = {
   PENDIENTE: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300',
   PARCIAL:   'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300',
@@ -639,18 +646,26 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
   })();
   const [monto, setMonto] = useState(defaultMonto);
   const [metodo, setMetodo] = useState('EFECTIVO');
+  const [pctInput, setPctInput] = useState(String(RECARGO_PCT['EFECTIVO'] ?? 0));
   const [referencia, setReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
-  const montoBase = parseFloat(monto) || 0;
-  const pctRecargo = RECARGO_PCT[metodo] ?? 0;
+  const handleMetodoChange = (m: string) => {
+    setMetodo(m);
+    setReferencia('');
+    setPctInput(String(RECARGO_PCT[m] ?? 0));
+  };
+
+  const montoBase   = parseFloat(monto) || 0;
+  const pctRecargo  = Math.max(0, parseFloat(pctInput) || 0);
   const montoRecargo = parseFloat((montoBase * pctRecargo / 100).toFixed(2));
   const totalCobrado = parseFloat((montoBase + montoRecargo).toFixed(2));
   const saldoDespues = Math.max(0, toNum(deudor.saldo_pendiente) - montoBase);
-  const hasRecargo = pctRecargo > 0;
-  const requireRef = ['TRANSFERENCIA', 'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'].includes(metodo);
+  const hasRecargo  = pctRecargo > 0;
+  const isTarjeta   = metodo.startsWith('TARJETA');
+  const requireRef  = ['TRANSFERENCIA', 'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'].includes(metodo);
 
   const handlePagar = async () => {
     const n = parseFloat(monto);
@@ -723,14 +738,30 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
           {/* Método */}
           <div>
             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Método de pago</label>
-            <select className={inputCls} value={metodo} onChange={e => { setMetodo(e.target.value); setReferencia(''); }}>
+            <select className={inputCls} value={metodo} onChange={e => handleMetodoChange(e.target.value)}>
               <option value="EFECTIVO">💵 Efectivo</option>
               <option value="TRANSFERENCIA">🏦 Transferencia bancaria</option>
-              <option value="TARJETA_BAC">💳 Tarjeta BAC (+3%)</option>
-              <option value="TARJETA_NEONET">💳 Tarjeta Neonet (+3%)</option>
-              <option value="TARJETA_OTRA">💳 Tarjeta otra (+3.5%)</option>
+              <option value="TARJETA_BAC">💳 Tarjeta BAC</option>
+              <option value="TARJETA_NEONET">💳 Tarjeta Neonet</option>
+              <option value="TARJETA_OTRA">💳 Tarjeta otra</option>
             </select>
           </div>
+
+          {/* % Recargo tarjeta — editable */}
+          {isTarjeta && (
+            <div>
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">% Recargo por tarjeta</label>
+              <div className="relative">
+                <input
+                  type="number" min="0" max="99" step="0.1"
+                  className={inputCls + ' pr-8'}
+                  value={pctInput}
+                  onChange={e => setPctInput(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 dark:text-slate-500">%</span>
+              </div>
+            </div>
+          )}
 
           {/* Referencia */}
           <div>
@@ -748,7 +779,7 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
                 <span className="font-medium text-amber-700 dark:text-amber-300">{fmt(montoBase)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-xs text-amber-700 dark:text-amber-300">Recargo {pctRecargo}%</span>
+                <span className="text-xs text-amber-700 dark:text-amber-300">Recargo {pctInput}%</span>
                 <span className="font-medium text-amber-600 dark:text-amber-400">+ {fmt(montoRecargo)}</span>
               </div>
               <div className="flex justify-between items-center border-t border-amber-200 dark:border-amber-800/30 pt-1.5">
@@ -977,7 +1008,7 @@ function ModalDetalle({ initial, onClose, onAction }: { initial: Deudor; onClose
                         {p.referencia && <span className="text-slate-400 dark:text-slate-500 ml-1">#{p.referencia}</span>}
                       </div>
                       <span className="text-xs text-slate-400 dark:text-slate-500">
-                        {p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-GT') : '—'}
+                        {fmtDate(p.fecha_pago)}
                       </span>
                     </div>
                   ))}
@@ -988,6 +1019,21 @@ function ModalDetalle({ initial, onClose, onAction }: { initial: Deudor; onClose
               <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3">
                 <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">Notas</p>
                 <p className="text-sm text-amber-800 dark:text-amber-300 whitespace-pre-line">{deudor.notas}</p>
+              </div>
+            )}
+            {deudor.estado === 'ANULADO' && (
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide flex items-center gap-1">
+                  <Ban size={11} /> Crédito anulado
+                </p>
+                {deudor.motivo_anulacion && (
+                  <p className="text-sm text-red-800 dark:text-red-300 whitespace-pre-line">{deudor.motivo_anulacion}</p>
+                )}
+                {deudor.fecha_anulacion && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                    Anulado el {fmtDate(deudor.fecha_anulacion)}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1164,7 +1210,7 @@ export default function DeudoresPage() {
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${ESTADO_BADGE[estadoKey] || ESTADO_BADGE.PENDIENTE}`}>{estadoKey}</span>
                       </td>
                       <td className="px-4 py-3 text-center text-xs text-slate-500 dark:text-slate-400">
-                        {d.fecha_vencimiento ? <span className={vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{new Date(d.fecha_vencimiento).toLocaleDateString('es-GT')}{vencido && ' ⚠'}</span> : '—'}
+                        {d.fecha_vencimiento ? <span className={vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{fmtDate(d.fecha_vencimiento)}{vencido && ' ⚠'}</span> : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
@@ -1215,7 +1261,7 @@ export default function DeudoresPage() {
                     </div>
                     {d.fecha_vencimiento && (
                       <p className={`text-xs mb-2 ${vencido ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>
-                        <Calendar size={11} className="inline mr-1" />Vence: {new Date(d.fecha_vencimiento).toLocaleDateString('es-GT')}
+                        <Calendar size={11} className="inline mr-1" />Vence: {fmtDate(d.fecha_vencimiento)}
                         {d.numero_cuotas && d.numero_cuotas > 1 && ` · ${d.numero_cuotas} cuotas`}
                       </p>
                     )}
