@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Sidebar from "./components/common/Sidebar";
 import Topbar from "./components/common/Topbar";
 import { ToastProvider } from "./components/ui/Toast";
@@ -12,14 +12,15 @@ export default function App() {
   const role = useAuth((state) => state.role);
   const initAuth = useAuth((state) => state.initAuth);
   const isOpen = useSidebar((state) => state.isOpen);
+  const { pathname } = useLocation();
 
   // Inicializar autenticación al cargar la app
   useEffect(() => {
     initAuth();
   }, [initAuth]);
 
-  // Si no hay usuario autenticado, mostrar solo la página de login
-  if (!role) {
+  // El login siempre se muestra sin sidebar ni topbar
+  if (pathname === "/login" || !role) {
     return (
       <ToastProvider>
         <div className="min-h-screen">
