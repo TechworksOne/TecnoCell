@@ -135,19 +135,19 @@ function StatCard({ label, value, sub, icon, iconBg, footer, onClick }: StatCard
   return (
     <button
       onClick={onClick}
-      className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 text-left w-full hover:shadow-md hover:border-slate-200 transition-all group cursor-pointer"
+      className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm p-4 text-left w-full hover:shadow-md transition-all group cursor-pointer"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 pr-2">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-0.5 leading-none">{value}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
+          <p className="text-[10px] font-bold text-[#5E7184] dark:text-[#7F8A99] uppercase tracking-widest">{label}</p>
+          <p className="text-2xl font-bold text-[#14324A] dark:text-[#F8FAFC] mt-0.5 leading-none">{value}</p>
+          <p className="text-[11px] text-[#5E7184] dark:text-[#7F8A99] mt-0.5">{sub}</p>
         </div>
         <div className={`${iconBg} p-2.5 rounded-xl shrink-0 group-hover:scale-105 transition-transform`}>
           {icon}
         </div>
       </div>
-      <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px]">{footer}</div>
+      <div className="mt-3 pt-2.5 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] text-[11px]">{footer}</div>
     </button>
   );
 }
@@ -166,9 +166,9 @@ function TecKpiCard({ label, value, sub, icon, accent, onClick, alert }: TecKpiC
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 text-left w-full transition-all hover:shadow-md"
+      className="bg-white dark:bg-[#0D1526] rounded-2xl p-4 text-left w-full transition-all hover:shadow-md"
       style={{
-        border: alert ? `1.5px solid ${accent}` : `1px solid ${BORDER}`,
+        border: alert ? `1.5px solid ${accent}` : `1px solid var(--color-border)`,
         boxShadow: "0 1px 6px rgba(20,50,74,0.06)",
       }}
     >
@@ -181,13 +181,13 @@ function TecKpiCard({ label, value, sub, icon, accent, onClick, alert }: TecKpiC
         </div>
         <span
           className="text-[1.65rem] font-bold leading-none"
-          style={{ color: TEXT_MAIN }}
+          style={{ color: "var(--color-text)" }}
         >
           {value}
         </span>
       </div>
-      <p className="font-semibold text-sm mt-2.5" style={{ color: TEXT_MAIN }}>{label}</p>
-      <p className="text-[11px] mt-0.5" style={{ color: TEXT_SEC }}>{sub}</p>
+      <p className="font-semibold text-sm mt-2.5" style={{ color: "var(--color-text)" }}>{label}</p>
+      <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-sec)" }}>{sub}</p>
     </button>
   );
 }
@@ -195,7 +195,7 @@ function TecKpiCard({ label, value, sub, icon, accent, onClick, alert }: TecKpiC
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 
 function SkeletonBlock({ h = "h-28" }: { h?: string }) {
-  return <div className={`bg-slate-100 animate-pulse rounded-2xl ${h}`} />;
+  return <div className={`bg-slate-100 dark:bg-[#0A1220] animate-pulse rounded-2xl ${h}`} />;
 }
 
 // ─── Reloj ────────────────────────────────────────────────────────────────────
@@ -208,14 +208,14 @@ function ClockWidget({ time }: { time: Date }) {
   return (
     <div
       className="flex items-center gap-3 rounded-xl px-4 py-2.5 self-start"
-      style={{ background: "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
+      style={{ background: "var(--color-surface)", border: `1px solid var(--color-border)`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
     >
-      <Clock size={16} style={{ color: TEXT_SEC }} className="shrink-0" />
+      <Clock size={16} style={{ color: "var(--color-text-sec)" }} className="shrink-0" />
       <div>
-        <p className="text-base font-bold font-mono leading-none" style={{ color: TEXT_MAIN }}>
+        <p className="text-base font-bold font-mono leading-none" style={{ color: "var(--color-text)" }}>
           {formatTime(time)}
         </p>
-        <p className="text-[10px] capitalize mt-0.5" style={{ color: TEXT_SEC }}>
+        <p className="text-[10px] capitalize mt-0.5" style={{ color: "var(--color-text-sec)" }}>
           {formatDate(time)}
         </p>
       </div>
@@ -328,10 +328,10 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
           >
             <Zap size={11} /> Panel Técnico
           </span>
-          <h1 className="text-xl font-bold leading-tight" style={{ color: TEXT_MAIN }}>
+          <h1 className="text-xl font-bold leading-tight" style={{ color: "var(--color-text)" }}>
             Bienvenido, {data.tecnico}
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: TEXT_SEC }}>
+          <p className="text-sm mt-0.5" style={{ color: "var(--color-text-sec)" }}>
             Resumen de reparaciones asignadas y actividad reciente
           </p>
         </div>
@@ -348,9 +348,9 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
       {/* ── ACCIONES RÁPIDAS ── */}
       <div
         className="rounded-2xl px-5 py-4"
-        style={{ background: "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
+        style={{ background: "var(--color-surface)", border: `1px solid var(--color-border)`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_SEC }}>
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--color-text-sec)" }}>
           Acciones rápidas
         </p>
         <div className="flex flex-wrap gap-2">
@@ -382,14 +382,14 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
         {/* ── REPARACIONES ACTIVAS (2/3) ── */}
         <div
           className="lg:col-span-2 rounded-2xl p-5"
-          style={{ background: "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
+          style={{ background: "var(--color-surface)", border: `1px solid var(--color-border)`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg" style={{ background: `${BRAND}18` }}>
                 <Wrench size={13} style={{ color: BRAND_DARK }} />
               </div>
-              <h3 className="text-sm font-semibold" style={{ color: TEXT_MAIN }}>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>
                 Mis reparaciones activas
               </h3>
             </div>
@@ -405,18 +405,18 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
           {reparaciones.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2">
               <CheckCircle2 size={32} style={{ color: BRAND, opacity: 0.4 }} />
-              <p className="text-sm" style={{ color: TEXT_SEC }}>No tienes reparaciones activas asignadas.</p>
+              <p className="text-sm" style={{ color: "var(--color-text-sec)" }}>No tienes reparaciones activas asignadas.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <tr style={{ borderBottom: `1px solid var(--color-border)` }}>
                     {["ID", "Cliente", "Equipo", "Estado", "Prioridad", "Ingreso"].map(h => (
                       <th
                         key={h}
                         className="text-left pb-2 pr-3 font-semibold uppercase tracking-wider"
-                        style={{ color: TEXT_SEC, fontSize: 10 }}
+                        style={{ color: "var(--color-text-sec)", fontSize: 10 }}
                       >
                         {h}
                       </th>
@@ -429,17 +429,17 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
                     return (
                       <tr
                         key={r.id}
-                        style={{ borderBottom: `1px solid ${BORDER}` }}
-                        className="hover:bg-[#F6FCFF] transition-colors cursor-pointer"
+                        style={{ borderBottom: `1px solid var(--color-border)` }}
+                        className="hover:bg-[#F6FCFF] dark:hover:bg-[rgba(72,185,230,0.05)] transition-colors cursor-pointer"
                         onClick={() => navigate("/reparaciones")}
                       >
                         <td className="py-2 pr-3 font-mono font-semibold" style={{ color: BRAND_DARK }}>
                           {r.id.replace("REP", "")}
                         </td>
-                        <td className="py-2 pr-3 max-w-[120px] truncate" style={{ color: TEXT_MAIN }}>
+                        <td className="py-2 pr-3 max-w-[120px] truncate" style={{ color: "var(--color-text)" }}>
                           {r.cliente_nombre}
                         </td>
-                        <td className="py-2 pr-3" style={{ color: TEXT_SEC }}>
+                        <td className="py-2 pr-3" style={{ color: "var(--color-text-sec)" }}>
                           {r.marca} {r.modelo}
                         </td>
                         <td className="py-2 pr-3">
@@ -453,12 +453,12 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
                         <td className="py-2 pr-3">
                           <span
                             className="inline-flex items-center gap-1 text-[10px] font-bold"
-                            style={{ color: PRIORIDAD_COLOR[r.prioridad] ?? TEXT_SEC }}
+                            style={{ color: PRIORIDAD_COLOR[r.prioridad] ?? "var(--color-text-sec)" }}
                           >
                             ● {r.prioridad}
                           </span>
                         </td>
-                        <td className="py-2" style={{ color: TEXT_SEC }}>
+                        <td className="py-2" style={{ color: "var(--color-text-sec)" }}>
                           {new Date(r.fecha_ingreso).toLocaleDateString("es-GT")}
                         </td>
                       </tr>
@@ -476,13 +476,13 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
           {/* Estados */}
           <div
             className="rounded-2xl p-4"
-            style={{ background: "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
+            style={{ background: "var(--color-surface)", border: `1px solid var(--color-border)`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_SEC }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--color-text-sec)" }}>
               Distribución por estado
             </p>
             {estadosList.length === 0 ? (
-              <p className="text-xs" style={{ color: TEXT_SEC }}>Sin reparaciones activas.</p>
+              <p className="text-xs" style={{ color: "var(--color-text-sec)" }}>Sin reparaciones activas.</p>
             ) : (
               <div className="space-y-1.5">
                 {estadosList.map(e => (
@@ -493,7 +493,7 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
                     >
                       {e.label}
                     </span>
-                    <span className="text-xs font-bold" style={{ color: TEXT_MAIN }}>{e.total}</span>
+                    <span className="text-xs font-bold" style={{ color: "var(--color-text)" }}>{e.total}</span>
                   </div>
                 ))}
               </div>
@@ -503,30 +503,30 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
           {/* Repuestos usados este mes */}
           <div
             className="rounded-2xl p-4"
-            style={{ background: `${BRAND}0A`, border: `1px solid ${BORDER}` }}
+            style={{ background: `${BRAND}0A`, border: `1px solid var(--color-border)` }}
           >
             <div className="flex items-center gap-2 mb-1">
               <Boxes size={14} style={{ color: BRAND_DARK }} />
-              <p className="text-[11px] font-semibold" style={{ color: TEXT_MAIN }}>
+              <p className="text-[11px] font-semibold" style={{ color: "var(--color-text)" }}>
                 Repuestos usados este mes
               </p>
             </div>
             <p className="text-3xl font-bold" style={{ color: BRAND_DARK }}>
               {stats.repuestos_usados_mes}
             </p>
-            <p className="text-[11px] mt-0.5" style={{ color: TEXT_SEC }}>ítems en reparaciones del mes</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-sec)" }}>ítems en reparaciones del mes</p>
           </div>
 
           {/* Actividad reciente */}
           <div
             className="rounded-2xl p-4 flex-1"
-            style={{ background: "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
+            style={{ background: "var(--color-surface)", border: `1px solid var(--color-border)`, boxShadow: "0 1px 6px rgba(20,50,74,0.06)" }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_SEC }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--color-text-sec)" }}>
               Actividad reciente
             </p>
             {actividad.length === 0 ? (
-              <p className="text-xs" style={{ color: TEXT_SEC }}>Sin actividad reciente.</p>
+              <p className="text-xs" style={{ color: "var(--color-text-sec)" }}>Sin actividad reciente.</p>
             ) : (
               <div className="space-y-2.5">
                 {actividad.slice(0, 5).map((a, i) => (
@@ -536,10 +536,10 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
                       style={{ background: BRAND }}
                     />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium leading-tight truncate" style={{ color: TEXT_MAIN }}>
+                      <p className="text-[11px] font-medium leading-tight truncate" style={{ color: "var(--color-text)" }}>
                         {a.cliente_nombre} — {a.marca} {a.modelo}
                       </p>
-                      <p className="text-[10px] truncate" style={{ color: TEXT_SEC }}>
+                      <p className="text-[10px] truncate" style={{ color: "var(--color-text-sec)" }}>
                         {a.nota.slice(0, 60)}{a.nota.length > 60 ? "…" : ""}
                       </p>
                       <p className="text-[9px] mt-0.5" style={{ color: "#A8BDD0" }}>
@@ -583,9 +583,9 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">
             <Zap size={11} /> Panel de Control
           </span>
-          <h1 className="text-xl font-bold text-slate-900 leading-tight">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Bienvenido, <span className="font-semibold text-slate-700">Administrador</span>
+          <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">Dashboard</h1>
+          <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
+            Bienvenido, <span className="font-semibold text-[#14324A] dark:text-[#E2E8F0]">Administrador</span>
           </p>
         </div>
         <ClockWidget time={time} />
@@ -631,8 +631,8 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           value={formatMoney(stats.ventas.hoy)}
           sub={`${stats.ventas.cantidad} transacciones`}
           icon={<ShoppingCart size={17} className="text-emerald-600" />}
-          iconBg="bg-emerald-50"
-          footer={<span className="text-slate-500">Mes: {formatMoney(stats.ventas.mes)}</span>}
+          iconBg="bg-emerald-50 dark:bg-emerald-950/30"
+          footer={<span className="text-[#5E7184] dark:text-[#B8C2D1]">Mes: {formatMoney(stats.ventas.mes)}</span>}
           onClick={() => navigate("/ventas")}
         />
         <StatCard
@@ -640,7 +640,7 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           value={stats.productos.total}
           sub="productos registrados"
           icon={<Package size={17} className="text-blue-600" />}
-          iconBg="bg-blue-50"
+          iconBg="bg-blue-50 dark:bg-sky-950/30"
           footer={
             <div className="flex justify-between">
               <span className="text-orange-500">⚠ Bajo: {stats.productos.bajo_stock}</span>
@@ -654,7 +654,7 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           value={stats.reparaciones.total}
           sub="activas"
           icon={<Wrench size={17} className="text-violet-600" />}
-          iconBg="bg-violet-50"
+          iconBg="bg-violet-50 dark:bg-violet-950/30"
           footer={
             <div className="flex justify-between">
               <span className="text-emerald-600">✓ {stats.reparaciones.con_checklist}</span>
@@ -668,15 +668,15 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           value={stats.cotizaciones.total}
           sub="registradas"
           icon={<FileText size={17} className="text-amber-600" />}
-          iconBg="bg-amber-50"
-          footer={<span className="text-amber-600">Abiertas: {stats.cotizaciones.abiertas}</span>}
+          iconBg="bg-amber-50 dark:bg-amber-950/30"
+          footer={<span className="text-amber-600 dark:text-amber-400">Abiertas: {stats.cotizaciones.abiertas}</span>}
           onClick={() => navigate("/cotizaciones")}
         />
       </div>
 
       {/* Acciones rápidas */}
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm px-5 py-4">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+      <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm px-5 py-4">
+        <p className="text-[10px] font-bold text-[#5E7184] dark:text-[#7F8A99] uppercase tracking-widest mb-3">
           Acciones Rápidas
         </p>
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
@@ -696,13 +696,13 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
       {/* Detalle inferior */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-6">
         {/* Estado de Reparaciones */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5">
+        <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-violet-100 p-1.5 rounded-lg">
-                <Wrench size={13} className="text-violet-600" />
+              <div className="bg-violet-100 dark:bg-violet-950/30 p-1.5 rounded-lg">
+                <Wrench size={13} className="text-violet-600 dark:text-violet-400" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-800">Estado de Reparaciones</h3>
+              <h3 className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">Estado de Reparaciones</h3>
             </div>
             <button
               onClick={() => navigate("/flujo-reparaciones")}
@@ -713,16 +713,16 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           </div>
           <div className="space-y-2">
             {[
-              { icon: <ClipboardCheck size={13} className="text-white" />, bg: "bg-emerald-500", rowBg: "bg-emerald-50", label: "Con Checklist",  sub: "Proceso completo",     value: stats.reparaciones.con_checklist,  numColor: "text-emerald-700" },
-              { icon: <ClipboardX size={13} className="text-white" />,     bg: "bg-red-500",     rowBg: "bg-red-50",     label: "Sin Checklist",  sub: "Requiere atención",    value: stats.reparaciones.sin_checklist,  numColor: "text-red-700"     },
-              { icon: <Wrench size={13} className="text-white" />,         bg: "bg-blue-500",    rowBg: "bg-blue-50",    label: "Completadas",    sub: "Listas para entrega",  value: stats.reparaciones.completadas,    numColor: "text-blue-700"    },
+              { icon: <ClipboardCheck size={13} className="text-white" />, bg: "bg-emerald-500", rowBg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Con Checklist",  sub: "Proceso completo",     value: stats.reparaciones.con_checklist,  numColor: "text-emerald-700 dark:text-emerald-300" },
+              { icon: <ClipboardX size={13} className="text-white" />,     bg: "bg-red-500",     rowBg: "bg-red-50 dark:bg-red-950/30",         label: "Sin Checklist",  sub: "Requiere atención",    value: stats.reparaciones.sin_checklist,  numColor: "text-red-700 dark:text-red-300"         },
+              { icon: <Wrench size={13} className="text-white" />,         bg: "bg-blue-500",    rowBg: "bg-sky-50 dark:bg-sky-950/30",          label: "Completadas",    sub: "Listas para entrega",  value: stats.reparaciones.completadas,    numColor: "text-blue-700 dark:text-blue-300"       },
             ].map((row, i) => (
               <div key={i} className={`flex items-center justify-between ${row.rowBg} rounded-xl px-3 py-2.5`}>
                 <div className="flex items-center gap-2.5">
                   <div className={`${row.bg} p-1.5 rounded-lg shrink-0`}>{row.icon}</div>
                   <div>
-                    <p className="text-sm font-medium text-slate-800">{row.label}</p>
-                    <p className="text-[11px] text-slate-500">{row.sub}</p>
+                    <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">{row.label}</p>
+                    <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">{row.sub}</p>
                   </div>
                 </div>
                 <span className={`text-xl font-bold ${row.numColor}`}>{row.value}</span>
@@ -732,13 +732,13 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
         </div>
 
         {/* Alertas de Stock */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5">
+        <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-amber-100 p-1.5 rounded-lg">
-                <AlertTriangle size={13} className="text-amber-600" />
+              <div className="bg-amber-100 dark:bg-amber-950/30 p-1.5 rounded-lg">
+                <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-800">Alertas de Stock</h3>
+              <h3 className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">Alertas de Stock</h3>
             </div>
             <button
               onClick={() => navigate("/productos")}
@@ -748,25 +748,25 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
             </button>
           </div>
           <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+            <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800/40 rounded-xl px-3 py-2.5">
               <div className="flex items-center gap-2.5">
-                <AlertTriangle size={14} className="text-red-500 shrink-0" />
+                <AlertTriangle size={14} className="text-red-500 dark:text-red-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-slate-800">Sin Stock</p>
-                  <p className="text-[11px] text-slate-500">Reposición inmediata</p>
+                  <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">Sin Stock</p>
+                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">Reposición inmediata</p>
                 </div>
               </div>
-              <span className="text-xl font-bold text-red-700">{stats.productos.sin_stock}</span>
+              <span className="text-xl font-bold text-red-700 dark:text-red-300">{stats.productos.sin_stock}</span>
             </div>
-            <div className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5">
+            <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-800/40 rounded-xl px-3 py-2.5">
               <div className="flex items-center gap-2.5">
-                <Package size={14} className="text-orange-500 shrink-0" />
+                <Package size={14} className="text-orange-500 dark:text-orange-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-slate-800">Stock Bajo</p>
-                  <p className="text-[11px] text-slate-500">Por debajo del mínimo</p>
+                  <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">Stock Bajo</p>
+                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">Por debajo del mínimo</p>
                 </div>
               </div>
-              <span className="text-xl font-bold text-orange-700">{stats.productos.bajo_stock}</span>
+              <span className="text-xl font-bold text-orange-700 dark:text-orange-300">{stats.productos.bajo_stock}</span>
             </div>
           </div>
           <button
