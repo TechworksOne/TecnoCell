@@ -27,6 +27,7 @@ interface CuentaBancaria {
 
 interface Movimiento {
   id: number;
+  cuenta_id?: number;
   tipo_movimiento: 'INGRESO' | 'EGRESO';
   monto: number;
   concepto: string;
@@ -552,6 +553,14 @@ export default function CajaBancosPage() {
                         <div className="border-t border-blue-200 pt-2 mt-2">
                           <p className="text-xs text-slate-500">Saldo confirmado</p>
                           <p className="text-lg font-bold text-blue-700">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</p>
+                          {(() => {
+                            const pendMonto = movimientosBancos
+                              .filter(m => m.cuenta_id === cuenta.id && m.estado === 'PENDIENTE' && m.tipo_movimiento === 'INGRESO')
+                              .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+                            return pendMonto > 0 ? (
+                              <p className="text-xs text-amber-600 font-medium mt-0.5">+ Q{pendMonto.toFixed(2)} pendiente por confirmar</p>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
                     ))}
