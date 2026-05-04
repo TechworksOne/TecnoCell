@@ -46,9 +46,9 @@ export const authService = {
 
       const data: LoginResponse = await response.json();
 
-      // Guardar token en localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Guardar token en sessionStorage (se borra al cerrar el navegador/pestaña)
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
 
       return data;
     } catch (error) {
@@ -63,22 +63,22 @@ export const authService = {
    * Cerrar sesión
    */
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
   },
 
   /**
    * Obtener token almacenado
    */
   getToken(): string | null {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token');
   },
 
   /**
    * Obtener usuario almacenado
    */
   getUser(): LoginResponse['user'] | null {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     if (!userStr) return null;
     try {
       return JSON.parse(userStr);
