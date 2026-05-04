@@ -64,19 +64,18 @@ export default function Sidebar() {
       }}
       className="flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
     >
-      {/* ── Header: logo + toggle ───────────────────────────────────────── */}
+      {/* ── Header: solo logo ───────────────────────────────────────────── */}
       <div
         className="flex items-center shrink-0"
         style={{
           height: 68,
           borderBottom: "1px solid #D6EEF8",
-          padding: isOpen ? "0 12px 0 16px" : "0",
-          justifyContent: isOpen ? "space-between" : "center",
+          padding: isOpen ? "0 16px" : "0",
+          justifyContent: "center",
         }}
       >
-        {/* Logo */}
         {isOpen ? (
-          <div className="flex items-center gap-2.5 overflow-hidden">
+          <div className="flex items-center gap-2.5 overflow-hidden w-full">
             <div
               className="shrink-0 bg-white rounded-xl flex items-center justify-center"
               style={{ width: 42, height: 42, boxShadow: "0 2px 10px rgba(72,185,230,0.18)" }}
@@ -118,61 +117,12 @@ export default function Sidebar() {
             <span className="hidden font-black text-xs" style={{ color: "#2EA7D8" }}>TC</span>
           </div>
         )}
-
-        {/* Botón toggle — solo visible en modo expandido */}
-        {isOpen && (
-          <button
-            onClick={toggle}
-            aria-label="Colapsar menú"
-            className="shrink-0 rounded-lg transition-colors"
-            style={{
-              width: 28,
-              height: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#5E7184",
-              border: "1px solid #D6EEF8",
-              background: "#FFFFFF",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.10)"; (e.currentTarget as HTMLElement).style.color = "#2EA7D8"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#FFFFFF"; (e.currentTarget as HTMLElement).style.color = "#5E7184"; }}
-          >
-            <ChevronLeft size={14} />
-          </button>
-        )}
-
-        {/* Botón toggle en modo colapsado */}
-        {!isOpen && (
-          <button
-            onClick={toggle}
-            aria-label="Expandir menú"
-            className="absolute rounded-lg transition-colors"
-            style={{
-              bottom: 16,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#5E7184",
-              border: "1px solid #D6EEF8",
-              background: "#FFFFFF",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.10)"; (e.currentTarget as HTMLElement).style.color = "#2EA7D8"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#FFFFFF"; (e.currentTarget as HTMLElement).style.color = "#5E7184"; }}
-          >
-            <ChevronRight size={14} />
-          </button>
-        )}
       </div>
 
       {/* ── Navegación ─────────────────────────────────────────────────── */}
       <nav
         className={isOpen ? "sidebar-nav" : "sidebar-nav-collapsed"}
-        style={{ padding: isOpen ? "8px 8px 24px" : "8px 6px 80px" }}
+        style={{ padding: isOpen ? "8px 8px 24px" : "8px 6px 24px" }}
       >
         {GROUPS.map((group, gi) => {
           const visible = group.items.filter(item => !item.adminOnly || isAdmin);
@@ -249,6 +199,37 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* ── Footer: botón toggle fijo al fondo ──────────────────────────── */}
+      <div
+        className="shrink-0 flex items-center"
+        style={{
+          height: 52,
+          borderTop: "1px solid #D6EEF8",
+          padding: isOpen ? "0 12px 0 16px" : "0",
+          justifyContent: isOpen ? "flex-end" : "center",
+        }}
+      >
+        <button
+          onClick={toggle}
+          aria-label={isOpen ? "Colapsar menú" : "Expandir menú"}
+          className="rounded-lg transition-colors"
+          style={{
+            width: 32,
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#5E7184",
+            border: "1px solid #D6EEF8",
+            background: "#FFFFFF",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(72,185,230,0.10)"; (e.currentTarget as HTMLElement).style.color = "#2EA7D8"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#FFFFFF"; (e.currentTarget as HTMLElement).style.color = "#5E7184"; }}
+        >
+          {isOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+        </button>
+      </div>
     </aside>
   );
 }
