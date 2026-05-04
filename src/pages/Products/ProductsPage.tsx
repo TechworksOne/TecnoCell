@@ -51,68 +51,107 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
   const showCost = canViewCosts(user?.roles);
   const lowStock = product.stock <= product.stockMin && product.stock > 0;
   const noStock = product.stock === 0;
+
+  const stockColor = noStock
+    ? 'text-red-600 dark:text-red-400'
+    : lowStock
+    ? 'text-amber-600 dark:text-amber-400'
+    : 'text-[#14324A] dark:text-[#F8FAFC]';
+
+  const statusCls = noStock
+    ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-300'
+    : lowStock
+    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-300'
+    : product.active
+    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-300'
+    : 'bg-slate-100 dark:bg-[#0A1220] text-slate-400 dark:text-[#7F8A99]';
+
+  const statusLabel = noStock ? 'Sin stock' : lowStock ? 'Stock bajo' : product.active ? 'Activo' : 'Inactivo';
+  const actionBtn = "p-1.5 rounded-lg transition-colors text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#48B9E6] hover:bg-[rgba(72,185,230,0.10)]";
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/70 transition-colors">
-      <img
-        src={getImage(product)}
-        alt={product.name}
-        className="w-11 h-11 rounded-xl object-cover shrink-0 bg-slate-100 border border-slate-100"
-        onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate leading-tight">{product.name}</p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 rounded">{product.sku}</span>
-          {product.category && (
-            <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">{capitalize(product.category)}</span>
-          )}
-          {product.subcategory && (
-            <span className="text-[10px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded font-medium">{capitalize(product.subcategory)}</span>
-          )}
-          {product.aplica_serie && (
-            <span className="text-[10px] bg-cyan-50 text-cyan-600 px-1.5 py-0.5 rounded font-medium">Serie/IMEI</span>
+    <div>
+      {/* ─ Desktop row (md+) ─ */}
+      <div className="hidden md:flex items-center gap-3 px-4 py-3 hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220] transition-colors">
+        <img
+          src={getImage(product)}
+          alt={product.name}
+          className="w-11 h-11 rounded-xl object-cover shrink-0 bg-slate-100 dark:bg-[#0A1220] border border-slate-100 dark:border-[rgba(72,185,230,0.10)]"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC] truncate leading-tight">{product.name}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className="text-[10px] font-mono bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-800/40 px-1.5 py-0.5 rounded">{product.sku}</span>
+            {product.category && (
+              <span className="text-[10px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">{capitalize(product.category)}</span>
+            )}
+            {product.subcategory && (
+              <span className="text-[10px] bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-medium">{capitalize(product.subcategory)}</span>
+            )}
+            {product.aplica_serie && (
+              <span className="text-[10px] bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded font-medium">Serie/IMEI</span>
+            )}
+          </div>
+        </div>
+        <div className="text-right w-20 shrink-0">
+          <p className={`text-sm font-bold ${stockColor}`}>{product.stock} uds</p>
+          <p className="text-[10px] text-[#7F8A99]">mín {product.stockMin}</p>
+        </div>
+        <div className="text-right w-28 shrink-0">
+          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(product.price)}</p>
+          {showCost && (
+            <p className="text-[10px] text-[#7F8A99]">costo {formatMoney(product.precioProducto || 0)}</p>
           )}
         </div>
+        <div className="flex items-center justify-center w-20 shrink-0">
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusCls}`}>{statusLabel}</span>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={() => onView(product)} className={actionBtn} title="Ver detalles"><Eye size={14} /></button>
+          <button onClick={() => onEdit(product)} className={actionBtn} title="Editar"><Pencil size={14} /></button>
+          <button onClick={() => onToggle(product)} className={actionBtn} title={product.active ? "Desactivar" : "Activar"}>
+            {product.active ? <PowerOff size={14} className="text-orange-400 dark:text-orange-300" /> : <Power size={14} className="text-emerald-500 dark:text-emerald-400" />}
+          </button>
+          <button onClick={() => onStock(product.id)} className={actionBtn} title="Ajustar stock"><Package size={14} /></button>
+        </div>
       </div>
-      <div className="text-right hidden sm:block w-20 shrink-0">
-        <p className={`text-sm font-bold ${noStock ? 'text-red-600' : lowStock ? 'text-amber-600' : 'text-slate-700'}`}>
-          {product.stock} uds
-        </p>
-        <p className="text-[10px] text-slate-400">mín {product.stockMin}</p>
-      </div>
-      <div className="text-right hidden md:block w-28 shrink-0">
-        <p className="text-sm font-bold text-emerald-600">{formatMoney(product.price)}</p>
-        {showCost && (
-          <p className="text-[10px] text-slate-400">costo {formatMoney(product.precioProducto || 0)}</p>
-        )}
-      </div>
-      <div className="hidden lg:flex items-center justify-center w-18 shrink-0">
-        {(noStock || lowStock) && (
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${noStock ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
-            {noStock ? 'Sin stock' : 'Stock bajo'}
-          </span>
-        )}
-        {!noStock && !lowStock && (
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${product.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-            {product.active ? 'Activo' : 'Inactivo'}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button onClick={() => onView(product)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Ver detalles">
-          <Eye size={14} className="text-slate-500" />
-        </button>
-        <button onClick={() => onEdit(product)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Editar">
-          <Pencil size={14} className="text-slate-500" />
-        </button>
-        <button onClick={() => onToggle(product)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={product.active ? "Desactivar" : "Activar"}>
-          {product.active
-            ? <PowerOff size={14} className="text-orange-400" />
-            : <Power size={14} className="text-emerald-500" />}
-        </button>
-        <button onClick={() => onStock(product.id)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="Ajustar stock">
-          <Package size={14} className="text-slate-500" />
-        </button>
+
+      {/* ─ Mobile card (< md) ─ */}
+      <div className="md:hidden flex items-start gap-3 px-4 py-3 hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220] transition-colors">
+        <img
+          src={getImage(product)}
+          alt={product.name}
+          className="w-12 h-12 rounded-xl object-cover shrink-0 bg-slate-100 dark:bg-[#0A1220] border border-slate-100 dark:border-[rgba(72,185,230,0.10)]"
+          onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC] leading-tight">{product.name}</p>
+            <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusCls}`}>{statusLabel}</span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <span className="text-[10px] font-mono bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-800/40 px-1.5 py-0.5 rounded">{product.sku}</span>
+            {product.category && (
+              <span className="text-[10px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">{capitalize(product.category)}</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <div>
+              <span className={`text-sm font-bold ${stockColor}`}>{product.stock} uds</span>
+              <span className="text-[10px] text-[#7F8A99] ml-1">/ mín {product.stockMin}</span>
+            </div>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(product.price)}</span>
+          </div>
+          <div className="flex items-center gap-0.5 mt-2">
+            <button onClick={() => onView(product)} className={actionBtn} title="Ver detalles"><Eye size={15} /></button>
+            <button onClick={() => onEdit(product)} className={actionBtn} title="Editar"><Pencil size={15} /></button>
+            <button onClick={() => onToggle(product)} className={actionBtn} title={product.active ? "Desactivar" : "Activar"}>
+              {product.active ? <PowerOff size={15} className="text-orange-400 dark:text-orange-300" /> : <Power size={15} className="text-emerald-500 dark:text-emerald-400" />}
+            </button>
+            <button onClick={() => onStock(product.id)} className={actionBtn} title="Ajustar stock"><Package size={15} /></button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -491,24 +530,24 @@ export default function ProductsPage() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Package size={20} className="text-blue-600" />
+          <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] flex items-center gap-2">
+            <Package size={20} className="text-[#2EA7D8] dark:text-[#48B9E6]" />
             Productos
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Gestión del catálogo de productos</p>
+          <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">Gestión del catálogo de productos</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <Button
             variant="ghost"
             onClick={() => setShowAddCategoryModal(true)}
-            className="text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-xl text-sm px-4 py-2"
+            className="text-[#14324A] dark:text-[#F8FAFC] hover:bg-slate-100 dark:hover:bg-[#0A1220] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl text-sm px-4 py-2"
           >
             <Tag size={15} className="mr-1.5" />
             Categorías
           </Button>
           <Button
             onClick={handleOpenNewProductModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm px-4 py-2 shadow-sm"
+            className="bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:opacity-90 text-white font-semibold rounded-xl text-sm px-4 py-2 shadow-sm"
           >
             <Plus size={15} className="mr-1.5" />
             Nuevo Producto
@@ -552,21 +591,21 @@ export default function ProductsPage() {
       <StockAlertsWidget />
 
       {/* ── Toolbar ─────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-100 dark:border-[rgba(72,185,230,0.16)] px-4 py-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1 min-w-0">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7F8A99] pointer-events-none" />
           <Input
             type="text"
             placeholder="Buscar por nombre, SKU o categoría..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 py-2 text-sm rounded-xl border-slate-200 w-full"
+            className="pl-9 py-2 text-sm rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:border-[#48B9E6] outline-none w-full"
           />
         </div>
         <Select
           value={categoryFilter}
           onChange={(e) => { setCategoryFilter(e.target.value); setSubcategoryFilter(""); }}
-          className="text-sm rounded-xl border-slate-200 py-2 min-w-0 sm:w-44"
+          className="text-sm rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] py-2 min-w-0 sm:w-44"
         >
           <option value="">Todas las categorías</option>
           {categories.map((cat) => (
@@ -577,7 +616,7 @@ export default function ProductsPage() {
           <Select
             value={subcategoryFilter}
             onChange={(e) => setSubcategoryFilter(e.target.value)}
-            className="text-sm rounded-xl border-slate-200 py-2 min-w-0 sm:w-44"
+            className="text-sm rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] py-2 min-w-0 sm:w-44"
           >
             <option value="">Todas las subcategorías</option>
             {getSubcategories(categoryFilter).map((sub) => (
@@ -589,31 +628,31 @@ export default function ProductsPage() {
           <Button
             variant="ghost"
             onClick={() => { setSearchTerm(""); setCategoryFilter(""); setSubcategoryFilter(""); }}
-            className="text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl px-3 py-2 whitespace-nowrap"
+            className="text-sm text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 whitespace-nowrap"
           >
             Limpiar
           </Button>
         )}
-        <span className="text-xs text-slate-400 whitespace-nowrap self-center sm:ml-1">
+        <span className="text-xs text-[#7F8A99] whitespace-nowrap self-center sm:ml-1">
           {filteredProducts.length} productos
         </span>
       </div>
 
       {/* ── Product List ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-100 dark:border-[rgba(72,185,230,0.16)] overflow-hidden shadow-sm dark:shadow-none">
         {/* Table header */}
-        <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-100">
+        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#F8FDFF] dark:bg-[#0A1220] border-b border-slate-100 dark:border-[rgba(72,185,230,0.16)]">
           <div className="w-11 shrink-0" />
-          <p className="flex-1 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Producto</p>
-          <p className="hidden sm:block w-20 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Stock</p>
-          <p className="hidden md:block w-28 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Precio venta</p>
-          <p className="hidden lg:block w-18 text-center text-[11px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Estado</p>
-          <p className="w-20 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Acciones</p>
+          <p className="flex-1 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Producto</p>
+          <p className="w-20 text-right text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Stock</p>
+          <p className="w-28 text-right text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Precio venta</p>
+          <p className="w-20 text-center text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Estado</p>
+          <p className="w-20 text-right text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Acciones</p>
         </div>
 
         {/* Rows */}
         {filteredProducts.length > 0 ? (
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-50 dark:divide-[rgba(72,185,230,0.10)]">
             {filteredProducts.map((product) => (
               <ProductRow
                 key={product.id}
@@ -629,17 +668,17 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="bg-slate-100 rounded-2xl p-4 mb-3">
-              <Package size={28} className="text-slate-400" />
+            <div className="bg-slate-100 dark:bg-[#0A1220] rounded-2xl p-4 mb-3">
+              <Package size={28} className="text-slate-400 dark:text-[#7F8A99]" />
             </div>
-            <p className="text-sm font-semibold text-slate-600">
+            <p className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">
               {hasFilters ? 'Sin resultados' : 'No hay productos'}
             </p>
-            <p className="text-xs text-slate-400 mt-1 mb-4">
+            <p className="text-xs text-[#7F8A99] mt-1 mb-4">
               {hasFilters ? 'Ajusta los filtros o la búsqueda' : 'Comienza agregando tu primer producto'}
             </p>
             {!hasFilters && (
-              <Button onClick={handleOpenNewProductModal} className="bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-xl px-4 py-2">
+              <Button onClick={handleOpenNewProductModal} className="bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:opacity-90 text-white text-sm rounded-xl px-4 py-2">
                 <Plus size={14} className="mr-1.5" />
                 Agregar Producto
               </Button>
@@ -650,17 +689,17 @@ export default function ProductsPage() {
 
       {/* ── Pagination ───────────────────────────────────────────────── */}
       {pagination.totalPages > 1 && (
-        <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
-            Mostrando <span className="font-semibold text-slate-700">{products.length}</span> de{' '}
-            <span className="font-semibold text-slate-700">{pagination.total}</span> productos
-            <span className="text-slate-400 ml-1">(p. {pagination.currentPage}/{pagination.totalPages})</span>
+        <div className="bg-white dark:bg-[#0D1526] rounded-2xl border border-slate-100 dark:border-[rgba(72,185,230,0.16)] px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1]">
+            Mostrando <span className="font-semibold text-[#14324A] dark:text-[#F8FAFC]">{products.length}</span> de{' '}
+            <span className="font-semibold text-[#14324A] dark:text-[#F8FAFC]">{pagination.total}</span> productos
+            <span className="text-[#7F8A99] ml-1">(p. {pagination.currentPage}/{pagination.totalPages})</span>
           </p>
           <div className="flex items-center gap-1">
             <button
               onClick={() => handlePageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] text-[#5E7184] dark:text-[#B8C2D1] hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               ← Anterior
             </button>
@@ -676,7 +715,7 @@ export default function ProductsPage() {
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
                   className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
-                    isActive ? 'bg-blue-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    isActive ? 'bg-[#2EA7D8] text-white' : 'border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] text-[#5E7184] dark:text-[#B8C2D1] hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220]'
                   }`}
                 >
                   {pageNum}
@@ -686,7 +725,7 @@ export default function ProductsPage() {
             <button
               onClick={() => handlePageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.totalPages}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] text-[#5E7184] dark:text-[#B8C2D1] hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Siguiente →
             </button>
