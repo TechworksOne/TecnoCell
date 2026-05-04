@@ -512,58 +512,129 @@ exports.registrarPago = async (req, res) => {
  * POST /api/ventas/:id/anular
  */
 exports.anularVenta = async (req, res) => {
+  let connection;
+
   try {
     const { id } = req.params;
     const { motivo, usuario_id } = req.body;
 
     if (!motivo) {
-      return res.status(400).json({ error: 'El motivo de anulación es requerido' });
+      return res.status(400).json({
+        error: 'El motivo de anulación es requerido',
+      });
     }
 
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
     // Verificar que la venta existe y no está ya anulada
-    const [ventasRows] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
+    const [ventasRows] = await connection.query(
+      'SELECT * FROM ventas WHERE id = ? LIMIT 1',
+      [id]
+    );
+
     if (ventasRows.length === 0) {
-      return res.status(404).json({ error: 'Venta no encontrada' });
+      await connection.rollback();
+
+      return res.status(404).json({
+        error: 'Venta no encontrada',
+      });
     }
+
     const ventaActual = ventasRows[0];
 
     if (ventaActual.estado === 'ANULADA') {
-      return res.status(400).json({ error: 'La venta ya está anulada' });
+      await connection.rollback();
+
+      return res.status(400).json({
+        error: 'La venta ya está anulada',
+      });
     }
 
     // Agregar nota de anulación
+    const fechaAnulacion = new Date().toISOString();
     const notasActuales = ventaActual.notas_internas || '';
-    const nuevasNotas = notasActuales
-      ? `${notasActuales}\nANULADA: ${motivo} - ${new Date().toISOString()}`
-      : `ANULADA: ${motivo} - ${new Date().toISOString()}`;
 
-    await db.query(
-      'UPDATE ventas SET estado = "ANULADA", notas_internas = ?, updated_by = ? WHERE id = ?',
+    const nuevasNotas = notasActuales
+      ? `${notasActuales}\nANULADA: ${motivo} - ${fechaAnulacion}`
+      : `ANULADA: ${motivo} - ${fechaAnulacion}`;
+
+    await connection.query(
+      `UPDATE ventas 
+       SET estado = 'ANULADA',
+           notas_internas = ?,
+           updated_by = ?
+       WHERE id = ?`,
       [nuevasNotas, usuario_id || null, id]
     );
 
     // Revertir cotización si existía
     if (ventaActual.cotizacion_id) {
-      await db.query(
-        `UPDATE cotizaciones SET estado = 'ENVIADA', convertida_a = NULL, referencia_venta_id = NULL, fecha_conversion = NULL WHERE id = ?`,
+      await connection.query(
+        `UPDATE cotizaciones 
+         SET estado = 'ENVIADA',
+             convertida_a = NULL,
+             referencia_venta_id = NULL,
+             fecha_conversion = NULL
+         WHERE id = ?`,
         [ventaActual.cotizacion_id]
       );
     }
 
+    /*
+      Reversa financiera:
+      - Si la venta fue efectivo, crea EGRESO en caja_chica.
+      - Si la venta fue tarjeta/transferencia, crea EGRESO en movimientos_bancarios.
+      - No borra el movimiento original.
+      - Evita duplicar reversas si ya existe una.
+    */
+    const usuarioNombre =
+      req.user?.username ||
+      req.user?.name ||
+      req.user?.nombre ||
+      req.body?.usuario_nombre ||
+      req.body?.usuario ||
+      usuario_id ||
+      'Sistema';
+
+    await cajaController.registrarReversaMovimientoVenta(
+      ventaActual,
+      usuarioNombre,
+      connection
+    );
+
     // Obtener venta actualizada
-    const [ventasUpdated] = await db.query('SELECT * FROM ventas WHERE id = ?', [id]);
+    const [ventasUpdated] = await connection.query(
+      'SELECT * FROM ventas WHERE id = ? LIMIT 1',
+      [id]
+    );
+
+    await connection.commit();
+
     const venta = parseVentaJSON(ventasUpdated[0]);
 
     res.json(venta);
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Error haciendo rollback al anular venta:', rollbackError);
+      }
+    }
+
     console.error('Error al anular venta:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al anular venta',
-      details: error.message 
+      details: error.message,
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
-
 /**
  * Obtener estadísticas de ventas
  * GET /api/ventas/estadisticas
