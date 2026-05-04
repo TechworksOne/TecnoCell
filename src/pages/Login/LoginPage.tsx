@@ -198,7 +198,7 @@ export default function LoginPage() {
       {/* ═══════════════════════════════════════════════
           RIGHT — formulario de inicio de sesión
       ═══════════════════════════════════════════════ */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10" style={{ backgroundColor: "#060B14" }}>
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 overflow-y-auto" style={{ backgroundColor: "#060B14" }}>
         <div className="w-full max-w-[420px] space-y-8">
 
           {/* Cabecera de marca — solo en móvil */}
