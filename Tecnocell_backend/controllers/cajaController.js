@@ -569,7 +569,7 @@ exports.registrarReversaMovimientoVenta = async (
       referenciasUnicas[0] ||
       String(ventaIdOriginal || 'SIN_REFERENCIA');
 
-    const buildWhereReferencia = () => {
+        const buildWhereBanco = () => {
       const conditions = [];
       const params = [];
 
@@ -597,28 +597,54 @@ exports.registrarReversaMovimientoVenta = async (
       };
     };
 
-    const { where, params } = buildWhereReferencia();
+    const buildWhereCaja = () => {
+      const conditions = [];
+      const params = [];
+
+      if (ventaIdNumerico !== null) {
+        conditions.push('venta_id = ?');
+        params.push(ventaIdNumerico);
+      }
+
+      referenciasUnicas.forEach((ref) => {
+        conditions.push('concepto LIKE ?');
+        params.push(`%${ref}%`);
+      });
+
+      if (conditions.length === 0) {
+        conditions.push('concepto LIKE ?');
+        params.push(`%${referenciaPrincipal}%`);
+      }
+
+      return {
+        where: `(${conditions.join(' OR ')})`,
+        params,
+      };
+    };
+
+    const bancoFiltro = buildWhereBanco();
+    const cajaFiltro = buildWhereCaja();
 
     // Evitar reversas duplicadas en banco
     const [reversasBancoExistentes] = await dbConn.query(
-      `SELECT id 
+      `SELECT id
        FROM movimientos_bancarios
        WHERE tipo_movimiento = 'EGRESO'
        AND categoria = 'Anulacion Venta'
-       AND ${where}
+       AND ${bancoFiltro.where}
        LIMIT 1`,
-      params
+      bancoFiltro.params
     );
 
     // Evitar reversas duplicadas en caja
     const [reversasCajaExistentes] = await dbConn.query(
-      `SELECT id 
+      `SELECT id
        FROM caja_chica
        WHERE tipo_movimiento = 'EGRESO'
        AND categoria = 'Anulacion Venta'
-       AND ${where}
+       AND ${cajaFiltro.where}
        LIMIT 1`,
-      params
+      cajaFiltro.params
     );
 
     if (reversasBancoExistentes.length > 0 || reversasCajaExistentes.length > 0) {
@@ -638,9 +664,9 @@ exports.registrarReversaMovimientoVenta = async (
       `SELECT *
        FROM movimientos_bancarios
        WHERE tipo_movimiento = 'INGRESO'
-       AND ${where}
+       AND ${bancoFiltro.where}
        ORDER BY id ASC`,
-      params
+      bancoFiltro.params
     );
 
     // Buscar ingresos de caja chica originales de la venta
@@ -648,9 +674,9 @@ exports.registrarReversaMovimientoVenta = async (
       `SELECT *
        FROM caja_chica
        WHERE tipo_movimiento = 'INGRESO'
-       AND ${where}
+       AND ${cajaFiltro.where}
        ORDER BY id ASC`,
-      params
+      cajaFiltro.params
     );
 
     let reversasCreadas = 0;
