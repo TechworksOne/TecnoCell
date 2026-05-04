@@ -629,7 +629,15 @@ const RECARGO_PCT: Record<string, number> = {
 
 function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () => void; onPaid: () => void }) {
   const { user } = useAuth();
-  const [monto, setMonto] = useState(toNum(deudor.saldo_pendiente).toFixed(2));
+  const defaultMonto = (() => {
+    const cuota = toNum(deudor.monto_cuota);
+    const saldo = toNum(deudor.saldo_pendiente);
+    // Use cuota amount if this is a multi-cuota credit and cuota <= saldo
+    if (deudor.numero_cuotas && deudor.numero_cuotas > 1 && cuota > 0 && cuota <= saldo)
+      return cuota.toFixed(2);
+    return saldo.toFixed(2);
+  })();
+  const [monto, setMonto] = useState(defaultMonto);
   const [metodo, setMetodo] = useState('EFECTIVO');
   const [referencia, setReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -696,7 +704,19 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
 
           {/* Monto */}
           <div>
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Monto a abonar (Q)</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Monto a abonar (Q)</label>
+              {deudor.numero_cuotas && deudor.numero_cuotas > 1 && deudor.monto_cuota && (
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                  <span>Cuota: <strong className="text-[#48B9E6]">{fmt(deudor.monto_cuota)}</strong></span>
+                  <button type="button"
+                    onClick={() => setMonto(toNum(deudor.saldo_pendiente).toFixed(2))}
+                    className="text-[10px] px-1.5 py-0.5 rounded-lg bg-slate-100 dark:bg-[#060B14] hover:bg-[#48B9E6]/10 hover:text-[#48B9E6] transition-colors">
+                    Saldo completo
+                  </button>
+                </div>
+              )}
+            </div>
             <input type="number" min="0.01" step="0.01" className={inputCls} value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
           </div>
 
@@ -1152,7 +1172,7 @@ export default function DeudoresPage() {
                           {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && (
                             <button title="Registrar pago" onClick={() => setPagoTarget(d)} className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"><CreditCard size={14} /></button>
                           )}
-                          {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
+                          {d.estado !== 'ANULADO' && (
                             <button title="Anular" onClick={() => setAnularTarget(d)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
                           )}
                         </div>
@@ -1204,7 +1224,7 @@ export default function DeudoresPage() {
                       {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && (
                         <button onClick={() => setPagoTarget(d)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl py-1.5 text-xs font-medium text-white"><CreditCard size={12} /> Pagar</button>
                       )}
-                      {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
+                      {d.estado !== 'ANULADO' && (
                         <button onClick={() => setAnularTarget(d)} className="p-1.5 rounded-xl border border-red-200 dark:border-red-800/30 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
                       )}
                     </div>
