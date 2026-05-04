@@ -440,7 +440,7 @@ function Step3({ state, setState, montoTotal }: { state: WizardState; setState: 
               {cuotasList.map(c => (
                 <div key={c.numero} className="grid grid-cols-12 items-center px-3 py-2 text-sm">
                   <span className="col-span-2 text-slate-400 dark:text-slate-500 text-xs font-mono">#{c.numero}</span>
-                  <span className="col-span-5 text-slate-700 dark:text-slate-300 text-xs">{c.fecha.toLocaleDateString('es-GT')}</span>
+                  <span className="col-span-5 text-slate-700 dark:text-slate-300 text-xs">{isNaN(c.fecha.getTime()) ? '—' : c.fecha.toLocaleDateString('es-GT')}</span>
                   <span className="col-span-3 text-right font-semibold text-[#48B9E6] text-xs">{fmt(c.monto)}</span>
                   <span className="col-span-2 text-right">
                     <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">PEND.</span>
@@ -505,7 +505,7 @@ function Step4({ state, montoTotal }: { state: WizardState; montoTotal: number }
             {cuotas.map(c => (
               <div key={c.numero} className="flex items-center px-3 py-2 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
                 <span className="w-10 text-slate-400 text-xs">#{c.numero}</span>
-                <span className="flex-1 text-slate-700 dark:text-slate-300">{c.fecha.toLocaleDateString('es-GT')}</span>
+                <span className="flex-1 text-slate-700 dark:text-slate-300">{isNaN(c.fecha.getTime()) ? '—' : c.fecha.toLocaleDateString('es-GT')}</span>
                 <span className="font-semibold text-[#48B9E6]">{fmt(c.monto)}</span>
               </div>
             ))}
@@ -976,7 +976,7 @@ function ModalDetalle({ initial, onClose, onAction }: { initial: Deudor; onClose
                   {(cuotasPlan || []).map(c => (
                     <div key={c.numero} className="flex items-center px-3 py-1.5 text-sm border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
                       <span className="w-8 text-slate-400 text-xs">#{c.numero}</span>
-                      <span className="flex-1 text-slate-600 dark:text-slate-300 text-xs">{c.fecha.toLocaleDateString('es-GT')}</span>
+                      <span className="flex-1 text-slate-600 dark:text-slate-300 text-xs">{isNaN(c.fecha.getTime()) ? '—' : c.fecha.toLocaleDateString('es-GT')}</span>
                       <span className="text-xs font-semibold text-[#48B9E6]">{fmt(c.monto)}</span>
                     </div>
                   ))}

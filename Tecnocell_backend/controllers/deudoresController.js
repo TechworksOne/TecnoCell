@@ -294,7 +294,7 @@ exports.registrarPago = async (req, res) => {
         `INSERT INTO caja_chica
            (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
          VALUES ('INGRESO', ?, ?, 'Cobro Deuda', 'CONFIRMADO', ?, ?)`,
-        [totalCobrado, concepto, agente, notas || null]
+        [montoBase, concepto, agente, notas || null]
       );
       cajaMovId = cajaRes.insertId;
 
@@ -315,12 +315,12 @@ exports.registrarPago = async (req, res) => {
              (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
               numero_referencia, realizado_por, observaciones)
            VALUES (?, 'INGRESO', ?, ?, 'Transferencia', 'CONFIRMADO', ?, ?, ?)`,
-          [cuenta.id, totalCobrado, concepto, referencia || null, agente, notas || null]
+          [cuenta.id, montoBase, concepto, referencia || null, agente, notas || null]
         );
         bancoMovId = bRes.insertId;
         await connection.query(
           'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
-          [totalCobrado, cuenta.id]
+          [montoBase, cuenta.id]
         );
       }
 
@@ -333,7 +333,7 @@ exports.registrarPago = async (req, res) => {
              (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
               numero_referencia, realizado_por, observaciones)
            VALUES (?, 'INGRESO', ?, ?, 'POS', 'PENDIENTE', ?, ?, ?)`,
-          [cuenta.id, totalCobrado, concepto, referencia || null, agente, notas || null]
+          [cuenta.id, montoBase, concepto, referencia || null, agente, notas || null]
         );
         bancoMovId = bRes.insertId;
       }
@@ -347,7 +347,7 @@ exports.registrarPago = async (req, res) => {
              (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
               numero_referencia, realizado_por, observaciones)
            VALUES (?, 'INGRESO', ?, ?, 'POS', 'PENDIENTE', ?, ?, ?)`,
-          [cuenta.id, totalCobrado, concepto, referencia || null, agente, notas || null]
+          [cuenta.id, montoBase, concepto, referencia || null, agente, notas || null]
         );
         bancoMovId = bRes.insertId;
       }
@@ -360,7 +360,7 @@ exports.registrarPago = async (req, res) => {
              (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
               numero_referencia, realizado_por, observaciones)
            VALUES (?, 'INGRESO', ?, ?, 'POS', 'PENDIENTE', ?, ?, ?)`,
-          [cuenta.id, totalCobrado, concepto, referencia || null, agente, notas || null]
+          [cuenta.id, montoBase, concepto, referencia || null, agente, notas || null]
         );
         bancoMovId = bRes.insertId;
       }
@@ -460,7 +460,8 @@ exports.anularDeudor = async (req, res) => {
     const motivoCorto = String(motivo).substring(0, 200);
 
     for (const pago of pagosRealizados) {
-      const montoPago = round2(Number(pago.total_cobrado || pago.monto));
+      // Always use monto (not total_cobrado): bank only received the base amount
+      const montoPago = round2(Number(pago.monto));
       const concepto  = `Reversa anulación crédito ${deudor.numero_credito} — ${deudor.cliente_nombre}`;
 
       if (pago.caja_movimiento_id) {
@@ -473,30 +474,34 @@ exports.anularDeudor = async (req, res) => {
       }
 
       if (pago.banco_movimiento_id) {
-        // Obtener cuenta_id del movimiento original
+        // Fetch the original bank movement with its status
         const [movOrig] = await connection.query(
-          'SELECT cuenta_id FROM movimientos_bancarios WHERE id = ? LIMIT 1',
+          'SELECT id, cuenta_id, estado FROM movimientos_bancarios WHERE id = ? LIMIT 1',
           [pago.banco_movimiento_id]
         );
-        if (movOrig.length && movOrig[0].cuenta_id) {
-          await connection.query(
-            `INSERT INTO movimientos_bancarios
-               (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
-                numero_referencia, realizado_por, observaciones)
-             VALUES (?, 'EGRESO', ?, ?, 'Reversa Deuda', 'CONFIRMADO', NULL, ?, ?)`,
-            [movOrig[0].cuenta_id, montoPago, concepto, agente, motivoCorto]
-          );
-          // Solo descontar saldo si el movimiento original estaba CONFIRMADO
-          const [movOrigEstado] = await connection.query(
-            'SELECT estado FROM movimientos_bancarios WHERE id = ? LIMIT 1',
-            [pago.banco_movimiento_id]
-          );
-          if (movOrigEstado[0]?.estado === 'CONFIRMADO') {
+        if (movOrig.length) {
+          const movEstado = movOrig[0].estado;
+          if (movEstado === 'PENDIENTE') {
+            // Movement was never confirmed — just delete it, no reversal needed
+            await connection.query(
+              'DELETE FROM movimientos_bancarios WHERE id = ?',
+              [pago.banco_movimiento_id]
+            );
+          } else if (movEstado === 'CONFIRMADO' && movOrig[0].cuenta_id) {
+            // Movement was confirmed — register a reversal EGRESO and subtract balance
+            await connection.query(
+              `INSERT INTO movimientos_bancarios
+                 (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
+                  numero_referencia, realizado_por, observaciones)
+               VALUES (?, 'EGRESO', ?, ?, 'Reversa Deuda', 'CONFIRMADO', NULL, ?, ?)`,
+              [movOrig[0].cuenta_id, montoPago, concepto, agente, motivoCorto]
+            );
             await connection.query(
               'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual - ? WHERE id = ?',
               [montoPago, movOrig[0].cuenta_id]
             );
           }
+          // Any other status (ANULADO, CANCELADO) — skip, no action needed
         }
       }
     }
