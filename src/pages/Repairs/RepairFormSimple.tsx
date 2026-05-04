@@ -740,7 +740,7 @@ export default function RepairFormSimple() {
                 </div>
               </div>
 
-              {/* Anticipo - REMOVIDO TEMPORALMENTE */
+              {/* Anticipo - REMOVIDO TEMPORALMENTE */}
             </div>
           </Card>
         )}
