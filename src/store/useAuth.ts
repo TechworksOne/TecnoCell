@@ -12,14 +12,14 @@ interface User {
   username: string;
   name: string;
   email: string;
-  role: "admin" | "employee";
+  role: "admin" | "employee" | "tecnico";
   roles: string[];
   perfil: UserPerfil | null;
 }
 
 interface AuthState {
   user: User | null;
-  role: "admin" | "employee" | null;
+  role: "admin" | "employee" | "tecnico" | null;
   token: string | null;
   isLoading: boolean;
   error: string | null;
@@ -27,7 +27,7 @@ interface AuthState {
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
-  setRole: (role: "admin" | "employee") => void;
+  setRole: (role: "admin" | "employee" | "tecnico") => void;
   initAuth: () => void;
   hasRole: (role: string) => boolean;
 }
