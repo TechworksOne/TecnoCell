@@ -48,7 +48,7 @@ export default function App() {
       <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
         <Sidebar />
         <div
-            style={{ marginLeft: isOpen ? 272 : 76, transition: "margin-left 300ms ease" }}
+            style={{ marginLeft: isOpen ? 264 : 72, transition: "margin-left 280ms cubic-bezier(.4,0,.2,1)" }}
             className="flex flex-col"
           >
           <Topbar />

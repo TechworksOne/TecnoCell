@@ -169,6 +169,34 @@ exports.createCheckEquipo = async (req, res) => {
            VALUES (?, 'INGRESO', ?, ?, 'ANTICIPO_REPARACION', 'PENDIENTE', ?, 'Anticipo por transferencia desde checklist de ingreso', 'REPARACION', ?)`,
           [cuentaBancariaId, montoDecimal, concepto, realizadoPor || 'Sistema', reparacionId]
         );
+      } else if (metodoAnticipo === 'tarjeta_bac') {
+        const [cuentaBac] = await connection.query(
+          'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
+          ['BAC']
+        );
+        const cuentaId = cuentaBac.length > 0 ? cuentaBac[0].id : null;
+        if (cuentaId) {
+          await connection.query(
+            `INSERT INTO movimientos_bancarios
+             (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+             VALUES (?, 'INGRESO', ?, ?, 'ANTICIPO_REPARACION', 'PENDIENTE', ?, 'Anticipo por tarjeta BAC desde checklist de ingreso', 'REPARACION', ?)`,
+            [cuentaId, montoDecimal, concepto, realizadoPor || 'Sistema', reparacionId]
+          );
+        }
+      } else if (metodoAnticipo === 'tarjeta_neonet') {
+        const [cuentaIndustrial] = await connection.query(
+          'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
+          ['Banco Industrial']
+        );
+        const cuentaId = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].id : null;
+        if (cuentaId) {
+          await connection.query(
+            `INSERT INTO movimientos_bancarios
+             (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+             VALUES (?, 'INGRESO', ?, ?, 'ANTICIPO_REPARACION', 'PENDIENTE', ?, 'Anticipo por tarjeta Neonet desde checklist de ingreso', 'REPARACION', ?)`,
+            [cuentaId, montoDecimal, concepto, realizadoPor || 'Sistema', reparacionId]
+          );
+        }
       }
 
       // 4. Actualizar reparación
@@ -184,7 +212,11 @@ exports.createCheckEquipo = async (req, res) => {
       );
 
       // 5. Historial
-      const metodoLabel = metodoAnticipo === 'efectivo' ? 'Efectivo' : 'Transferencia';
+      const metodoLabel = metodoAnticipo === 'efectivo' ? 'Efectivo'
+        : metodoAnticipo === 'transferencia' ? 'Transferencia'
+        : metodoAnticipo === 'tarjeta_bac' ? 'Tarjeta BAC'
+        : metodoAnticipo === 'tarjeta_neonet' ? 'Tarjeta Neonet'
+        : 'Tarjeta';
       const montoStr = `Q${(montoAnticipo / 100).toFixed(2)}`;
       await connection.query(
         `INSERT INTO reparaciones_historial (reparacion_id, estado, nota, user_nombre, tipo_evento, descripcion)

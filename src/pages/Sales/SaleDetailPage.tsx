@@ -35,6 +35,9 @@ export default function SaleDetailPage() {
       case 'EFECTIVO':
         return '💵';
       case 'TARJETA':
+      case 'TARJETA_BAC':
+      case 'TARJETA_NEONET':
+      case 'TARJETA_OTRA':
         return '💳';
       case 'TRANSFERENCIA':
         return '🏦';

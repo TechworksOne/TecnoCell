@@ -14,6 +14,7 @@ import QuotePicker from '../../components/sales/QuotePicker';
 import { useQuotesStore } from '../../store/useQuotesStore';
 import { useSales } from '../../store/useSales';
 import { PaymentMethod, Payment, SaleItem } from '../../types/sale';
+import { isCardMethod, getPosFromMethod } from '../../constants/paymentMethods';
 import { formatMoney } from '../../lib/format';
 import * as productService from '../../services/productService';
 import * as repuestoService from '../../services/repuestoService';
@@ -72,7 +73,6 @@ export default function SaleNewPage() {
   const [observaciones, setObservaciones] = useState('');
 
   // Nuevos estados para caja y bancos
-  const [posSeleccionado, setPosSeleccionado] = useState(''); // Para tarjeta: 'POS BAC' o 'POS NEONET'
   const [interesTarjeta, setInteresTarjeta] = useState(0); // Interés/recargo de POS
   const [bancoSeleccionado, setBancoSeleccionado] = useState(''); // Para transferencia/depósito
   const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]); // Lista de bancos
@@ -315,6 +315,7 @@ export default function SaleNewPage() {
     setReferencia('');
     setComprobanteUrl('');
     
+    setInteresTarjeta(0);
     if (newMetodo === 'MIXTO') {
       setPagosMixtos([
         { id: '1', metodo: 'EFECTIVO', monto: 0, referencia: '', comprobanteUrl: '' },
@@ -396,8 +397,8 @@ export default function SaleNewPage() {
         toast.add('Debes cargar el comprobante de transferencia', 'error');
         return false;
       }
-    } else if (metodo === 'TARJETA') {
-      if (!referencia || referencia.length !== 4) {
+    } else if (isCardMethod(metodo)) {
+      if (!referencia || referencia.length < 4) {
         toast.add('Debes ingresar los últimos 4 dígitos de la tarjeta', 'error');
         return false;
       }
@@ -413,7 +414,7 @@ export default function SaleNewPage() {
           toast.add('Completa todos los campos de las transferencias', 'error');
           return false;
         }
-        if (pago.metodo === 'TARJETA' && (!pago.referencia || pago.referencia.length !== 4)) {
+        if (isCardMethod(pago.metodo) && (!pago.referencia || pago.referencia.length < 4)) {
           toast.add('Completa los últimos 4 dígitos de todas las tarjetas', 'error');
           return false;
         }
@@ -430,7 +431,7 @@ export default function SaleNewPage() {
     setIsLoading(true);
     try {
       // Calcular el total final considerando interés de tarjeta
-      const interesMontoTarjeta = metodo === 'TARJETA' && interesTarjeta > 0 
+      const interesMontoTarjeta = isCardMethod(metodo) && interesTarjeta > 0 
         ? total * (interesTarjeta / 100) 
         : 0;
       
@@ -447,21 +448,21 @@ export default function SaleNewPage() {
           referencia: p.referencia || null,
           comprobante_url: p.comprobanteUrl || null,
           fecha: now,
-          pos_seleccionado: p.metodo === 'TARJETA' ? (p.referencia?.includes('BAC') ? 'POS BAC' : 'POS NEONET') : null,
+          pos_seleccionado: getPosFromMethod(p.metodo),
           banco_id: p.metodo === 'TRANSFERENCIA' ? bancoSeleccionado : null,
         }));
       } else {
-        const montoPago = metodo === 'EFECTIVO' ? montoRecibido : (metodo === 'TARJETA' ? totalConInteres : total);
+        const montoPago = metodo === 'EFECTIVO' ? montoRecibido : (isCardMethod(metodo) ? totalConInteres : total);
         pagosArray = [{
           metodo,
           monto: ventaService.quetzalesACentavos(montoPago),
           referencia: referencia || null,
           comprobante_url: comprobanteUrl || null,
           fecha: now,
-          pos_seleccionado: metodo === 'TARJETA' ? posSeleccionado : null,
+          pos_seleccionado: getPosFromMethod(metodo),
           banco_id: metodo === 'TRANSFERENCIA' ? bancoSeleccionado : null,
-          interes_porcentaje: metodo === 'TARJETA' ? interesTarjeta : null,
-          interes_monto: metodo === 'TARJETA' ? interesMontoTarjeta : null,
+          interes_porcentaje: isCardMethod(metodo) ? interesTarjeta : null,
+          interes_monto: isCardMethod(metodo) ? interesMontoTarjeta : null,
         }];
       }
 
@@ -510,7 +511,7 @@ export default function SaleNewPage() {
           total: ventaService.quetzalesACentavos(totalConInteres), // Total con interés incluido
           metodo_pago: pagosArray.length === 1 ? pagosArray[0].metodo : 'MIXTO',
           pagos: pagosArray,
-          interes_tarjeta: metodo === 'TARJETA' ? interesMontoTarjeta : 0,
+          interes_tarjeta: isCardMethod(metodo) ? interesMontoTarjeta : 0,
         });
         
         toast.add('✅ Venta directa creada exitosamente', 'success');
@@ -825,7 +826,7 @@ export default function SaleNewPage() {
           </div>
 
           {/* Selector de método */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <button
               onClick={() => handleMetodoChange('EFECTIVO')}
               className={`p-4 rounded-lg border-2 transition-all ${
@@ -839,15 +840,27 @@ export default function SaleNewPage() {
             </button>
 
             <button
-              onClick={() => handleMetodoChange('TARJETA')}
+              onClick={() => handleMetodoChange('TARJETA_BAC')}
               className={`p-4 rounded-lg border-2 transition-all ${
-                metodo === 'TARJETA'
+                metodo === 'TARJETA_BAC'
                   ? 'border-blue-600 bg-blue-50'
                   : 'border-gray-200 hover:border-blue-300'
               }`}
             >
-              <CreditCard size={24} className={`mx-auto mb-2 ${metodo === 'TARJETA' ? 'text-blue-600' : 'text-gray-400'}`} />
-              <p className="font-bold text-sm">Tarjeta</p>
+              <CreditCard size={24} className={`mx-auto mb-2 ${metodo === 'TARJETA_BAC' ? 'text-blue-600' : 'text-gray-400'}`} />
+              <p className="font-bold text-sm">Tarjeta BAC</p>
+            </button>
+
+            <button
+              onClick={() => handleMetodoChange('TARJETA_NEONET')}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                metodo === 'TARJETA_NEONET'
+                  ? 'border-cyan-600 bg-cyan-50'
+                  : 'border-gray-200 hover:border-cyan-300'
+              }`}
+            >
+              <CreditCard size={24} className={`mx-auto mb-2 ${metodo === 'TARJETA_NEONET' ? 'text-cyan-600' : 'text-gray-400'}`} />
+              <p className="font-bold text-sm">Tarjeta Neonet</p>
             </button>
 
             <button
@@ -984,99 +997,52 @@ export default function SaleNewPage() {
             </div>
           )}
 
-          {metodo === 'TARJETA' && (
+          {isCardMethod(metodo) && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleccione el POS utilizado <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPosSeleccionado('POS BAC');
-                      setInteresTarjeta(0); // Resetear interés al cambiar POS
-                    }}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      posSeleccionado === 'POS BAC'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-blue-300'
-                    }`}
-                  >
-                    <p className="font-bold">POS BAC</p>
-                    <p className="text-xs text-gray-600 mt-1">Cuenta BAC</p>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPosSeleccionado('POS NEONET');
-                      setInteresTarjeta(0); // Resetear interés al cambiar POS
-                    }}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      posSeleccionado === 'POS NEONET'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-blue-300'
-                    }`}
-                  >
-                    <p className="font-bold">POS NEONET</p>
-                    <p className="text-xs text-gray-600 mt-1">Banco Industrial</p>
-                  </button>
-                </div>
+              <div className={`rounded-lg p-3 border ${metodo === 'TARJETA_BAC' ? 'bg-blue-50 border-blue-200' : 'bg-cyan-50 border-cyan-200'}`}>
+                <p className={`text-sm font-semibold ${metodo === 'TARJETA_BAC' ? 'text-blue-800' : 'text-cyan-800'}`}>
+                  💳 {metodo === 'TARJETA_BAC' ? 'POS BAC — Cuenta BAC' : metodo === 'TARJETA_NEONET' ? 'POS NEONET — Banco Industrial' : 'Tarjeta — cuenta por confirmar'}
+                </p>
               </div>
 
-              {posSeleccionado && (
-                <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Interés/Recargo del POS (%)
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  value={interesTarjeta}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInteresTarjeta(Number(e.target.value))}
+                  placeholder="Ej: 3.5"
+                />
+                <p className="text-xs text-gray-500 mt-1">Recargo que cobra el banco. Se sumará al total.</p>
+              </div>
+
+              {interesTarjeta > 0 && (
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Interés/Recargo del POS (%)
-                    </label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.1"
-                      value={interesTarjeta}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInteresTarjeta(Number(e.target.value))}
-                      placeholder="Ej: 3.5"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Recargo que cobra el banco. Se sumará al total.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Subtotal
-                      </label>
-                      <div className="px-4 py-2 bg-gray-100 rounded-lg">
-                        <p className="text-lg font-bold text-gray-700">{formatMoney(total)}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Interés ({interesTarjeta}%)
-                      </label>
-                      <div className="px-4 py-2 bg-orange-50 rounded-lg border border-orange-200">
-                        <p className="text-lg font-bold text-orange-600">
-                          +{formatMoney(total * (interesTarjeta / 100))}
-                        </p>
-                      </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Subtotal</label>
+                    <div className="px-4 py-2 bg-gray-100 rounded-lg">
+                      <p className="text-lg font-bold text-gray-700">{formatMoney(total)}</p>
                     </div>
                   </div>
-
-                  <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-blue-900 mb-1">
-                      Total a Cobrar (con interés)
-                    </label>
-                    <p className="text-3xl font-bold text-blue-700">
-                      {formatMoney(total + (total * (interesTarjeta / 100)))}
-                    </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Interés ({interesTarjeta}%)</label>
+                    <div className="px-4 py-2 bg-orange-50 rounded-lg border border-orange-200">
+                      <p className="text-lg font-bold text-orange-600">+{formatMoney(total * (interesTarjeta / 100))}</p>
+                    </div>
                   </div>
-                </>
+                </div>
               )}
-              
+
+              <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-900 mb-1">Total a Cobrar (con interés)</label>
+                <p className="text-3xl font-bold text-blue-700">{formatMoney(total + (total * (interesTarjeta / 100)))}</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Últimos 4 dígitos / Referencia <span className="text-red-500">*</span>
@@ -1089,14 +1055,6 @@ export default function SaleNewPage() {
                   placeholder="1234"
                 />
               </div>
-              
-              {posSeleccionado && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-800">
-                    ℹ️ El monto se registrará en: <strong>{posSeleccionado === 'POS BAC' ? 'Cuenta BAC' : 'Cuenta Banco Industrial'}</strong>
-                  </p>
-                </div>
-              )}
             </div>
           )}
 

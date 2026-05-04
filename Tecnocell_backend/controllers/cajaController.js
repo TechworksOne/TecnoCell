@@ -318,7 +318,7 @@ exports.registrarMovimientoVenta = async (
       );
       console.log(`✅ Movimiento PENDIENTE registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId}`);
     } else if (metodoPago === 'TARJETA' || metodoPago === 'Tarjeta') {
-      // Determinar cuenta bancaria según POS seleccionado
+      // Legacy: determinar cuenta bancaria según POS seleccionado
       let cuentaId = null;
       
       if (posSeleccionado === 'POS BAC') {
@@ -351,9 +351,60 @@ exports.registrarMovimientoVenta = async (
            VALUES (?, 'INGRESO', ?, ?, ?, 'POS', 'PENDIENTE', ?, ?)`,
           [cuentaId, montoQuetzales, concepto, ventaId, referencia, usuarioNombre]
         );
-        
-        // NO actualizar saldo hasta que se confirme
         console.log(`✅ Movimiento PENDIENTE registrado en BANCO (${posSeleccionado}): Q${montoQuetzales} - Venta ${ventaId}`);
+      }
+    } else if (metodoPago === 'TARJETA_BAC') {
+      const [cuentaBac] = await dbConn.query(
+        'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
+        ['BAC']
+      );
+      let cuentaId = cuentaBac.length > 0 ? cuentaBac[0].id : null;
+      if (!cuentaId) {
+        const [cuentas] = await dbConn.query('SELECT id FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
+        cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
+      }
+      if (cuentaId) {
+        const montoQuetzales = monto / 100;
+        await dbConn.query(
+          `INSERT INTO movimientos_bancarios 
+           (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
+           VALUES (?, 'INGRESO', ?, ?, ?, 'POS', 'PENDIENTE', ?, ?)`,
+          [cuentaId, montoQuetzales, concepto, ventaId, referencia, usuarioNombre]
+        );
+        console.log(`✅ Movimiento PENDIENTE registrado en BANCO (BAC): Q${montoQuetzales} - Venta ${ventaId}`);
+      }
+    } else if (metodoPago === 'TARJETA_NEONET') {
+      const [cuentaIndustrial] = await dbConn.query(
+        'SELECT id FROM cuentas_bancarias WHERE nombre = ? AND activa = TRUE',
+        ['Banco Industrial']
+      );
+      let cuentaId = cuentaIndustrial.length > 0 ? cuentaIndustrial[0].id : null;
+      if (!cuentaId) {
+        const [cuentas] = await dbConn.query('SELECT id FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
+        cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
+      }
+      if (cuentaId) {
+        const montoQuetzales = monto / 100;
+        await dbConn.query(
+          `INSERT INTO movimientos_bancarios 
+           (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
+           VALUES (?, 'INGRESO', ?, ?, ?, 'POS', 'PENDIENTE', ?, ?)`,
+          [cuentaId, montoQuetzales, concepto, ventaId, referencia, usuarioNombre]
+        );
+        console.log(`✅ Movimiento PENDIENTE registrado en BANCO (Neonet/Industrial): Q${montoQuetzales} - Venta ${ventaId}`);
+      }
+    } else if (metodoPago === 'TARJETA_OTRA') {
+      const [cuentas] = await dbConn.query('SELECT id FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1');
+      const cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
+      if (cuentaId) {
+        const montoQuetzales = monto / 100;
+        await dbConn.query(
+          `INSERT INTO movimientos_bancarios 
+           (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
+           VALUES (?, 'INGRESO', ?, ?, ?, 'POS', 'PENDIENTE', ?, ?)`,
+          [cuentaId, montoQuetzales, concepto, ventaId, referencia, usuarioNombre]
+        );
+        console.log(`✅ Movimiento PENDIENTE registrado en BANCO (tarjeta otra): Q${montoQuetzales} - Venta ${ventaId}`);
       }
     } else if (metodoPago === 'TRANSFERENCIA' || metodoPago === 'Transferencia' || metodoPago === 'DEPOSITO' || metodoPago === 'Deposito') {
       // Usar el banco seleccionado o la primera cuenta activa

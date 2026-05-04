@@ -4,6 +4,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { PaymentMethod } from '../../types/sale';
+import { isCardMethod } from '../../constants/paymentMethods';
 import { formatMoney } from '../../lib/format';
 
 interface PaymentRowData {
@@ -50,7 +51,12 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
     switch (payment.metodo) {
       case 'EFECTIVO':
         return <Banknote size={18} className="text-green-600" />;
+      case 'TARJETA_BAC':
+        return <CreditCard size={18} className="text-blue-600" />;
+      case 'TARJETA_NEONET':
+        return <CreditCard size={18} className="text-cyan-600" />;
       case 'TARJETA':
+      case 'TARJETA_OTRA':
         return <CreditCard size={18} className="text-blue-600" />;
       case 'TRANSFERENCIA':
         return <ArrowLeftRight size={18} className="text-purple-600" />;
@@ -77,7 +83,9 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
               className="pl-10"
             >
               <option value="EFECTIVO">Efectivo</option>
-              <option value="TARJETA">Tarjeta</option>
+              <option value="TARJETA_BAC">Tarjeta BAC</option>
+              <option value="TARJETA_NEONET">Tarjeta Neonet</option>
+              <option value="TARJETA_OTRA">Otra tarjeta</option>
               <option value="TRANSFERENCIA">Transferencia</option>
             </Select>
           </div>
@@ -153,7 +161,7 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
         </div>
       )}
 
-      {payment.metodo === 'TARJETA' && (
+      {isCardMethod(payment.metodo) && (
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Últimos 4 dígitos

@@ -2,7 +2,14 @@
 // Tipos para el sistema de Ventas desde Cotización
 // ======================================================
 
-export type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'MIXTO';
+export type PaymentMethod =
+  | 'EFECTIVO'
+  | 'TRANSFERENCIA'
+  | 'TARJETA'          // legado — mantener compatibilidad con registros existentes
+  | 'TARJETA_BAC'
+  | 'TARJETA_NEONET'
+  | 'TARJETA_OTRA'
+  | 'MIXTO';
 export type SaleStatus = 'PENDIENTE' | 'PAGADA' | 'ANULADA';
 export type SaleItemSource = 'PRODUCTO' | 'REPUESTO';
 

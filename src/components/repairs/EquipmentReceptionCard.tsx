@@ -454,6 +454,87 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
                   />
                 </div>
               )}
+
+              {/* Tarjeta BAC */}
+              <div 
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  reception.metodoAnticipo === 'tarjeta_bac' 
+                    ? 'border-blue-600 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${isConfirmed ? 'cursor-not-allowed opacity-50' : ''}`}
+                onClick={() => !isConfirmed && handleInputChange('metodoAnticipo', 'tarjeta_bac')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <CreditCard size={16} className="text-blue-700" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">Tarjeta BAC</div>
+                      <div className="text-sm text-gray-500">POS BAC · Banco BAC</div>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    reception.metodoAnticipo === 'tarjeta_bac' 
+                      ? 'border-blue-600 bg-blue-600' 
+                      : 'border-gray-300'
+                  }`}>
+                    {reception.metodoAnticipo === 'tarjeta_bac' && (
+                      <Check size={12} className="text-white" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tarjeta Neonet */}
+              <div 
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  reception.metodoAnticipo === 'tarjeta_neonet' 
+                    ? 'border-cyan-600 bg-cyan-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${isConfirmed ? 'cursor-not-allowed opacity-50' : ''}`}
+                onClick={() => !isConfirmed && handleInputChange('metodoAnticipo', 'tarjeta_neonet')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
+                      <CreditCard size={16} className="text-cyan-700" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">Tarjeta Neonet</div>
+                      <div className="text-sm text-gray-500">POS NEONET · Banco Industrial</div>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    reception.metodoAnticipo === 'tarjeta_neonet' 
+                      ? 'border-cyan-600 bg-cyan-600' 
+                      : 'border-gray-300'
+                  }`}>
+                    {reception.metodoAnticipo === 'tarjeta_neonet' && (
+                      <Check size={12} className="text-white" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Campo de referencia para tarjetas */}
+              {(reception.metodoAnticipo === 'tarjeta_bac' || reception.metodoAnticipo === 'tarjeta_neonet') && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <FileText size={16} className="inline mr-1" />
+                    Últimos 4 dígitos / No. Autorización
+                  </label>
+                  <Input
+                    value={reception.comprobanteTransferencia || ''}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      handleInputChange('comprobanteTransferencia', e.target.value)
+                    }
+                    placeholder="Ej: 1234"
+                    disabled={isConfirmed}
+                    className={`rounded-lg ${isConfirmed ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
