@@ -56,6 +56,9 @@ export interface Deudor {
   pagos?: DeudorPago[];
   cliente_nombre_actual?: string;
   cliente_telefono_actual?: string;
+  motivo_anulacion?: string;
+  fecha_anulacion?: string;
+  anulado_por?: number;
 }
 
 export interface DeudorPago {
@@ -70,7 +73,10 @@ export interface DeudorPago {
   realizado_por?: string;
   fecha_pago?: string;
   fecha_vencimiento?: string;
-  estado_cuota?: 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'VENCIDO';
+  estado_cuota?: 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'VENCIDO' | 'ANULADA';
+  porcentaje_recargo?: number;
+  monto_recargo?: number;
+  total_cobrado?: number;
 }
 
 export interface DeudoresResumen {
@@ -125,13 +131,15 @@ export const deudoresService = {
     referencia?: string;
     notas?: string;
     realizado_por?: string;
+    porcentaje_recargo?: number;
+    usuario_id?: number;
   }): Promise<Deudor> => {
     const { data } = await axios.post(`${API_URL}/deudores/${id}/pago`, payload, getConfig());
     return data.data;
   },
 
-  anular: async (id: number, motivo: string): Promise<void> => {
-    await axios.post(`${API_URL}/deudores/${id}/anular`, { motivo }, getConfig());
+  anular: async (id: number, motivo: string, anulado_por?: number): Promise<void> => {
+    await axios.post(`${API_URL}/deudores/${id}/anular`, { motivo, anulado_por }, getConfig());
   },
 
   getResumen: async (): Promise<DeudoresResumen> => {

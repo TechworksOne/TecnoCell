@@ -114,9 +114,9 @@ export default function CustomersPage() {
   const validateForm = () => {
     if (!currentCustomer.firstName.trim()) { toast.add("El nombre es requerido", "error"); return false; }
     if (!currentCustomer.lastName.trim()) { toast.add("El apellido es requerido", "error"); return false; }
-    if (!currentCustomer.phone.trim()) { toast.add("El telÃ©fono es requerido", "error"); return false; }
-    if (currentCustomer.phone.replace(/\D/g,'').length < 8) { toast.add("El telÃ©fono debe tener al menos 8 dÃ­gitos", "error"); return false; }
-    if (currentCustomer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentCustomer.email)) { toast.add("Email invÃ¡lido", "error"); return false; }
+    if (!currentCustomer.phone.trim()) { toast.add("El teléfono es requerido", "error"); return false; }
+    if (currentCustomer.phone.replace(/\D/g,'').length < 8) { toast.add("El teléfono debe tener al menos 8 dígitos", "error"); return false; }
+    if (currentCustomer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentCustomer.email)) { toast.add("Email inválido", "error"); return false; }
     return true;
   };
 
@@ -213,7 +213,7 @@ export default function CustomersPage() {
             Clientes
           </h1>
           <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
-            GestiÃ³n de cartera, historial comercial y seguimiento de clientes
+            Gestión de cartera, historial comercial y seguimiento de clientes
           </p>
         </div>
         <button
@@ -249,7 +249,7 @@ export default function CustomersPage() {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por nombre, telÃ©fono, email, NIT o direcciÃ³n..."
+            placeholder="Buscar por nombre, teléfono, email, NIT o dirección..."
             className="w-full h-12 rounded-2xl pl-10 pr-4 bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 outline-none text-sm transition-all"
           />
           {searchQuery && (
@@ -302,7 +302,7 @@ export default function CustomersPage() {
             {searchQuery || statusFilter !== "all" ? "Sin resultados" : "No hay clientes registrados"}
           </p>
           <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-1 mb-4">
-            {searchQuery || statusFilter !== "all" ? "Ajusta los filtros de bÃºsqueda" : "Comienza registrando tu primer cliente"}
+            {searchQuery || statusFilter !== "all" ? "Ajusta los filtros de búsqueda" : "Comienza registrando tu primer cliente"}
           </p>
           {!searchQuery && statusFilter === "all" && (
             <button
@@ -456,7 +456,7 @@ export default function CustomersPage() {
                   {editingCustomer ? "Editar Cliente" : "Nuevo Cliente"}
                 </h2>
                 <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
-                  Registra datos de contacto, facturaciÃ³n y seguimiento
+                  Registra datos de contacto, facturación y seguimiento
                 </p>
               </div>
               <button
@@ -477,7 +477,7 @@ export default function CustomersPage() {
                 [&::-webkit-scrollbar-thumb]:rounded-full">
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* â”€â”€ SecciÃ³n 1: Datos personales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                  {/* Sección 1: Datos personales */}
                   <div className="space-y-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1]">Datos personales</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -495,13 +495,13 @@ export default function CustomersPage() {
                         <input
                           value={currentCustomer.lastName}
                           onChange={(e) => setCurrentCustomer({ ...currentCustomer, lastName: e.target.value })}
-                          placeholder="PÃ©rez"
+                          placeholder="Pérez"
                           className="w-full h-12 rounded-2xl px-4 bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 outline-none text-sm transition-all"
                         />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">TelÃ©fono <span className="text-red-400">*</span></label>
+                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Teléfono <span className="text-red-400">*</span></label>
                       <input
                         value={currentCustomer.phone}
                         onChange={(e) => setCurrentCustomer({ ...currentCustomer, phone: e.target.value })}
@@ -521,9 +521,9 @@ export default function CustomersPage() {
                     </div>
                   </div>
 
-                  {/* â”€â”€ SecciÃ³n 2: Datos fiscales y ubicaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                  {/* Sección 2: Datos fiscales y ubicación */}
                   <div className="space-y-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1]">Datos fiscales y ubicaciÃ³n</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1]">Datos fiscales y ubicación</p>
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">NIT</label>
                       <input
@@ -534,16 +534,16 @@ export default function CustomersPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">DirecciÃ³n</label>
+                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Dirección</label>
                       <input
                         value={currentCustomer.address}
                         onChange={(e) => setCurrentCustomer({ ...currentCustomer, address: e.target.value })}
-                        placeholder="DirecciÃ³n del cliente"
+                        placeholder="Dirección del cliente"
                         className="w-full h-12 rounded-2xl px-4 bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 outline-none text-sm transition-all"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">MÃ©todo de pago preferido</label>
+                      <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Método de pago preferido</label>
                       <select
                         value={currentCustomer.preferredPaymentMethod}
                         onChange={(e) => setCurrentCustomer({ ...currentCustomer, preferredPaymentMethod: e.target.value as any })}
@@ -559,7 +559,7 @@ export default function CustomersPage() {
                       <textarea
                         value={currentCustomer.notes}
                         onChange={(e) => setCurrentCustomer({ ...currentCustomer, notes: e.target.value })}
-                        placeholder="InformaciÃ³n adicional sobre el cliente..."
+                        placeholder="Información adicional sobre el cliente..."
                         rows={4}
                         className="w-full rounded-2xl px-4 py-3 min-h-[120px] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 outline-none text-sm resize-none transition-all"
                       />
@@ -578,7 +578,7 @@ export default function CustomersPage() {
                         {currentCustomer.firstName} {currentCustomer.lastName}
                       </p>
                       <p className="text-xs text-[#7F8A99]">
-                        {currentCustomer.phone || "Sin telÃ©fono"}{currentCustomer.nit ? ` Â· NIT: ${currentCustomer.nit}` : ""}
+                        {currentCustomer.phone || "Sin teléfono"}{currentCustomer.nit ? ` · NIT: ${currentCustomer.nit}` : ""}
                       </p>
                     </div>
                   </div>

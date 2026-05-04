@@ -222,7 +222,7 @@ export default function CustomerPicker({
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, index) => 
       part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="bg-yellow-200 text-yellow-900 rounded px-1">
+        <span key={index} className="bg-[#FEF3C7] dark:bg-[rgba(250,204,21,0.18)] text-[#92400E] dark:text-[#FCD34D] rounded px-0.5">
           {part}
         </span>
       ) : part
@@ -243,13 +243,13 @@ export default function CustomerPicker({
           className="cursor-pointer"
           onClick={() => setIsOpen(true)}
         >
-          <Card className="p-4 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
-            <div className="flex items-center gap-3 text-gray-500">
+          <div className="p-4 border-2 border-dashed border-[#D6EEF8] dark:border-[rgba(72,185,230,0.25)] rounded-2xl hover:border-[#48B9E6] transition-colors bg-[#F8FDFF] dark:bg-[#0A1220]">
+            <div className="flex items-center gap-3 text-[#5E7184] dark:text-[#B8C2D1]">
               <User size={20} />
               <span>Seleccionar cliente...</span>
               <Search size={16} className="ml-auto" />
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -257,36 +257,36 @@ export default function CustomerPicker({
       {isOpen && (
         <div 
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 max-h-96 overflow-hidden"
+          className="mt-2 bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl shadow-xl overflow-hidden"
         >
           {/* Header de búsqueda */}
-          <div className="p-4 border-b border-gray-100 bg-gray-50">
+          <div className="p-4 border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.12)] bg-[#F8FDFF] dark:bg-[#0A1220]">
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#7F8A99]" />
+              <input
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                 placeholder={placeholder}
-                className="pl-10 pr-10 rounded-xl border-2 border-gray-200 focus:border-blue-500"
+                className="w-full h-10 pl-10 pr-10 rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] bg-white dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 text-sm transition-all"
               />
-              <Button
-                variant="ghost"
+              <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#7F8A99] hover:text-[#48B9E6] transition-colors"
               >
                 <X size={16} />
-              </Button>
+              </button>
             </div>
           </div>
 
           {/* Lista de resultados */}
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-[rgba(72,185,230,0.20)] [&::-webkit-scrollbar-thumb]:rounded-full">
             {filteredCustomers.length > 0 ? (
               <div className="p-2">
                 {!searchQuery && (
-                  <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    Clientes Frecuentes
+                  <div className="px-3 py-2 text-[10px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">
+                    Clientes frecuentes
                   </div>
                 )}
                 
@@ -303,15 +303,15 @@ export default function CustomerPicker({
                       <div
                         key={customer.id}
                         onClick={() => handleCustomerSelect(customer)}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 cursor-pointer transition-colors group"
+                        className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-[#F6FCFF] dark:hover:bg-[#0A1220] border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.10)] last:border-b-0"
                       >
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                          <User size={16} className="text-blue-600" />
+                        <div className="w-9 h-9 bg-gradient-to-br from-[#48B9E6] to-[#2563EB] rounded-xl flex items-center justify-center shrink-0">
+                          <User size={14} className="text-white" />
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-gray-900 truncate">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-[#14324A] dark:text-[#F8FAFC] truncate text-sm">
                               {highlightMatch(customerName, searchQuery)}
                             </span>
                             {isFrequent && (
@@ -322,16 +322,16 @@ export default function CustomerPicker({
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-3 text-xs text-[#5E7184] dark:text-[#B8C2D1]">
                             {phone && (
                               <span className="flex items-center gap-1">
-                                <Phone size={12} />
+                                <Phone size={10} />
                                 {highlightMatch(phone, searchQuery)}
                               </span>
                             )}
                             {email && (
                               <span className="flex items-center gap-1 truncate">
-                                <Mail size={12} />
+                                <Mail size={10} />
                                 {highlightMatch(email, searchQuery)}
                             </span>
                           )}
@@ -350,11 +350,11 @@ export default function CustomerPicker({
             ) : (
               /* Empty state */
               <div className="p-8 text-center">
-                <Users size={48} className="text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <Users size={36} className="text-[#7F8A99] dark:text-[#5E7184] mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC] mb-1">
                   {searchQuery ? 'No se encontraron clientes' : 'No hay clientes'}
                 </h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mb-4">
                   {searchQuery 
                     ? `No hay resultados para "${searchQuery}"`
                     : 'Agrega tu primer cliente para comenzar'
@@ -383,9 +383,9 @@ export default function CustomerPicker({
 
           {/* Footer con botón crear */}
           {allowCreate && filteredCustomers.length > 0 && (
-            <div className="p-4 border-t border-gray-100 bg-gray-50">
-              <Button
-                variant="ghost"
+            <div className="p-3 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.12)] bg-[#F8FDFF] dark:bg-[#0A1220]">
+              <button
+                type="button"
                 onClick={() => {
                   setShowNewClientModal(true);
                   setNewCustomerForm(prev => ({ 
@@ -393,11 +393,11 @@ export default function CustomerPicker({
                     firstName: searchQuery.trim()
                   }));
                 }}
-                className="w-full justify-center border-2 border-dashed border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#D6EEF8] dark:border-[rgba(72,185,230,0.25)] rounded-xl py-2 text-sm font-medium text-[#5E7184] dark:text-[#B8C2D1] hover:border-[#48B9E6] hover:text-[#48B9E6] transition-all"
               >
-                <Plus size={16} className="mr-2" />
+                <Plus size={14} />
                 Crear nuevo cliente
-              </Button>
+              </button>
             </div>
           )}
         </div>

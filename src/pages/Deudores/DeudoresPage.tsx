@@ -622,66 +622,226 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
 // ─────────────────────────────────────────────────────────────────────────────
 // MODAL PAGO
 // ─────────────────────────────────────────────────────────────────────────────
+const RECARGO_PCT: Record<string, number> = {
+  EFECTIVO: 0, TRANSFERENCIA: 0,
+  TARJETA_BAC: 3, TARJETA_NEONET: 3, TARJETA_OTRA: 3.5,
+};
+
 function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () => void; onPaid: () => void }) {
   const { user } = useAuth();
   const [monto, setMonto] = useState(toNum(deudor.saldo_pendiente).toFixed(2));
   const [metodo, setMetodo] = useState('EFECTIVO');
   const [referencia, setReferencia] = useState('');
+  const [observaciones, setObservaciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+
+  const montoBase = parseFloat(monto) || 0;
+  const pctRecargo = RECARGO_PCT[metodo] ?? 0;
+  const montoRecargo = parseFloat((montoBase * pctRecargo / 100).toFixed(2));
+  const totalCobrado = parseFloat((montoBase + montoRecargo).toFixed(2));
+  const saldoDespues = Math.max(0, toNum(deudor.saldo_pendiente) - montoBase);
+  const hasRecargo = pctRecargo > 0;
+  const requireRef = ['TRANSFERENCIA', 'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'].includes(metodo);
 
   const handlePagar = async () => {
     const n = parseFloat(monto);
     if (!n || n <= 0) { setErr('Ingresa un monto válido'); return; }
+    if (requireRef && !referencia.trim()) { setErr('La referencia es requerida para este método de pago'); return; }
     setLoading(true); setErr('');
     try {
-      await deudoresService.registrarPago(deudor.id, { monto: n, metodo_pago: metodo, referencia, realizado_por: user?.username || user?.nombre || 'Sistema' });
+      await deudoresService.registrarPago(deudor.id, {
+        monto: n,
+        metodo_pago: metodo,
+        referencia: referencia || undefined,
+        notas: observaciones || undefined,
+        realizado_por: user?.username || user?.nombre || 'Sistema',
+        porcentaje_recargo: pctRecargo,
+        usuario_id: (user as any)?.id,
+      });
       onPaid(); onClose();
     } catch (e: any) {
       setErr(e?.response?.data?.error || 'Error al registrar el pago');
     } finally { setLoading(false); }
   };
 
-  const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-emerald-400";
+  const inputCls = "w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-slate-400 dark:placeholder:text-slate-500";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-[#F8FAFC]">Registrar pago</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">{deudor.numero_credito}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#0A1220] text-slate-500"><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {err && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/30 rounded-xl px-3 py-2">{err}</p>}
+
+          {/* Cliente info */}
+          <div className="bg-slate-50 dark:bg-[#0A1220] rounded-xl p-3 text-sm">
+            <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{deudor.cliente_nombre}</p>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-slate-500 dark:text-slate-400 text-xs">Saldo pendiente</span>
+              <span className="font-bold text-red-600 dark:text-red-400">{fmt(deudor.saldo_pendiente)}</span>
+            </div>
+            {deudor.numero_cuotas && deudor.numero_cuotas > 1 && (
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-slate-400 dark:text-slate-500 text-xs">Cuota programada</span>
+                <span className="text-xs font-medium text-[#48B9E6]">{fmt(deudor.monto_cuota || 0)} · {deudor.frecuencia_pago?.toLowerCase()}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Monto */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Monto a abonar (Q)</label>
+            <input type="number" min="0.01" step="0.01" className={inputCls} value={monto} onChange={e => setMonto(e.target.value)} autoFocus />
+          </div>
+
+          {/* Método */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Método de pago</label>
+            <select className={inputCls} value={metodo} onChange={e => { setMetodo(e.target.value); setReferencia(''); }}>
+              <option value="EFECTIVO">💵 Efectivo</option>
+              <option value="TRANSFERENCIA">🏦 Transferencia bancaria</option>
+              <option value="TARJETA_BAC">💳 Tarjeta BAC (+3%)</option>
+              <option value="TARJETA_NEONET">💳 Tarjeta Neonet (+3%)</option>
+              <option value="TARJETA_OTRA">💳 Tarjeta otra (+3.5%)</option>
+            </select>
+          </div>
+
+          {/* Referencia */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+              Referencia / No. autorización{requireRef && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <input className={inputCls} placeholder={requireRef ? 'Requerida para este método' : 'Opcional'} value={referencia} onChange={e => setReferencia(e.target.value)} />
+          </div>
+
+          {/* Recargo breakdown */}
+          {hasRecargo && montoBase > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-3 space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-xs text-amber-700 dark:text-amber-300">Monto base</span>
+                <span className="font-medium text-amber-700 dark:text-amber-300">{fmt(montoBase)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-xs text-amber-700 dark:text-amber-300">Recargo {pctRecargo}%</span>
+                <span className="font-medium text-amber-600 dark:text-amber-400">+ {fmt(montoRecargo)}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-amber-200 dark:border-amber-800/30 pt-1.5">
+                <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">Total a cobrar</span>
+                <span className="font-bold text-amber-900 dark:text-amber-200 text-base">{fmt(totalCobrado)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Saldo después */}
+          {montoBase > 0 && (
+            <div className="flex justify-between items-center text-sm px-1">
+              <span className="text-slate-500 dark:text-slate-400 text-xs">Saldo después del pago</span>
+              <span className={`font-bold ${saldoDespues <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                {saldoDespues <= 0 ? '✓ Saldado' : fmt(saldoDespues)}
+              </span>
+            </div>
+          )}
+
+          {/* Observaciones */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Observaciones</label>
+            <textarea rows={2} className={`${inputCls} resize-none`} placeholder="Notas del pago (opcional)" value={observaciones} onChange={e => setObservaciones(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-200 dark:border-[rgba(72,185,230,0.16)] shrink-0">
+          <button onClick={onClose} className="flex-1 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]">Cancelar</button>
+          <button onClick={handlePagar} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold">
+            {loading ? 'Registrando...' : `Registrar ${hasRecargo && montoBase > 0 ? fmt(totalCobrado) : fmt(montoBase)}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL ANULAR
+// ─────────────────────────────────────────────────────────────────────────────
+function ModalAnular({ deudor, onClose, onAnulado }: { deudor: Deudor; onClose: () => void; onAnulado: () => void }) {
+  const { user } = useAuth();
+  const [motivo, setMotivo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const hasItems = (() => {
+    try { return deudor.items_detalle ? JSON.parse(deudor.items_detalle).length > 0 : false; } catch { return false; }
+  })();
+  const hasPagos = toNum(deudor.monto_pagado) > 0;
+
+  const handleAnularConfirm = async () => {
+    if (!motivo.trim()) { setErr('El motivo de anulación es requerido'); return; }
+    setLoading(true); setErr('');
+    try {
+      await deudoresService.anular(deudor.id, motivo.trim(), (user as any)?.id);
+      onAnulado(); onClose();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || 'Error al anular el crédito');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[rgba(72,185,230,0.16)]">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-[#F8FAFC]">Registrar pago</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-950/40 flex items-center justify-center shrink-0">
+              <Ban size={15} className="text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-base font-semibold text-slate-800 dark:text-[#F8FAFC]">Anular crédito</h2>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#0A1220] text-slate-500"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
-          {err && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-xl px-3 py-2">{err}</p>}
+          {err && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/30 rounded-xl px-3 py-2">{err}</p>}
+
           <div className="bg-slate-50 dark:bg-[#0A1220] rounded-xl p-3 text-sm">
-            <p className="font-medium text-slate-800 dark:text-[#F8FAFC]">{deudor.cliente_nombre}</p>
-            <p className="text-slate-500 dark:text-slate-400 mt-0.5">Saldo: <span className="font-semibold text-red-600 dark:text-red-400">{fmt(deudor.saldo_pendiente)}</span></p>
-            {deudor.numero_cuotas && deudor.numero_cuotas > 1 && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Cuota aprox: {fmt(deudor.monto_cuota || 0)} · {deudor.frecuencia_pago?.toLowerCase()}</p>
-            )}
+            <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{deudor.cliente_nombre}</p>
+            <div className="flex justify-between mt-1">
+              <span className="font-mono text-xs text-slate-400 dark:text-slate-500">{deudor.numero_credito}</span>
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">Saldo: {fmt(deudor.saldo_pendiente)}</span>
+            </div>
           </div>
+
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl p-3 space-y-1.5">
+            <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">⚠ Esta acción es irreversible</p>
+            <ul className="text-xs text-red-600 dark:text-red-300 space-y-1 pl-3 list-disc">
+              <li>El crédito quedará marcado como <strong>ANULADO</strong></li>
+              {hasItems && <li>El stock de los productos será restituido</li>}
+              {hasPagos && <li>Los pagos de <strong>{fmt(deudor.monto_pagado)}</strong> generarán reversas en caja/banco</li>}
+            </ul>
+          </div>
+
           <div>
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Monto a abonar (Q)</label>
-            <input type="number" min="0.01" step="0.01" className={inputCls} value={monto} onChange={e => setMonto(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Método</label>
-              <select className={inputCls} value={metodo} onChange={e => setMetodo(e.target.value)}>
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="TARJETA_BAC">Tarjeta BAC</option>
-                <option value="TARJETA_NEONET">Tarjeta Neonet</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Referencia</label>
-              <input className={inputCls} placeholder="Opcional" value={referencia} onChange={e => setReferencia(e.target.value)} />
-            </div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+              Motivo de anulación <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={3}
+              className="w-full border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-[#0A1220] text-slate-800 dark:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-red-400 resize-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              placeholder="Describe el motivo de la anulación..."
+              value={motivo}
+              onChange={e => setMotivo(e.target.value.slice(0, 500))}
+              autoFocus
+            />
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 text-right">{motivo.length}/500</p>
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-5">
           <button onClick={onClose} className="flex-1 border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0A1220]">Cancelar</button>
-          <button onClick={handlePagar} disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold">{loading ? 'Registrando...' : 'Registrar pago'}</button>
+          <button onClick={handleAnularConfirm} disabled={loading || !motivo.trim()} className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold">
+            {loading ? 'Anulando...' : 'Confirmar anulación'}
+          </button>
         </div>
       </div>
     </div>
@@ -834,6 +994,7 @@ export default function DeudoresPage() {
   const [showNuevo, setShowNuevo] = useState(false);
   const [pagoTarget, setPagoTarget] = useState<Deudor | null>(null);
   const [detalleTarget, setDetalleTarget] = useState<Deudor | null>(null);
+  const [anularTarget, setAnularTarget] = useState<Deudor | null>(null);
 
   const load = async () => {
     setLoading(true); setError('');
@@ -851,13 +1012,6 @@ export default function DeudoresPage() {
   useEffect(() => { load(); }, [filtroEstado, filtroTipo]);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); load(); };
-
-  const handleAnular = async (d: Deudor) => {
-    const motivo = window.prompt(`Motivo para anular el crédito de ${d.cliente_nombre}:`);
-    if (!motivo) return;
-    try { await deudoresService.anular(d.id, motivo); load(); }
-    catch (e: any) { alert(e?.response?.data?.error || 'Error al anular'); }
-  };
 
   const isVencido = (d: Deudor) =>
     !!d.fecha_vencimiento && d.estado !== 'PAGADO' && d.estado !== 'ANULADO' && new Date(d.fecha_vencimiento) < new Date();
@@ -999,7 +1153,7 @@ export default function DeudoresPage() {
                             <button title="Registrar pago" onClick={() => setPagoTarget(d)} className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"><CreditCard size={14} /></button>
                           )}
                           {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
-                            <button title="Anular" onClick={() => handleAnular(d)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
+                            <button title="Anular" onClick={() => setAnularTarget(d)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
                           )}
                         </div>
                       </td>
@@ -1051,7 +1205,7 @@ export default function DeudoresPage() {
                         <button onClick={() => setPagoTarget(d)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl py-1.5 text-xs font-medium text-white"><CreditCard size={12} /> Pagar</button>
                       )}
                       {d.estado !== 'ANULADO' && d.estado !== 'PAGADO' && (
-                        <button onClick={() => handleAnular(d)} className="p-1.5 rounded-xl border border-red-200 dark:border-red-800/30 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
+                        <button onClick={() => setAnularTarget(d)} className="p-1.5 rounded-xl border border-red-200 dark:border-red-800/30 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400"><Ban size={14} /></button>
                       )}
                     </div>
                   </div>
@@ -1065,6 +1219,7 @@ export default function DeudoresPage() {
       {showNuevo && <WizardNuevoCredito onClose={() => setShowNuevo(false)} onCreated={load} />}
       {pagoTarget && <ModalPago deudor={pagoTarget} onClose={() => setPagoTarget(null)} onPaid={load} />}
       {detalleTarget && <ModalDetalle initial={detalleTarget} onClose={() => setDetalleTarget(null)} onAction={load} />}
+      {anularTarget && <ModalAnular deudor={anularTarget} onClose={() => setAnularTarget(null)} onAnulado={load} />}
     </div>
   );
 }
