@@ -1,7 +1,7 @@
 import {
   Box, ChevronLeft, ChevronRight, FileText, Home, User, Users,
   CreditCard, Wrench, Settings, ShoppingBag, Building2, GitBranch,
-  Tag, Shield, Wallet, BarChart3,
+  Tag, Shield, Wallet, BarChart3, Receipt,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
@@ -38,6 +38,7 @@ const GROUPS = [
     label: "Administración",
     items: [
       { to: "/caja-bancos",    label: "Caja y Bancos",   icon: <Wallet size={17} />,    adminOnly: false },
+      { to: "/deudores",        label: "Deudores",         icon: <Receipt size={17} />,   adminOnly: false },
       { to: "/reportes",       label: "Reportes",        icon: <BarChart3 size={17} />, adminOnly: true  },
       { to: "/clientes",       label: "Clientes",        icon: <Users size={17} />,     adminOnly: false },
       { to: "/proveedores",    label: "Proveedores",     icon: <Building2 size={17} />, adminOnly: true  },

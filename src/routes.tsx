@@ -25,6 +25,7 @@ import RepuestoForm from "./pages/Repuestos/RepuestoForm";
 import StickersGarantiaPage from "./pages/StickersGarantia/StickersGarantiaPage";
 import AdminUsuariosPage from "./pages/AdminUsuarios/AdminUsuariosPage";
 import CajaBancosPage from "./pages/CajaBancos/CajaBancosPage";
+import DeudoresPage from "./pages/Deudores/DeudoresPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import { ROLES } from "./lib/permissions";
 
@@ -55,6 +56,7 @@ const routes = [
   { path: "/clientes", element: <CustomersPage /> },
   { path: "/proveedores", element: <ProtectedRoute roles={ADMIN}><SuppliersPage /></ProtectedRoute> },
   { path: "/caja-bancos", element: <CajaBancosPage /> },
+  { path: "/deudores", element: <DeudoresPage /> },
   { path: "/stickers-garantia", element: <ProtectedRoute roles={ADMIN}><StickersGarantiaPage /></ProtectedRoute> },
   { path: "/admin-usuarios", element: <ProtectedRoute roles={ADMIN}><AdminUsuariosPage /></ProtectedRoute> },
   { path: "/fel", element: <FelPage /> },
