@@ -28,3 +28,12 @@ ALTER TABLE `reparaciones`
   ADD COLUMN IF NOT EXISTS `motivo_cancelacion` text DEFAULT NULL
     COMMENT 'Motivo de la cancelación'
     AFTER `fecha_cancelacion`;
+
+-- 5. Agregar EN_PROCESO al enum de reparaciones_historial.estado
+--    (reparaciones puede estar EN_PROCESO pero historial no lo tenía → error 500)
+ALTER TABLE `reparaciones_historial`
+  MODIFY COLUMN `estado` enum(
+    'RECIBIDA','EN_DIAGNOSTICO','ESPERANDO_AUTORIZACION','AUTORIZADA',
+    'EN_REPARACION','EN_PROCESO','ESPERANDO_PIEZA','COMPLETADA',
+    'ENTREGADA','CANCELADA','STAND_BY','ANTICIPO_REGISTRADO'
+  ) NOT NULL;

@@ -788,6 +788,18 @@ exports.getHistorialCompleto = async (req, res) => {
   }
 };
 
+// Normaliza un estado de reparacion al subconjunto válido del enum de historial.
+// reparaciones.estado tiene EN_PROCESO; reparaciones_historial originalmente no.
+// La migración v2 corrige el enum, pero este mapa protege mientras tanto.
+const HISTORIAL_ESTADOS_VALIDOS = new Set([
+  'RECIBIDA','EN_DIAGNOSTICO','ESPERANDO_AUTORIZACION','AUTORIZADA',
+  'EN_REPARACION','EN_PROCESO','ESPERANDO_PIEZA','COMPLETADA',
+  'ENTREGADA','CANCELADA','STAND_BY','ANTICIPO_REGISTRADO'
+]);
+function safeEstadoHistorial(estado) {
+  return HISTORIAL_ESTADOS_VALIDOS.has(estado) ? estado : 'EN_REPARACION';
+}
+
 // ========== ACTUALIZAR PRIORIDAD ==========
 exports.updatePrioridad = async (req, res) => {
   const connection = await db.getConnection();
@@ -826,7 +838,7 @@ exports.updatePrioridad = async (req, res) => {
         (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
        VALUES (?, ?, ?, ?, 'CAMBIO_PRIORIDAD', ?, ?)`,
       [
-        id, rep.estado,
+        id, safeEstadoHistorial(rep.estado),
         `Prioridad cambiada de ${prioridadAnterior} a ${prioridad}`,
         usuario, prioridadAnterior,
         `Prioridad actualizada: ${prioridadAnterior} → ${prioridad}`
@@ -906,7 +918,7 @@ exports.registrarPagoSaldo = async (req, res) => {
         (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
        VALUES (?, ?, ?, ?, 'PAGO_SALDO', NULL, ?)`,
       [
-        id, rep.estado,
+        id, safeEstadoHistorial(rep.estado),
         `Pago de saldo registrado: Q${montoNum.toFixed(2)} (${metodoPago})`,
         usuario,
         `Pago de saldo Q${montoNum.toFixed(2)} en ${metodoPago}`
