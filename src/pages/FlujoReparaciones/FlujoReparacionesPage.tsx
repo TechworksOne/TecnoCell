@@ -10,6 +10,7 @@ import axios from "axios";
 import ModalActualizarEstado from "../../components/repairs/ModalActualizarEstado";
 import ModalHistorialReparacion from "../../components/repairs/ModalHistorialReparacion";
 import KanbanBoard from "../../components/repairs/KanbanBoard";
+import ChecklistIngresoModal from "../../components/repairs/ChecklistIngresoModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CheckEquipo {
@@ -73,6 +74,10 @@ export default function FlujoReparacionesPage() {
   const [modalEstadoOpen,       setModalEstadoOpen]       = useState(false);
   const [modalHistorialOpen,    setModalHistorialOpen]    = useState(false);
   const [reparacionSeleccionada, setReparacionSeleccionada] = useState<any>(null);
+
+  // Checklist modal
+  const [checklistModalOpen,         setChecklistModalOpen]         = useState(false);
+  const [selectedRepairForChecklist, setSelectedRepairForChecklist] = useState<any>(null);
 
   // ── Toast state ──────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'error' } | null>(null);
@@ -181,6 +186,14 @@ export default function FlujoReparacionesPage() {
   const openModalHistorial = (r: any) => { setReparacionSeleccionada(r); setModalHistorialOpen(true); };
   const closeModalEstado    = () => { setModalEstadoOpen(false);    setReparacionSeleccionada(null); };
   const closeModalHistorial = () => { setModalHistorialOpen(false); setReparacionSeleccionada(null); };
+
+  const openChecklistModal  = (rep: any) => { setSelectedRepairForChecklist(rep); setChecklistModalOpen(true); };
+  const closeChecklistModal = () => { setChecklistModalOpen(false); setSelectedRepairForChecklist(null); };
+  const handleChecklistCompleted = () => {
+    closeChecklistModal();
+    loadData();
+    showToast('Checklist guardado correctamente.');
+  };
 
   // ── Shared style helpers ─────────────────────────────────────────────────────
   const inputCls = [
@@ -365,7 +378,7 @@ export default function FlujoReparacionesPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
-                          onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
+                          onClick={() => openChecklistModal(rep)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                         >
                           <ClipboardList size={11} />
@@ -486,6 +499,12 @@ export default function FlujoReparacionesPage() {
           reparacionId={reparacionSeleccionada.id}
         />
       )}
+      <ChecklistIngresoModal
+        isOpen={checklistModalOpen}
+        repair={selectedRepairForChecklist}
+        onClose={closeChecklistModal}
+        onCompleted={handleChecklistCompleted}
+      />
     </div>
   );
 }
