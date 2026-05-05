@@ -1,6 +1,6 @@
 import {
   GitBranch, Search, CheckCircle, ClipboardList, Wrench,
-  RefreshCw, X, AlertCircle,
+  RefreshCw, X, AlertCircle, PackageCheck,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import ModalActualizarEstado from "../../components/repairs/ModalActualizarEstad
 import ModalHistorialReparacion from "../../components/repairs/ModalHistorialReparacion";
 import KanbanBoard from "../../components/repairs/KanbanBoard";
 import ChecklistIngresoModal from "../../components/repairs/ChecklistIngresoModal";
+import HistorialEntregadasTab from "../../components/repairs/HistorialEntregadasTab";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CheckEquipo {
@@ -20,7 +21,7 @@ interface CheckEquipo {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const EXCLUDED_STATES = ['CANCELADA', 'ANULADA', 'CANCELADO'];
+const EXCLUDED_STATES = ['CANCELADA', 'ANULADA', 'CANCELADO', 'ENTREGADA'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function safeDate(v?: string | null): string {
@@ -64,6 +65,9 @@ export default function FlujoReparacionesPage() {
   const [reparaciones, setReparaciones]   = useState<any[]>([]);
   const [checksEquipo, setChecksEquipo]   = useState<CheckEquipo[]>([]);
   const [loading, setLoading]             = useState(false);
+
+  // ── Tab state ─────────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'flujo' | 'historial'>('flujo');
 
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [searchChecklist, setSearchChecklist] = useState('');
@@ -247,7 +251,39 @@ export default function FlujoReparacionesPage() {
         </button>
       </div>
 
-      {/* ── KPIs ──────────────────────────────────────────────────────────── */}
+      {/* ── TABS ─────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-fit">
+        <button
+          onClick={() => setActiveTab('flujo')}
+          className={[
+            'flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors',
+            activeTab === 'flujo'
+              ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+          ].join(' ')}
+        >
+          <GitBranch size={13} />
+          Flujo Activo
+          {activeReps.length > 0 && (
+            <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+              {activeReps.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('historial')}
+          className={[
+            'flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors',
+            activeTab === 'historial'
+              ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+          ].join(' ')}
+        >
+          <PackageCheck size={13} />
+          Historial Entregadas
+        </button>
+      </div>
+      {activeTab === 'flujo' && (<>      {/* ── KPIs ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Total activas */}
         <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
@@ -482,8 +518,12 @@ export default function FlujoReparacionesPage() {
             />
           )}
         </div>
-      </div>
+      </div>      </>)}
 
+      {/* ── HISTORIAL TAB ────────────────────────────────────────── */}
+      {activeTab === 'historial' && (
+        <HistorialEntregadasTab onToast={showToast} />
+      )}
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {modalEstadoOpen && reparacionSeleccionada && (
         <ModalActualizarEstado

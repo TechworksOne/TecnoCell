@@ -128,3 +128,40 @@ export const cambiarPrioridad = async (reparacionId: string, prioridad: 'BAJA' |
   });
   return response.data;
 };
+
+// ========== FLUJO ACTIVO (excluye ENTREGADA, CANCELADA, etc.) ==========
+export const getReparacionesFlujoActivo = async (params?: {
+  search?: string;
+  prioridad?: string;
+  limit?: number;
+}) => {
+  const response = await api.get('/flujo-reparaciones/activas', { params });
+  return response.data;
+};
+
+// ========== HISTORIAL DE ENTREGADAS ==========
+export const getEntregadas = async (params?: {
+  search?: string;
+  estado_garantia?: 'vigente' | 'vencida' | 'sin_garantia';
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  limit?: number;
+}) => {
+  const response = await api.get('/flujo-reparaciones/entregadas', { params });
+  return response.data;
+};
+
+// ========== REINGRESAR POR GARANTÍA ==========
+export interface ReingresarGarantiaData {
+  motivo: string;
+  repuesto: string;
+  observaciones?: string;
+  tecnico?: string;
+  userId?: number;
+  userName?: string;
+}
+
+export const reingresarGarantia = async (reparacionId: string, data: ReingresarGarantiaData) => {
+  const response = await api.post(`/flujo-reparaciones/${reparacionId}/reingresar-garantia`, data);
+  return response.data;
+};

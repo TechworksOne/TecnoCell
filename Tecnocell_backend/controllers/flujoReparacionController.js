@@ -224,11 +224,18 @@ exports.cambiarEstado = async (req, res) => {
     }
     
     // Actualizar estado en reparaciones
-    await connection.query(
-      'UPDATE reparaciones SET estado = ?, updated_at = NOW() WHERE id = ?',
-      [nuevoEstado, reparacionId]
-    );
-    
+    if (nuevoEstado === 'ENTREGADA') {
+      await connection.query(
+        'UPDATE reparaciones SET estado = ?, fecha_entrega = NOW(), fecha_cierre = CURDATE(), updated_at = NOW() WHERE id = ?',
+        [nuevoEstado, reparacionId]
+      );
+    } else {
+      await connection.query(
+        'UPDATE reparaciones SET estado = ?, updated_at = NOW() WHERE id = ?',
+        [nuevoEstado, reparacionId]
+      );
+    }
+
     // Registrar en historial
     await connection.query(
       `INSERT INTO reparaciones_historial 
@@ -361,6 +368,229 @@ exports.cambiarPrioridad = async (req, res) => {
       message: 'Error al cambiar prioridad',
       error: error.message
     });
+  }
+};
+
+// ========== REPARACIONES DEL FLUJO ACTIVO (excluye terminales) ==========
+const ESTADOS_EXCLUIDOS_FLUJO = ['ENTREGADA', 'CANCELADA', 'ANULADA', 'CANCELADO'];
+
+exports.getReparacionesFlujoActivo = async (req, res) => {
+  try {
+    const { search, prioridad, limit = 200 } = req.query;
+
+    let query = `
+      SELECT 
+        r.*,
+        (SELECT COUNT(*) FROM ingreso_equipo_checklist WHERE reparacion_id = r.id) as tiene_checklist
+      FROM reparaciones r
+      WHERE r.estado NOT IN (${ESTADOS_EXCLUIDOS_FLUJO.map(() => '?').join(',')})
+    `;
+    const params = [...ESTADOS_EXCLUIDOS_FLUJO];
+
+    if (prioridad) {
+      query += ' AND r.prioridad = ?';
+      params.push(prioridad);
+    }
+
+    if (search) {
+      query += ` AND (r.id LIKE ? OR r.cliente_nombre LIKE ? OR r.marca LIKE ? OR r.modelo LIKE ? OR r.cliente_telefono LIKE ?)`;
+      const s = `%${search}%`;
+      params.push(s, s, s, s, s);
+    }
+
+    query += ' ORDER BY r.updated_at DESC LIMIT ?';
+    params.push(parseInt(limit));
+
+    const [rows] = await db.query(query, params);
+
+    const data = rows.map(r => ({
+      ...r,
+      mano_obra:    r.mano_obra    / 100,
+      subtotal:     r.subtotal     / 100,
+      impuestos:    r.impuestos    / 100,
+      total:        r.total        / 100,
+      monto_anticipo: r.monto_anticipo / 100,
+      saldo_anticipo: r.saldo_anticipo / 100,
+      total_invertido: (r.total_invertido || 0) / 100,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error flujo activo:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ========== HISTORIAL DE REPARACIONES ENTREGADAS ==========
+exports.getEntregadas = async (req, res) => {
+  try {
+    const { search, estado_garantia, fecha_inicio, fecha_fin, limit = 200 } = req.query;
+
+    let query = `
+      SELECT
+        r.*,
+        COALESCE(DATE(r.fecha_entrega), r.fecha_cierre) AS fecha_entrega_calc,
+        CASE
+          WHEN (r.garantia_dias IS NULL OR r.garantia_dias = 0 OR (r.fecha_entrega IS NULL AND r.fecha_ciorre IS NULL))
+            THEN 'sin_garantia'
+          WHEN DATE_ADD(COALESCE(DATE(r.fecha_entrega), r.fecha_cierre), INTERVAL r.garantia_dias DAY) >= CURDATE()
+            THEN 'vigente'
+          ELSE 'vencida'
+        END AS estado_garantia,
+        DATE_ADD(COALESCE(DATE(r.fecha_entrega), r.fecha_cierre), INTERVAL r.garantia_dias DAY) AS fecha_garantia_fin
+      FROM reparaciones r
+      WHERE r.estado = 'ENTREGADA'
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` AND (r.id LIKE ? OR r.cliente_nombre LIKE ? OR r.marca LIKE ? OR r.modelo LIKE ? OR r.cliente_telefono LIKE ?)`;
+      const s = `%${search}%`;
+      params.push(s, s, s, s, s);
+    }
+
+    if (fecha_inicio) {
+      query += ' AND COALESCE(DATE(r.fecha_entrega), r.fecha_cierre) >= ?';
+      params.push(fecha_inicio);
+    }
+    if (fecha_fin) {
+      query += ' AND COALESCE(DATE(r.fecha_entrega), r.fecha_cierre) <= ?';
+      params.push(fecha_fin);
+    }
+
+    // Filtro de garantía aplicado post-query o via HAVING
+    if (estado_garantia) {
+      if (estado_garantia === 'vigente') {
+        query += ` AND r.garantia_dias > 0
+          AND DATE_ADD(COALESCE(DATE(r.fecha_entrega), r.fecha_cierre), INTERVAL r.garantia_dias DAY) >= CURDATE()`;
+      } else if (estado_garantia === 'vencida') {
+        query += ` AND r.garantia_dias > 0
+          AND DATE_ADD(COALESCE(DATE(r.fecha_entrega), r.fecha_cierre), INTERVAL r.garantia_dias DAY) < CURDATE()`;
+      } else if (estado_garantia === 'sin_garantia') {
+        query += ` AND (r.garantia_dias IS NULL OR r.garantia_dias = 0)`;
+      }
+    }
+
+    query += ' ORDER BY COALESCE(r.fecha_entrega, r.fecha_cierre) DESC LIMIT ?';
+    params.push(parseInt(limit));
+
+    const [rows] = await db.query(query, params);
+
+    const data = rows.map(r => ({
+      ...r,
+      mano_obra:      r.mano_obra      / 100,
+      subtotal:       r.subtotal       / 100,
+      impuestos:      r.impuestos      / 100,
+      total:          r.total          / 100,
+      monto_anticipo: r.monto_anticipo / 100,
+      saldo_anticipo: r.saldo_anticipo / 100,
+      total_invertido:(r.total_invertido || 0) / 100,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error historial entregadas:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ========== REINGRESAR POR GARANTÍA ==========
+exports.reingresarGarantia = async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const { id: reparacionId } = req.params;
+    const { motivo, repuesto, observaciones, tecnico, userId, userName } = req.body;
+
+    // Validaciones de entrada
+    if (!motivo || !motivo.trim()) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'El motivo del reingreso es obligatorio.' });
+    }
+    if (!repuesto || !repuesto.trim()) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Debe indicar el repuesto afectado.' });
+    }
+
+    // Obtener reparación
+    const [[rep]] = await connection.query('SELECT * FROM reparaciones WHERE id = ?', [reparacionId]);
+
+    if (!rep) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada.' });
+    }
+
+    if (rep.estado !== 'ENTREGADA') {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Solo se pueden reingresar reparaciones con estado ENTREGADA.' });
+    }
+
+    // Validar garantía vigente
+    const fechaBase = rep.fecha_entrega ? new Date(rep.fecha_entrega) : (rep.fecha_cierre ? new Date(rep.fecha_cierre) : null);
+    if (!fechaBase) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'La reparación no tiene fecha de entrega registrada.' });
+    }
+
+    const garantiaDias = rep.garantia_dias || 0;
+    if (garantiaDias === 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Esta reparación no tiene garantía registrada.' });
+    }
+
+    const fechaGarantiaFin = new Date(fechaBase);
+    fechaGarantiaFin.setDate(fechaGarantiaFin.getDate() + garantiaDias);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    if (fechaGarantiaFin < hoy) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `La garantía venció el ${fechaGarantiaFin.toLocaleDateString('es-GT')}. Debe crear una nueva reparación.`
+      });
+    }
+
+    // Actualizar reparación: vuelve al flujo activo
+    await connection.query(
+      `UPDATE reparaciones SET
+        estado          = 'EN_DIAGNOSTICO',
+        prioridad       = 'ALTA',
+        es_garantia     = 1,
+        motivo_garantia = ?,
+        repuesto_garantia = ?,
+        fecha_reingreso = NOW(),
+        tecnico_asignado = COALESCE(?, tecnico_asignado),
+        updated_at      = NOW()
+       WHERE id = ?`,
+      [motivo.trim(), repuesto.trim(), tecnico || null, reparacionId]
+    );
+
+    // Registrar en historial
+    const nota = `Reingreso por garantía. Repuesto afectado: ${repuesto}. Motivo: ${motivo}.${observaciones ? ' Obs: ' + observaciones : ''}`;
+    await connection.query(
+      `INSERT INTO reparaciones_historial
+       (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion, created_by)
+       VALUES (?, 'EN_DIAGNOSTICO', ?, ?, 'REINGRESO_GARANTIA', 'ENTREGADA', ?, ?)`,
+      [reparacionId, nota, userName || 'Sistema', nota, userId || null]
+    );
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: 'Reparación reingresada por garantía. Ahora aparece en el flujo con prioridad ALTA.',
+      data: { reparacion_id: reparacionId, nuevo_estado: 'EN_DIAGNOSTICO', prioridad: 'ALTA', es_garantia: 1 }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error reingresar garantía:', error);
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    connection.release();
   }
 };
 

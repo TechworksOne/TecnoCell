@@ -20,6 +20,20 @@ router.get(
   flujoController.getIngresoEquipo
 );
 
+// ========== REPARACIONES DEL FLUJO ACTIVO ==========
+router.get(
+  '/activas',
+  verifyToken,
+  flujoController.getReparacionesFlujoActivo
+);
+
+// ========== HISTORIAL DE ENTREGADAS ==========
+router.get(
+  '/entregadas',
+  verifyToken,
+  flujoController.getEntregadas
+);
+
 // ========== RUTAS DE GESTIÓN DE ESTADOS ==========
 // Cambiar estado de reparación
 router.put(
@@ -48,6 +62,13 @@ router.put(
   '/:id/prioridad',
   verifyToken,
   flujoController.cambiarPrioridad
+);
+
+// ========== REINGRESO POR GARANTÍA ==========
+router.post(
+  '/:id/reingresar-garantia',
+  verifyToken,
+  flujoController.reingresarGarantia
 );
 
 module.exports = router;
