@@ -10,6 +10,7 @@ import { useRepairs } from '../../store/useRepairs';
 import { Repair, RepairPriority } from '../../types/repair';
 import Modal from '../../components/ui/Modal';
 import ModalHistorialReparacion from '../../components/repairs/ModalHistorialReparacion';
+import NuevaReparacionModal from '../../components/repairs/NuevaReparacionModal';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import {
   getAllReparaciones,
@@ -489,6 +490,7 @@ export default function RepairsPage() {
   const [showPriorityModal, setShowPriorityModal] = useState<Repair | null>(null);
   const [showPayModal,      setShowPayModal]      = useState<Repair | null>(null);
   const [showCancelModal,   setShowCancelModal]   = useState<Repair | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [loadingRepairs, setLoadingRepairs] = useState(true);
   const [backendRepairs, setBackendRepairs] = useState<Repair[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -543,6 +545,11 @@ export default function RepairsPage() {
     showToast('Reparación cancelada');
   };
 
+  const handleRepairCreated = async () => {
+    showToast('Reparación creada exitosamente');
+    await loadRepairs();
+  };
+
   // ── Filters ───────────────────────────────────────────────────────────
   const filteredRepairs = backendRepairs.filter(r => {
     const q = searchQuery.toLowerCase();
@@ -594,7 +601,7 @@ export default function RepairsPage() {
           <p className="text-xs text-slate-400 mt-0.5">Gestión de equipos en servicio técnico</p>
         </div>
         <button
-          onClick={() => navigate('/reparaciones/nueva')}
+          onClick={() => setIsCreateModalOpen(true)}
           className="inline-flex items-center gap-2 bg-[#48B9E6] hover:bg-[#35a8d5] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors whitespace-nowrap self-start sm:self-auto"
         >
           <Plus size={16} /> Nueva Reparación
@@ -860,6 +867,13 @@ export default function RepairsPage() {
           </Modal>
         );
       })()}
+
+      {/* Nueva Reparación Modal */}
+      <NuevaReparacionModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={handleRepairCreated}
+      />
     </div>
   );
 }
