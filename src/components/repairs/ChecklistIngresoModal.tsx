@@ -149,7 +149,7 @@ export default function ChecklistIngresoModal({
   // Anticipo
   const [dejoAnticipo,       setDejoAnticipo]       = useState(false);
   const [montoAnticipo,      setMontoAnticipo]      = useState('');
-  const [metodoAnticipo,     setMetodoAnticipo]     = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [metodoAnticipo,     setMetodoAnticipo]     = useState<'efectivo' | 'transferencia' | 'tarjeta_bac' | 'tarjeta_neonet'>('efectivo');
   const [cuentaBancariaId,   setCuentaBancariaId]   = useState('');
   const [cuentasBancarias,   setCuentasBancarias]   = useState<CuentaBancaria[]>([]);
   const [anticipoConfirmado, setAnticipoConfirmado] = useState(false);
@@ -305,6 +305,7 @@ export default function ChecklistIngresoModal({
       setErrorMsg('Selecciona una cuenta bancaria para el anticipo por transferencia.');
       return;
     }
+    // tarjeta_bac / tarjeta_neonet: el backend busca la cuenta automáticamente, sin recargo.
 
     setSaving(true);
     try {
@@ -333,7 +334,8 @@ export default function ChecklistIngresoModal({
           dejoAnticipo,
           montoAnticipo: dejoAnticipo ? Math.round(parseFloat(montoAnticipo) * 100) : 0,
           metodoAnticipo: dejoAnticipo ? metodoAnticipo : null,
-          cuentaBancariaId: dejoAnticipo && metodoAnticipo === 'transferencia'
+          // cuentaBancariaId solo aplica para transferencia; tarjeta BAC/Neonet se resuelve en backend
+      cuentaBancariaId: dejoAnticipo && metodoAnticipo === 'transferencia'
             ? parseInt(cuentaBancariaId) : null,
         },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -646,11 +648,13 @@ export default function ChecklistIngresoModal({
                         <select
                           value={metodoAnticipo}
                           disabled={anticipoConfirmado}
-                          onChange={e => { setMetodoAnticipo(e.target.value as 'efectivo' | 'transferencia'); setCuentaBancariaId(''); markDirty(); }}
+                          onChange={e => { setMetodoAnticipo(e.target.value as 'efectivo' | 'transferencia' | 'tarjeta_bac' | 'tarjeta_neonet'); setCuentaBancariaId(''); markDirty(); }}
                           className={inputCls}
                         >
                           <option value="efectivo">Efectivo</option>
                           <option value="transferencia">Transferencia</option>
+                          <option value="tarjeta_bac">Tarjeta BAC</option>
+                          <option value="tarjeta_neonet">Tarjeta Neonet</option>
                         </select>
                       </div>
                       {metodoAnticipo === 'transferencia' && (
