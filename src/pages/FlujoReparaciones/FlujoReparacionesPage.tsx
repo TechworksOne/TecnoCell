@@ -1,15 +1,15 @@
 import {
-  GitBranch, Search, CheckCircle, ClipboardList, Edit, History,
-  AlertTriangle, Smartphone, Wrench, Clock, Calendar, User,
-  ChevronRight, RefreshCw,
+  GitBranch, Search, CheckCircle, ClipboardList, Wrench,
+  RefreshCw, X, AlertCircle,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllReparaciones } from "../../services/repairService";
 import API_URL from "../../services/config";
 import axios from "axios";
 import ModalActualizarEstado from "../../components/repairs/ModalActualizarEstado";
 import ModalHistorialReparacion from "../../components/repairs/ModalHistorialReparacion";
+import KanbanBoard from "../../components/repairs/KanbanBoard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CheckEquipo {
@@ -30,52 +30,64 @@ function safeDate(v?: string | null): string {
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function matches(rep: any, q: string): boolean {
+function matchesSearch(rep: any, q: string): boolean {
   const lq = q.toLowerCase();
   return (
     rep.clienteNombre?.toLowerCase().includes(lq) ||
     rep.id?.toLowerCase().includes(lq) ||
     rep.recepcion?.marca?.toLowerCase().includes(lq) ||
-    rep.recepcion?.modelo?.toLowerCase().includes(lq)
+    rep.recepcion?.modelo?.toLowerCase().includes(lq) ||
+    rep.tecnicoAsignado?.toLowerCase().includes(lq)
   );
 }
 
-// ── Style maps ────────────────────────────────────────────────────────────────
+// ── Style maps (for checklist table) ─────────────────────────────────────────
 const ESTADO_MAP: Record<string, { label: string; cls: string }> = {
-  RECIBIDA:               { label: 'Recibida',             cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
-  EN_DIAGNOSTICO:         { label: 'En Diagnóstico',       cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
-  ESPERANDO_AUTORIZACION: { label: 'Esp. Autorización',    cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
-  AUTORIZADA:             { label: 'Autorizada',           cls: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
-  EN_REPARACION:          { label: 'En Reparación',        cls: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300' },
-  EN_PROCESO:             { label: 'En Proceso',           cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
-  ESPERANDO_PIEZA:        { label: 'Esp. Pieza',           cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
-  STAND_BY:               { label: 'Stand By',             cls: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300' },
-  COMPLETADA:             { label: 'Completada',           cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  ENTREGADA:              { label: 'Entregada',            cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
-};
-
-const PRIORIDAD_MAP: Record<string, { label: string; cls: string }> = {
-  BAJA:  { label: 'Baja',  cls: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300' },
-  MEDIA: { label: 'Media', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
-  ALTA:  { label: 'Alta',  cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+  RECIBIDA:               { label: 'Recibida',           cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+  EN_DIAGNOSTICO:         { label: 'En Diagnóstico',     cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+  ESPERANDO_AUTORIZACION: { label: 'Esp. Autorización',  cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+  AUTORIZADA:             { label: 'Autorizada',         cls: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
+  EN_REPARACION:          { label: 'En Reparación',      cls: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300' },
+  EN_PROCESO:             { label: 'En Proceso',         cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+  ESPERANDO_PIEZA:        { label: 'Esp. Pieza',         cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+  STAND_BY:               { label: 'Stand By',           cls: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300' },
+  COMPLETADA:             { label: 'Completada',         cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  ENTREGADA:              { label: 'Entregada',          cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function FlujoReparacionesPage() {
   const navigate = useNavigate();
-  const [reparaciones, setReparaciones] = useState<any[]>([]);
-  const [checksEquipo, setChecksEquipo] = useState<CheckEquipo[]>([]);
-  const [loading, setLoading] = useState(false);
+
+  // ── Data state ──────────────────────────────────────────────────────────────
+  const [reparaciones, setReparaciones]   = useState<any[]>([]);
+  const [checksEquipo, setChecksEquipo]   = useState<CheckEquipo[]>([]);
+  const [loading, setLoading]             = useState(false);
+
+  // ── Filter state ─────────────────────────────────────────────────────────────
   const [searchChecklist, setSearchChecklist] = useState('');
-  const [searchFlujo, setSearchFlujo] = useState('');
-  const [modalEstadoOpen, setModalEstadoOpen] = useState(false);
-  const [modalHistorialOpen, setModalHistorialOpen] = useState(false);
+  const [searchKanban,    setSearchKanban]    = useState('');
+  const [filterPrioridad, setFilterPrioridad] = useState<'' | 'ALTA' | 'MEDIA' | 'BAJA'>('');
+
+  // ── Modal state ──────────────────────────────────────────────────────────────
+  const [modalEstadoOpen,       setModalEstadoOpen]       = useState(false);
+  const [modalHistorialOpen,    setModalHistorialOpen]    = useState(false);
   const [reparacionSeleccionada, setReparacionSeleccionada] = useState<any>(null);
+
+  // ── Toast state ──────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'error' } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string, type: 'ok' | 'error' = 'ok') {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
 
   // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(() => { loadData(); }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [reps, checks] = await Promise.all([
@@ -89,7 +101,7 @@ export default function FlujoReparacionesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const loadAllChecks = async (): Promise<CheckEquipo[]> => {
     try {
@@ -104,7 +116,29 @@ export default function FlujoReparacionesPage() {
     }
   };
 
-  // ── Derived data ────────────────────────────────────────────────────────────
+  // ── Optimistic estado change (used by Kanban DnD) ────────────────────────────
+  const handleEstadoChange = useCallback(async (repId: string, newEstado: string) => {
+    // Save snapshot for rollback
+    const snapshot = reparaciones.slice();
+
+    // Optimistic update
+    setReparaciones(prev => prev.map(r => r.id === repId ? { ...r, estado: newEstado } : r));
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${API_URL}/reparaciones/${repId}/estado`,
+        { estado: newEstado },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showToast(`Estado actualizado a ${newEstado.replace(/_/g, ' ')}`);
+    } catch {
+      setReparaciones(snapshot);
+      showToast('Error al cambiar estado. Intenta de nuevo.', 'error');
+    }
+  }, [reparaciones]);
+
+  // ── Derived data ─────────────────────────────────────────────────────────────
   const activeReps = useMemo(() =>
     reparaciones.filter(r => !EXCLUDED_STATES.includes(String(r.estado).toUpperCase())),
     [reparaciones]
@@ -112,46 +146,75 @@ export default function FlujoReparacionesPage() {
 
   const checkSet = useMemo(() => new Set(checksEquipo.map(c => c.reparacion_id)), [checksEquipo]);
 
-  // Pendientes de checklist: sin check, ordenadas por fecha desc
+  // Section 1: Pending checklist (no check), sorted by fecha desc
   const pendingChecklist = useMemo(() =>
     activeReps
-      .filter(r => !checkSet.has(r.id) && matches(r, searchChecklist))
+      .filter(r => !checkSet.has(r.id) && matchesSearch(r, searchChecklist))
       .sort((a, b) => {
-        const da = a.fechaIngreso ? new Date(String(a.fechaIngreso).replace(' ', 'T')).getTime() : 0;
-        const db = b.fechaIngreso ? new Date(String(b.fechaIngreso).replace(' ', 'T')).getTime() : 0;
-        return db - da;
+        const ta = a.fechaIngreso ? new Date(String(a.fechaIngreso).replace(' ', 'T')).getTime() : 0;
+        const tb = b.fechaIngreso ? new Date(String(b.fechaIngreso).replace(' ', 'T')).getTime() : 0;
+        return tb - ta;
       }),
     [activeReps, checkSet, searchChecklist]
   );
 
-  // Flujo activo: con checklist
-  const flujoReps = useMemo(() =>
-    activeReps.filter(r => checkSet.has(r.id) && matches(r, searchFlujo)),
-    [activeReps, checkSet, searchFlujo]
+  // Section 2: Kanban (with checklist), filtered by search + priority
+  const kanbanReps = useMemo(() =>
+    activeReps.filter(r =>
+      checkSet.has(r.id) &&
+      matchesSearch(r, searchKanban) &&
+      (filterPrioridad === '' || r.prioridad === filterPrioridad)
+    ),
+    [activeReps, checkSet, searchKanban, filterPrioridad]
   );
 
-  // KPIs computed from activeReps (no filtered)
+  // KPIs (unfiltered counts)
   const kpiSinCheck  = useMemo(() => activeReps.filter(r => !checkSet.has(r.id)).length, [activeReps, checkSet]);
   const kpiConCheck  = useMemo(() => activeReps.filter(r =>  checkSet.has(r.id)).length, [activeReps, checkSet]);
   const kpiEnProceso = useMemo(() =>
-    activeReps.filter(r => ['EN_DIAGNOSTICO', 'EN_REPARACION', 'EN_PROCESO', 'ESPERANDO_PIEZA', 'AUTORIZADA'].includes(r.estado)).length,
+    activeReps.filter(r => ['EN_DIAGNOSTICO','EN_REPARACION','EN_PROCESO','ESPERANDO_PIEZA','AUTORIZADA'].includes(r.estado)).length,
     [activeReps]
   );
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Modal handlers ───────────────────────────────────────────────────────────
   const openModalEstado    = (r: any) => { setReparacionSeleccionada(r); setModalEstadoOpen(true); };
   const openModalHistorial = (r: any) => { setReparacionSeleccionada(r); setModalHistorialOpen(true); };
   const closeModalEstado    = () => { setModalEstadoOpen(false);    setReparacionSeleccionada(null); };
   const closeModalHistorial = () => { setModalHistorialOpen(false); setReparacionSeleccionada(null); };
 
-  // ── Shared classes ───────────────────────────────────────────────────────────
-  const searchCls = 'pl-9 pr-3 py-2 text-sm rounded-xl border bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition w-full sm:w-64';
-  const sectionCard = 'rounded-2xl border bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-700 overflow-hidden';
+  // ── Shared style helpers ─────────────────────────────────────────────────────
+  const inputCls = [
+    'pl-8 pr-3 py-1.5 text-xs rounded-xl border',
+    'bg-white dark:bg-slate-900',
+    'text-slate-800 dark:text-slate-100',
+    'border-slate-300 dark:border-slate-700',
+    'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+    'focus:outline-none focus:ring-2 focus:ring-blue-500/40',
+    'transition w-full sm:w-56',
+  ].join(' ');
+
+  const sectionCls = 'rounded-2xl border bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-700 overflow-hidden';
 
   return (
     <div className="space-y-5">
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      {/* ── TOAST ─────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div className={[
+          'fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium',
+          toast.type === 'ok'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-red-600 text-white',
+        ].join(' ')}>
+          {toast.type === 'error' ? <AlertCircle size={15} /> : <CheckCircle size={15} />}
+          {toast.msg}
+          <button onClick={() => setToast(null)} className="ml-1 opacity-70 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
@@ -171,7 +234,7 @@ export default function FlujoReparacionesPage() {
         </button>
       </div>
 
-      {/* ── KPIs ────────────────────────────────────────────────────────────── */}
+      {/* ── KPIs ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Total activas */}
         <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
@@ -183,6 +246,7 @@ export default function FlujoReparacionesPage() {
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{activeReps.length}</p>
           </div>
         </div>
+
         {/* Sin checklist */}
         <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-amber-300 dark:border-amber-700/50 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
@@ -193,6 +257,7 @@ export default function FlujoReparacionesPage() {
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{kpiSinCheck}</p>
           </div>
         </div>
+
         {/* Con checklist */}
         <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
@@ -203,6 +268,7 @@ export default function FlujoReparacionesPage() {
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{kpiConCheck}</p>
           </div>
         </div>
+
         {/* En proceso */}
         <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
@@ -215,9 +281,9 @@ export default function FlujoReparacionesPage() {
         </div>
       </div>
 
-      {/* ── SECCIÓN 1: PENDIENTES DE CHECKLIST ──────────────────────────────── */}
-      <div className={sectionCard}>
-        {/* Header sección */}
+      {/* ── SECCIÓN 1: PENDIENTES DE CHECKLIST ────────────────────────────── */}
+      <div className={sectionCls}>
+        {/* Section header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
@@ -225,7 +291,7 @@ export default function FlujoReparacionesPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Pendientes de Checklist</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Reparaciones recién ingresadas sin checklist</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Reparaciones ingresadas sin checklist</p>
             </div>
             {kpiSinCheck > 0 && (
               <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50">
@@ -234,31 +300,31 @@ export default function FlujoReparacionesPage() {
             )}
           </div>
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar..."
               value={searchChecklist}
               onChange={e => setSearchChecklist(e.target.value)}
-              className={searchCls}
+              className={inputCls}
             />
           </div>
         </div>
 
-        {/* Body */}
+        {/* Section body */}
         {loading ? (
           <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
             <div className="w-8 h-8 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
             <p className="text-sm">Cargando...</p>
           </div>
         ) : pendingChecklist.length === 0 ? (
-          <div className="py-10 flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+          <div className="py-10 flex flex-col items-center gap-2">
             <CheckCircle size={36} className="text-emerald-400 dark:text-emerald-500" />
             <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {searchChecklist ? 'Sin resultados para esta búsqueda' : 'No hay reparaciones pendientes de checklist'}
+              {searchChecklist ? 'Sin resultados para esta búsqueda' : 'Todas las reparaciones activas tienen checklist'}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              {searchChecklist ? 'Intenta con otro término' : 'Todas las reparaciones activas ya tienen checklist iniciado'}
+              {searchChecklist ? 'Intenta con otro término' : 'No hay reparaciones pendientes'}
             </p>
           </div>
         ) : (
@@ -290,7 +356,7 @@ export default function FlujoReparacionesPage() {
                       </td>
                       <td className="px-4 py-3">
                         {est
-                          ? <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${est.cls}`}>{est.label}</span>
+                          ? <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${est.cls}`}>{est.label}</span>
                           : <span className="text-xs text-slate-400">{rep.estado}</span>
                         }
                       </td>
@@ -302,7 +368,7 @@ export default function FlujoReparacionesPage() {
                           onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                         >
-                          <ClipboardList size={12} />
+                          <ClipboardList size={11} />
                           <span className="hidden sm:inline">Iniciar </span>Checklist
                         </button>
                       </td>
@@ -315,163 +381,96 @@ export default function FlujoReparacionesPage() {
         )}
       </div>
 
-      {/* ── SECCIÓN 2: FLUJO DE REPARACIONES ────────────────────────────────── */}
-      <div className={sectionCard}>
-        {/* Header sección */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400" />
+      {/* ── SECCIÓN 2: TABLERO KANBAN ─────────────────────────────────────── */}
+      <div className={sectionCls}>
+        {/* Section header */}
+        <div className="flex flex-col gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          {/* Row 1: title + search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Tablero de Flujo</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Reparaciones con checklist — arrastrar para cambiar estado
+                </p>
+              </div>
+              {kpiConCheck > 0 && (
+                <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50">
+                  {kpiConCheck}
+                </span>
+              )}
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Flujo de Reparaciones</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Reparaciones con checklist iniciado</p>
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar código, cliente, equipo, técnico..."
+                value={searchKanban}
+                onChange={e => setSearchKanban(e.target.value)}
+                className="pl-8 pr-3 py-1.5 text-xs rounded-xl border bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition w-full sm:w-72"
+              />
             </div>
-            {kpiConCheck > 0 && (
-              <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50">
-                {kpiConCheck}
-              </span>
-            )}
           </div>
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchFlujo}
-              onChange={e => setSearchFlujo(e.target.value)}
-              className={searchCls}
-            />
+
+          {/* Row 2: priority filter pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Prioridad:</span>
+            {(['', 'ALTA', 'MEDIA', 'BAJA'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setFilterPrioridad(p)}
+                className={[
+                  'px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors',
+                  filterPrioridad === p
+                    ? p === 'ALTA'  ? 'bg-red-600 border-red-600 text-white'
+                    : p === 'MEDIA' ? 'bg-amber-500 border-amber-500 text-white'
+                    : p === 'BAJA'  ? 'bg-teal-600 border-teal-600 text-white'
+                    : 'bg-slate-700 border-slate-700 text-white dark:bg-slate-200 dark:border-slate-200 dark:text-slate-900'
+                    : p === 'ALTA'  ? 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                    : p === 'MEDIA' ? 'border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    : p === 'BAJA'  ? 'border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20'
+                    : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800',
+                ].join(' ')}
+              >
+                {p === '' ? 'Todas' : p.charAt(0) + p.slice(1).toLowerCase()}
+              </button>
+            ))}
+            {(searchKanban || filterPrioridad) && (
+              <button
+                onClick={() => { setSearchKanban(''); setFilterPrioridad(''); }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                <X size={11} />
+                Limpiar
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Body */}
-        {loading ? (
-          <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
-            <div className="w-8 h-8 border-2 border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />
-            <p className="text-sm">Cargando...</p>
-          </div>
-        ) : flujoReps.length === 0 ? (
-          <div className="py-10 flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
-            <ClipboardList size={36} className="text-slate-300 dark:text-slate-600" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {searchFlujo ? 'Sin resultados para esta búsqueda' : 'No hay reparaciones en flujo activo'}
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">
-              {searchFlujo ? 'Intenta con otro término' : 'Inicia el checklist de una reparación para verla aquí'}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {flujoReps.map(rep => {
-              const est     = ESTADO_MAP[rep.estado];
-              const prio    = PRIORIDAD_MAP[rep.prioridad];
-              const cambios = rep.totalCambiosEstado || 0;
-
-              const borderAccent =
-                ['COMPLETADA', 'ENTREGADA'].includes(rep.estado) ? 'border-l-emerald-500' :
-                'border-l-blue-500';
-
-              return (
-                <div
-                  key={rep.id}
-                  className={`flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 border-l-4 ${borderAccent} hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer`}
-                  onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
-                >
-                  {/* Left: badges + meta */}
-                  <div className="flex-1 min-w-0 space-y-2">
-                    {/* Row 1: ID + badges */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                        {rep.id}
-                      </span>
-                      {est && (
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${est.cls}`}>
-                          <Clock size={10} />
-                          {est.label}
-                        </span>
-                      )}
-                      {prio && (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${prio.cls}`}>
-                          {prio.label}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                        <CheckCircle size={10} />
-                        Checklist OK
-                      </span>
-                      {cambios > 0 && (
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          cambios >= 5 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' :
-                          cambios >= 3 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' :
-                          'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}>
-                          <AlertTriangle size={10} />
-                          {cambios} {cambios === 1 ? 'cambio' : 'cambios'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Row 2: info grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <User size={11} className="text-slate-400 shrink-0" />
-                        <span className="text-slate-600 dark:text-slate-300 font-medium truncate">{rep.clienteNombre || '—'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Smartphone size={11} className="text-slate-400 shrink-0" />
-                        <span className="text-slate-600 dark:text-slate-300 truncate">
-                          {[rep.recepcion?.marca, rep.recepcion?.modelo].filter(Boolean).join(' ') || '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Wrench size={11} className="text-slate-400 shrink-0" />
-                        <span className="text-slate-500 dark:text-slate-400 truncate">
-                          {rep.tecnicoAsignado || <i>Sin asignar</i>}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={11} className="text-slate-400 shrink-0" />
-                        <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{safeDate(rep.fechaIngreso)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: actions */}
-                  <div
-                    className="flex items-center gap-2 shrink-0"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => openModalHistorial(rep)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
-                    >
-                      <History size={12} />
-                      <span className="hidden sm:inline">Historial</span>
-                    </button>
-                    <button
-                      onClick={() => openModalEstado(rep)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      <Edit size={12} />
-                      <span className="hidden sm:inline">Estado</span>
-                    </button>
-                    <button
-                      onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                    >
-                      Ver
-                      <ChevronRight size={12} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Kanban body */}
+        <div className="p-4">
+          {loading ? (
+            <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
+              <div className="w-8 h-8 border-2 border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />
+              <p className="text-sm">Cargando tablero...</p>
+            </div>
+          ) : (
+            <KanbanBoard
+              reps={kanbanReps}
+              checkSet={checkSet}
+              onOpenHistorial={openModalHistorial}
+              onOpenEstado={openModalEstado}
+              onNavigate={path => navigate(path)}
+              onEstadoChange={handleEstadoChange}
+            />
+          )}
+        </div>
       </div>
 
-      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
       {modalEstadoOpen && reparacionSeleccionada && (
         <ModalActualizarEstado
           isOpen={modalEstadoOpen}
