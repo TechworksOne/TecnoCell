@@ -1,589 +1,325 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Clock, AlertCircle, CheckCircle, Package, FileText, History, Printer, FileSearch, User, Smartphone, CalendarDays, Tag } from 'lucide-react';
+import {
+  Plus, Search, Eye, Clock, History, Printer, FileSearch,
+  User, Smartphone, CalendarDays, Tag, Wrench,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRepairs } from '../../store/useRepairs';
-import { RepairStatus, RepairPriority, StateChangeRequest, Repair } from '../../types/repair';
-import PageHeader from '../../components/common/PageHeader';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
-import Badge from '../../components/ui/Badge';
-import Card from '../../components/ui/Card';
+import { Repair } from '../../types/repair';
 import Modal from '../../components/ui/Modal';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { StateChangeModal } from '../../components/repairs/StateChangeModal';
-import { EditRepairModal } from '../../components/repairs/EditRepairModal';
 import ModalHistorialReparacion from '../../components/repairs/ModalHistorialReparacion';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { getAllReparaciones } from '../../services/repairService';
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Todos los estados' },
-  { value: 'RECIBIDA', label: 'Recibida' },
-  { value: 'EN_PROCESO', label: 'En Proceso' },
-  { value: 'ESPERANDO_PIEZA', label: 'Esperando Pieza' },
-  { value: 'COMPLETADA', label: 'Completada' },
-  { value: 'ENTREGADA', label: 'Entregada' },
-  { value: 'CANCELADA', label: 'Cancelada' }
-];
+// ── Badge style maps ──────────────────────────────────────────────────────
+const STATUS_PILL: Record<string, string> = {
+  RECIBIDA:              'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+  EN_PROCESO:            'bg-orange-500/20 text-orange-300 border border-orange-500/30',
+  EN_DIAGNOSTICO:        'bg-sky-500/20 text-sky-300 border border-sky-500/30',
+  ESPERANDO_AUTORIZACION:'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
+  AUTORIZADA:            'bg-slate-500/20 text-slate-300 border border-slate-500/30',
+  EN_REPARACION:         'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+  ESPERANDO_PIEZA:       'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+  STAND_BY:              'bg-slate-600/30 text-slate-400 border border-slate-500/20',
+  COMPLETADA:            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+  ENTREGADA:             'bg-green-500/20 text-green-300 border border-green-500/30',
+  CANCELADA:             'bg-red-500/20 text-red-300 border border-red-500/30',
+};
+const PRIORITY_PILL: Record<string, string> = {
+  BAJA:  'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+  MEDIA: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
+  ALTA:  'bg-red-500/20 text-red-300 border border-red-500/30',
+};
+const STATUS_LABEL: Record<string, string> = {
+  RECIBIDA: 'Recibida', EN_PROCESO: 'En Proceso', EN_DIAGNOSTICO: 'En Diagnóstico',
+  ESPERANDO_AUTORIZACION: 'Esp. Autorización', AUTORIZADA: 'Autorizada',
+  EN_REPARACION: 'En Reparación', ESPERANDO_PIEZA: 'Esp. Pieza',
+  STAND_BY: 'Stand By', COMPLETADA: 'Completada', ENTREGADA: 'Entregada', CANCELADA: 'Cancelada',
+};
 
-const PRIORITY_OPTIONS = [
-  { value: '', label: 'Todas las prioridades' },
-  { value: 'BAJA', label: 'Baja' },
-  { value: 'MEDIA', label: 'Media' },
-  { value: 'ALTA', label: 'Alta' }
-];
+function safeDate(v?: string | null) {
+  if (!v) return '—';
+  const d = new Date(String(v).replace(' ', 'T'));
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
+// ── RepairCard ────────────────────────────────────────────────────────────
+function RepairCard({ repair, onViewDetail, onHistory, onFlowManage, onPrintPDF }: {
+  repair: Repair;
+  onViewDetail: (r: Repair) => void;
+  onHistory: (id: string) => void;
+  onFlowManage: () => void;
+  onPrintPDF: (r: Repair) => void;
+}) {
+  return (
+    <div className="bg-[#0D1526] border border-[rgba(72,185,230,0.12)] rounded-2xl p-4 hover:border-[rgba(72,185,230,0.25)] transition-colors">
+      {/* Badges row */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-[#48B9E6]/10 text-[#48B9E6] border border-[#48B9E6]/20">
+          {repair.id}
+        </span>
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_PILL[repair.estado] || 'bg-slate-700 text-slate-300'}`}>
+          {STATUS_LABEL[repair.estado] || repair.estado.replace(/_/g, ' ')}
+        </span>
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_PILL[repair.prioridad] || 'bg-slate-700 text-slate-300'}`}>
+          {repair.prioridad}
+        </span>
+        {repair.garantiaDias > 0 && (
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+            Garantía {repair.garantiaDias}d
+          </span>
+        )}
+        {repair.stickerSerieInterna && (
+          <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20">
+            <Tag size={9} />{repair.stickerSerieInterna}
+          </span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2.5 min-w-0">
+          {/* Cliente */}
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide flex items-center gap-1 mb-0.5"><User size={9} /> Cliente</p>
+            <p className="text-sm font-semibold text-slate-100 leading-tight truncate">{repair.clienteNombre || 'No registrado'}</p>
+            {repair.clienteTelefono && <p className="text-xs text-slate-400 mt-0.5">{repair.clienteTelefono}</p>}
+            {repair.recepcion.montoAnticipo && repair.recepcion.montoAnticipo > 0 && (
+              <p className="text-xs font-semibold text-emerald-400 mt-1">
+                Anticipo: Q{repair.recepcion.montoAnticipo.toFixed(2)}
+                {repair.recepcion.metodoAnticipo && <span className="font-normal text-slate-500 ml-1">({repair.recepcion.metodoAnticipo})</span>}
+              </p>
+            )}
+          </div>
+          {/* Equipo */}
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide flex items-center gap-1 mb-0.5"><Smartphone size={9} /> Equipo</p>
+            <p className="text-sm font-semibold text-slate-100 leading-tight">
+              {[repair.recepcion.marca, repair.recepcion.modelo].filter(Boolean).join(' ') || 'No registrado'}
+            </p>
+            {(repair.recepcion.tipoEquipo || repair.recepcion.color) && (
+              <p className="text-xs text-slate-400 mt-0.5">{[repair.recepcion.tipoEquipo, repair.recepcion.color].filter(Boolean).join(' · ')}</p>
+            )}
+            {repair.recepcion.imei && <p className="text-[10px] text-slate-500 font-mono mt-0.5">IMEI: {repair.recepcion.imei}</p>}
+          </div>
+          {/* Fecha + diagnóstico */}
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide flex items-center gap-1 mb-0.5"><CalendarDays size={9} /> Ingreso</p>
+            <p className="text-sm text-slate-200">{safeDate(repair.fechaIngreso)}</p>
+            {repair.tecnicoAsignado && <p className="text-xs text-slate-400 mt-0.5">Técnico: {repair.tecnicoAsignado}</p>}
+            {repair.recepcion.diagnosticoInicial && (
+              <p className="text-[11px] text-slate-400 italic mt-1 line-clamp-2 border-l-2 border-[rgba(72,185,230,0.2)] pl-1.5">
+                {repair.recepcion.diagnosticoInicial}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-row flex-wrap lg:flex-col gap-1.5 lg:w-36 lg:shrink-0">
+          <button onClick={() => onViewDetail(repair)} className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-600/20 transition-colors">
+            <Eye size={12} /> Ver Detalle
+          </button>
+          <button onClick={() => onHistory(repair.id)} className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border border-emerald-600/20 transition-colors">
+            <History size={12} /> Ver Historial
+          </button>
+          <button onClick={onFlowManage} className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-orange-600/15 hover:bg-orange-600/25 text-orange-300 border border-orange-600/20 transition-colors">
+            <Clock size={12} /> Gestionar Flujo
+          </button>
+          <button onClick={() => onPrintPDF(repair)} className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-600/20 hover:bg-slate-600/35 text-slate-300 border border-slate-500/20 transition-colors">
+            <Printer size={12} /> Imprimir PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────
 export default function RepairsPage() {
   const navigate = useNavigate();
-  const { 
-    repairs, 
-    deleteRepair, 
-    changeRepairState, 
-    updateRepair,
-    searchRepairs, 
-    isLoading,
-    validateStickerUniqueness
-  } = useRepairs();
+  const { repairs, deleteRepair, changeRepairState, updateRepair, searchRepairs, isLoading, validateStickerUniqueness } = useRepairs();
 
-  // Estados del componente
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery,    setSearchQuery]    = useState('');
+  const [statusFilter,   setStatusFilter]   = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDetailModal,  setShowDetailModal]  = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState<string | null>(null);
   const [loadingRepairs, setLoadingRepairs] = useState(true);
   const [backendRepairs, setBackendRepairs] = useState<Repair[]>([]);
 
-  // Cargar reparaciones del backend
-  useEffect(() => {
-    loadRepairs();
-  }, []);
+  useEffect(() => { loadRepairs(); }, []);
 
   const loadRepairs = async () => {
     try {
       setLoadingRepairs(true);
-      const data = await getAllReparaciones();
-      setBackendRepairs(data);
-    } catch (error) {
-      console.error('Error cargando reparaciones:', error);
+      setBackendRepairs(await getAllReparaciones());
+    } catch (e) {
+      console.error('Error cargando reparaciones:', e);
     } finally {
       setLoadingRepairs(false);
     }
   };
 
-  // Filtros aplicados
-  const filteredRepairs = backendRepairs.filter(repair => {
-    const matchesSearch = searchQuery === '' || 
-      repair.clienteNombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repair.recepcion.marca.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repair.recepcion.modelo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (repair.recepcion.imei && repair.recepcion.imei.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      repair.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === '' || repair.estado === statusFilter;
-    const matchesPriority = priorityFilter === '' || repair.prioridad === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
+  const filteredRepairs = backendRepairs.filter(r => {
+    const q = searchQuery.toLowerCase();
+    const ok = !q || r.clienteNombre?.toLowerCase().includes(q) || r.recepcion.marca?.toLowerCase().includes(q) ||
+      r.recepcion.modelo?.toLowerCase().includes(q) || r.recepcion.imei?.toLowerCase().includes(q) || r.id?.toLowerCase().includes(q);
+    return ok && (!statusFilter || r.estado === statusFilter) && (!priorityFilter || r.prioridad === priorityFilter);
   });
 
-  const handleViewDetail = (repair: Repair) => {
-    setSelectedRepair(repair);
-    setShowDetailModal(true);
-  };
+  const handleViewDetail = (r: Repair) => { setSelectedRepair(r); setShowDetailModal(true); };
 
-  const handleGeneratePDF = (repair: Repair) => {
-    generarPDFRecepcion({
-      cliente: {
-        nombre: repair.clienteNombre,
-        telefono: repair.clienteTelefono,
-        email: repair.clienteEmail
-      },
-      equipo: {
-        tipo: repair.recepcion.tipoEquipo,
-        marca: repair.recepcion.marca,
-        modelo: repair.recepcion.modelo,
-        color: repair.recepcion.color,
-        imei: repair.recepcion.imei,
-        contraseña: repair.recepcion.contraseña,
-        diagnostico: repair.recepcion.diagnosticoInicial
-      },
-      numeroReparacion: repair.id,
-      fecha: repair.recepcion.fechaRecepcion || new Date().toISOString().split('T')[0]
-    }, false); // false = descargar directamente
-  };
+  const buildPayload = (r: Repair) => ({
+    cliente: { nombre: r.clienteNombre, telefono: r.clienteTelefono, email: r.clienteEmail },
+    equipo: { tipo: r.recepcion.tipoEquipo, marca: r.recepcion.marca, modelo: r.recepcion.modelo, color: r.recepcion.color, imei: r.recepcion.imei, contraseña: r.recepcion.contraseña, diagnostico: r.recepcion.diagnosticoInicial },
+    numeroReparacion: r.id,
+    fecha: r.recepcion.fechaRecepcion || new Date().toISOString().split('T')[0],
+  });
 
-  const handlePreviewPDF = (repair: Repair) => {
-    generarPDFRecepcion({
-      cliente: {
-        nombre: repair.clienteNombre,
-        telefono: repair.clienteTelefono,
-        email: repair.clienteEmail
-      },
-      equipo: {
-        tipo: repair.recepcion.tipoEquipo,
-        marca: repair.recepcion.marca,
-        modelo: repair.recepcion.modelo,
-        color: repair.recepcion.color,
-        imei: repair.recepcion.imei,
-        contraseña: repair.recepcion.contraseña,
-        diagnostico: repair.recepcion.diagnosticoInicial
-      },
-      numeroReparacion: repair.id,
-      fecha: repair.recepcion.fechaRecepcion || new Date().toISOString().split('T')[0]
-    }, true); // true = vista previa
-  };
-
-  const getStatusIcon = (status: RepairStatus) => {
-    switch (status) {
-      case 'RECIBIDA':
-        return <Clock size={16} />;
-      case 'EN_PROCESO':
-        return <AlertCircle size={16} />;
-      case 'ESPERANDO_PIEZA':
-        return <Package size={16} />;
-      case 'COMPLETADA':
-        return <CheckCircle size={16} />;
-      case 'ENTREGADA':
-        return <CheckCircle size={16} />;
-      case 'CANCELADA':
-        return <AlertCircle size={16} />;
-      default:
-        return <Clock size={16} />;
-    }
-  };
-
-  const getStatusColor = (status: RepairStatus): 'blue' | 'yellow' | 'orange' | 'green' | 'gray' | 'red' => {
-    switch (status) {
-      case 'RECIBIDA':
-        return 'blue';
-      case 'EN_PROCESO':
-        return 'yellow';
-      case 'ESPERANDO_PIEZA':
-        return 'orange';
-      case 'COMPLETADA':
-        return 'green';
-      case 'ENTREGADA':
-        return 'gray';
-      case 'CANCELADA':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-
-  const getPriorityColor = (priority: RepairPriority): 'green' | 'yellow' | 'red' => {
-    switch (priority) {
-      case 'BAJA':
-        return 'green';
-      case 'MEDIA':
-        return 'yellow';
-      case 'ALTA':
-        return 'red';
-      default:
-        return 'yellow';
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `Q${amount.toFixed(2)}`;
-  };
+  const handleGeneratePDF = (r: Repair) => generarPDFRecepcion(buildPayload(r), false);
+  const handlePreviewPDF  = (r: Repair) => generarPDFRecepcion(buildPayload(r), true);
 
   return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Reparaciones" 
-        subtitle="Gestión de reparaciones de equipos"
-      />
-
-      {/* Barra de acciones */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex flex-1 gap-4 w-full sm:w-auto">
-          {/* Buscador */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <Input
-              placeholder="Buscar por cliente, equipo, IMEI..."
-              value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Filtros */}
-          <Select
-            value={statusFilter}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
-            className="w-48"
-          >
-            <option value="">Todos los estados</option>
-            <option value="RECIBIDA">Recibida</option>
-            <option value="EN_PROCESO">En Proceso</option>
-            <option value="ESPERANDO_PIEZA">Esperando Pieza</option>
-            <option value="COMPLETADA">Completada</option>
-            <option value="ENTREGADA">Entregada</option>
-            <option value="CANCELADA">Cancelada</option>
-          </Select>
-
-          <Select
-            value={priorityFilter}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriorityFilter(e.target.value)}
-            className="w-48"
-          >
-            <option value="">Todas las prioridades</option>
-            <option value="BAJA">Baja</option>
-            <option value="MEDIA">Media</option>
-            <option value="ALTA">Alta</option>
-          </Select>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100 tracking-tight">Reparaciones</h1>
+          <p className="text-xs text-slate-400 mt-0.5">Gestión de equipos en servicio técnico</p>
         </div>
-
-        <Button
+        <button
           onClick={() => navigate('/reparaciones/nueva')}
-          className="whitespace-nowrap"
+          className="inline-flex items-center gap-2 bg-[#48B9E6] hover:bg-[#35a8d5] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors whitespace-nowrap self-start sm:self-auto"
         >
-          <Plus size={20} className="mr-2" />
-          Nueva Reparación
-        </Button>
+          <Plus size={16} /> Nueva Reparación
+        </button>
       </div>
 
-      {/* Lista de reparaciones */}
-      <div className="grid gap-4">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar por cliente, equipo, código, IMEI..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm bg-[#0D1526] border border-[rgba(72,185,230,0.16)] rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#48B9E6]/40"
+          />
+        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="text-sm bg-[#0D1526] border border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#48B9E6]/40 sm:w-44">
+          <option value="">Todos los estados</option>
+          <option value="RECIBIDA">Recibida</option>
+          <option value="EN_PROCESO">En Proceso</option>
+          <option value="ESPERANDO_PIEZA">Esperando Pieza</option>
+          <option value="COMPLETADA">Completada</option>
+          <option value="ENTREGADA">Entregada</option>
+          <option value="CANCELADA">Cancelada</option>
+        </select>
+        <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
+          className="text-sm bg-[#0D1526] border border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#48B9E6]/40 sm:w-44">
+          <option value="">Todas las prioridades</option>
+          <option value="BAJA">Baja</option>
+          <option value="MEDIA">Media</option>
+          <option value="ALTA">Alta</option>
+        </select>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
         {loadingRepairs ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-500">Cargando reparaciones...</p>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#48B9E6] border-t-transparent mb-3" />
+            <p className="text-sm">Cargando reparaciones...</p>
           </div>
         ) : filteredRepairs.length === 0 ? (
-          <Card className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <FileText size={48} className="mx-auto" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No se encontraron reparaciones
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {searchQuery || statusFilter || priorityFilter
-                ? 'Intenta ajustar los filtros de búsqueda'
-                : 'Comienza creando tu primera reparación'
-              }
+          <div className="flex flex-col items-center justify-center py-16">
+            <Wrench size={40} className="mb-3 text-slate-600" />
+            <p className="text-sm font-medium text-slate-400">No se encontraron reparaciones</p>
+            <p className="text-xs mt-1 text-slate-500">
+              {searchQuery || statusFilter || priorityFilter ? 'Prueba ajustando los filtros' : 'Crea tu primera reparación con el botón de arriba'}
             </p>
-            {!searchQuery && !statusFilter && !priorityFilter && (
-              <Button onClick={() => navigate('/reparaciones/nueva')}>
-                <Plus size={20} className="mr-2" />
-                Nueva Reparación
-              </Button>
-            )}
-          </Card>
-        ) : (
-          filteredRepairs.map((repair) => (
-            <Card key={repair.id} className="p-5 hover:shadow-md transition-shadow">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                {/* Información principal */}
-                <div className="flex-1 min-w-0">
-                  {/* Header: ID + badges */}
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="font-mono text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                      {repair.id}
-                    </span>
-                    <Badge color={getStatusColor(repair.estado)}>
-                      <div className="flex items-center gap-1">
-                        {getStatusIcon(repair.estado)}
-                        {repair.estado.replace(/_/g, ' ')}
-                      </div>
-                    </Badge>
-                    <Badge color={getPriorityColor(repair.prioridad)}>
-                      {repair.prioridad}
-                    </Badge>
-                    {repair.stickerSerieInterna && (
-                      <span className="flex items-center gap-1 text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                        <Tag size={11} />
-                        {repair.stickerSerieInterna}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Grid de datos clave */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm">
-                    {/* Cliente */}
-                    <div>
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
-                        <User size={11} /> Cliente
-                      </p>
-                      <p className="font-semibold text-slate-800 truncate">{repair.clienteNombre}</p>
-                      {repair.clienteTelefono && (
-                        <p className="text-slate-500 text-xs">{repair.clienteTelefono}</p>
-                      )}
-                    </div>
-
-                    {/* Equipo */}
-                    <div>
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
-                        <Smartphone size={11} /> Equipo
-                      </p>
-                      <p className="font-semibold text-slate-800">
-                        {repair.recepcion.marca} {repair.recepcion.modelo}
-                      </p>
-                      {repair.recepcion.color && (
-                        <p className="text-slate-500 text-xs">{repair.recepcion.tipoEquipo} · {repair.recepcion.color}</p>
-                      )}
-                    </div>
-
-                    {/* Fecha */}
-                    <div>
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mb-0.5">
-                        <CalendarDays size={11} /> Fecha de ingreso
-                      </p>
-                      <p className="font-medium text-slate-700 text-xs">
-                        {repair.fechaIngreso
-                          ? new Date(repair.fechaIngreso).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })
-                          : '—'}
-                      </p>
-                      {repair.tecnicoAsignado && (
-                        <p className="text-slate-500 text-xs mt-0.5">Técnico: {repair.tecnicoAsignado}</p>
-                      )}
-                    </div>
-
-                    {/* Anticipo (solo si > 0) */}
-                    {repair.recepcion.montoAnticipo && repair.recepcion.montoAnticipo > 0 && (
-                      <div className="sm:col-span-2 lg:col-span-1">
-                        <p className="text-xs text-slate-500 mb-0.5">Anticipo recibido</p>
-                        <p className="font-semibold text-emerald-700">
-                          Q{repair.recepcion.montoAnticipo.toFixed(2)}
-                          {repair.recepcion.metodoAnticipo && (
-                            <span className="ml-1 text-xs font-normal text-slate-500">
-                              ({repair.recepcion.metodoAnticipo})
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Diagnóstico inicial (solo si no está vacío) */}
-                  {repair.recepcion.diagnosticoInicial && (
-                    <p className="mt-3 text-xs text-slate-600 line-clamp-2 italic border-l-2 border-slate-200 pl-2">
-                      {repair.recepcion.diagnosticoInicial}
-                    </p>
-                  )}
-
-                  {/* IMEI si existe */}
-                  {repair.recepcion.imei && (
-                    <p className="mt-1 text-xs text-slate-400 font-mono">
-                      IMEI: {repair.recepcion.imei}
-                    </p>
-                  )}
-                </div>
-
-                {/* Acciones */}
-                <div className="flex flex-row flex-wrap sm:flex-col gap-2 lg:w-40 lg:shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleViewDetail(repair)}
-                    className="flex-1 sm:flex-none justify-center text-blue-600 hover:bg-blue-50 border border-blue-200"
-                  >
-                    <Eye size={15} className="mr-1" />
-                    Ver Detalle
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowHistoryModal(repair.id)}
-                    className="flex-1 sm:flex-none justify-center text-emerald-600 hover:bg-emerald-50 border border-emerald-200"
-                  >
-                    <History size={15} className="mr-1" />
-                    Ver Historial
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/flujo-reparaciones`)}
-                    className="flex-1 sm:flex-none justify-center text-orange-600 hover:bg-orange-50 border border-orange-200"
-                  >
-                    <Clock size={15} className="mr-1" />
-                    Gestionar Flujo
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleGeneratePDF(repair)}
-                    className="flex-1 sm:flex-none justify-center text-slate-500 hover:bg-slate-50"
-                  >
-                    <Printer size={15} className="mr-1" />
-                    Imprimir PDF
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))
-        )}
+          </div>
+        ) : filteredRepairs.map(r => (
+          <RepairCard key={r.id} repair={r}
+            onViewDetail={handleViewDetail}
+            onHistory={id => setShowHistoryModal(id)}
+            onFlowManage={() => navigate('/flujo-reparaciones')}
+            onPrintPDF={handleGeneratePDF}
+          />
+        ))}
       </div>
 
-      {/* Modal de historial completo */}
+      {/* Historial modal */}
       {showHistoryModal && (
-        <ModalHistorialReparacion
-          isOpen={!!showHistoryModal}
-          onClose={() => setShowHistoryModal(null)}
-          reparacionId={showHistoryModal}
-        />
+        <ModalHistorialReparacion isOpen={!!showHistoryModal} onClose={() => setShowHistoryModal(null)} reparacionId={showHistoryModal} />
       )}
 
-      {/* Modal de detalle de reparación */}
+      {/* Detalle modal */}
       {showDetailModal && selectedRepair && (
-        <Modal
-          open={showDetailModal}
-          onClose={() => {
-            setShowDetailModal(false);
-            setSelectedRepair(null);
-          }}
-          title={`Detalle de Reparación - ${selectedRepair.id}`}
-        >
-          <div className="space-y-6">
-            {/* Información del Cliente */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                <AlertCircle size={18} />
-                Información del Cliente
-              </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Nombre:</span>
-                  <p className="font-medium">{selectedRepair.clienteNombre}</p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Teléfono:</span>
-                  <p className="font-medium">{selectedRepair.clienteTelefono}</p>
-                </div>
-                {selectedRepair.clienteEmail && (
-                  <div className="col-span-2">
-                    <span className="text-gray-600">Email:</span>
-                    <p className="font-medium">{selectedRepair.clienteEmail}</p>
-                  </div>
+        <Modal open={showDetailModal} onClose={() => { setShowDetailModal(false); setSelectedRepair(null); }} title={`Detalle — ${selectedRepair.id}`}>
+          <div className="space-y-4 text-sm">
+            <section>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1"><User size={10} /> Cliente</p>
+              <div className="bg-[#0A1220] rounded-xl p-3 grid grid-cols-2 gap-2">
+                <div><p className="text-[10px] text-slate-500">Nombre</p><p className="text-slate-100 font-medium">{selectedRepair.clienteNombre || '—'}</p></div>
+                <div><p className="text-[10px] text-slate-500">Teléfono</p><p className="text-slate-100 font-medium">{selectedRepair.clienteTelefono || '—'}</p></div>
+                {selectedRepair.clienteEmail && <div className="col-span-2"><p className="text-[10px] text-slate-500">Email</p><p className="text-slate-100">{selectedRepair.clienteEmail}</p></div>}
+              </div>
+            </section>
+            <section>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1"><Smartphone size={10} /> Equipo</p>
+              <div className="bg-[#0A1220] rounded-xl p-3 grid grid-cols-2 gap-2">
+                <div><p className="text-[10px] text-slate-500">Tipo</p><p className="text-slate-100 font-medium">{selectedRepair.recepcion.tipoEquipo || '—'}</p></div>
+                <div><p className="text-[10px] text-slate-500">Marca / Modelo</p><p className="text-slate-100 font-medium">{[selectedRepair.recepcion.marca, selectedRepair.recepcion.modelo].filter(Boolean).join(' ') || '—'}</p></div>
+                <div><p className="text-[10px] text-slate-500">Color</p><p className="text-slate-100">{selectedRepair.recepcion.color || '—'}</p></div>
+                {selectedRepair.recepcion.imei && <div><p className="text-[10px] text-slate-500">IMEI / Serie</p><p className="text-slate-100 font-mono text-xs">{selectedRepair.recepcion.imei}</p></div>}
+                {selectedRepair.recepcion.contraseña && <div><p className="text-[10px] text-slate-500">Contraseña</p><p className="text-slate-100">{selectedRepair.recepcion.contraseña}</p></div>}
+                {selectedRepair.recepcion.diagnosticoInicial && (
+                  <div className="col-span-2"><p className="text-[10px] text-slate-500">Diagnóstico inicial</p><p className="text-slate-300 italic mt-0.5">{selectedRepair.recepcion.diagnosticoInicial}</p></div>
                 )}
               </div>
-            </div>
-
-            {/* Información del Equipo */}
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                <Package size={18} />
-                Información del Equipo
-              </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            </section>
+            <section>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Estado y asignación</p>
+              <div className="bg-[#0A1220] rounded-xl p-3 grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-gray-600">Tipo:</span>
-                  <p className="font-medium">{selectedRepair.recepcion.tipoEquipo}</p>
+                  <p className="text-[10px] text-slate-500 mb-1">Estado</p>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_PILL[selectedRepair.estado] || 'bg-slate-700 text-slate-300'}`}>
+                    {STATUS_LABEL[selectedRepair.estado] || selectedRepair.estado.replace(/_/g, ' ')}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-gray-600">Marca:</span>
-                  <p className="font-medium">{selectedRepair.recepcion.marca}</p>
+                  <p className="text-[10px] text-slate-500 mb-1">Prioridad</p>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_PILL[selectedRepair.prioridad] || 'bg-slate-700 text-slate-300'}`}>
+                    {selectedRepair.prioridad}
+                  </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Modelo:</span>
-                  <p className="font-medium">{selectedRepair.recepcion.modelo}</p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Color:</span>
-                  <p className="font-medium">{selectedRepair.recepcion.color}</p>
-                </div>
-                {selectedRepair.recepcion.imei && (
-                  <div>
-                    <span className="text-gray-600">IMEI/Serie:</span>
-                    <p className="font-medium">{selectedRepair.recepcion.imei}</p>
-                  </div>
-                )}
-                {selectedRepair.recepcion.contraseña && (
-                  <div>
-                    <span className="text-gray-600">Contraseña:</span>
-                    <p className="font-medium">{selectedRepair.recepcion.contraseña}</p>
-                  </div>
-                )}
-                <div className="col-span-2">
-                  <span className="text-gray-600">Diagnóstico Inicial:</span>
-                  <p className="font-medium mt-1">{selectedRepair.recepcion.diagnosticoInicial}</p>
-                </div>
+                {selectedRepair.tecnicoAsignado && <div className="col-span-2"><p className="text-[10px] text-slate-500">Técnico</p><p className="text-slate-100">{selectedRepair.tecnicoAsignado}</p></div>}
+                <div><p className="text-[10px] text-slate-500">Fecha ingreso</p><p className="text-slate-100">{safeDate(selectedRepair.fechaIngreso)}</p></div>
               </div>
-            </div>
-
-            {/* Estado y Prioridad */}
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                <CheckCircle size={18} />
-                Estado Actual
-              </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Estado:</span>
-                  <div className="mt-1">
-                    <Badge color={getStatusColor(selectedRepair.estado)}>
-                      {STATUS_OPTIONS.find(opt => opt.value === selectedRepair.estado)?.label}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Prioridad:</span>
-                  <div className="mt-1">
-                    <Badge color={getPriorityColor(selectedRepair.prioridad)}>
-                      {selectedRepair.prioridad}
-                    </Badge>
-                  </div>
-                </div>
-                {selectedRepair.tecnicoAsignado && (
-                  <div className="col-span-2">
-                    <span className="text-gray-600">Técnico Asignado:</span>
-                    <p className="font-medium">{selectedRepair.tecnicoAsignado}</p>
-                  </div>
-                )}
+            </section>
+            <section>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Resumen económico</p>
+              <div className="bg-[#0A1220] rounded-xl p-3 space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-400"><span>Subtotal</span><span className="text-slate-200">Q{selectedRepair.subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between text-xs text-slate-400"><span>Impuestos</span><span className="text-slate-200">Q{selectedRepair.impuestos.toFixed(2)}</span></div>
+                <div className="flex justify-between font-bold border-t border-[rgba(72,185,230,0.12)] pt-1.5"><span className="text-slate-200">Total</span><span className="text-emerald-400 text-base">Q{selectedRepair.total.toFixed(2)}</span></div>
               </div>
-            </div>
-
-            {/* Totales */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-gray-900 mb-3">Resumen Económico</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">Q{selectedRepair.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Impuestos:</span>
-                  <span className="font-medium">Q{selectedRepair.impuestos.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>Total:</span>
-                  <span className="text-green-600">Q{selectedRepair.total.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="flex gap-3 pt-4 border-t">
-              <Button
-                onClick={() => handlePreviewPDF(selectedRepair)}
-                variant="secondary"
-                className="flex-1"
-              >
-                <FileSearch size={18} className="mr-2" />
-                Vista Previa PDF
-              </Button>
-              <Button
-                onClick={() => handleGeneratePDF(selectedRepair)}
-                className="flex-1"
-              >
-                <Printer size={18} className="mr-2" />
-                Imprimir PDF
-              </Button>
-              <Button
-                onClick={() => navigate('/flujo-reparaciones')}
-                variant="secondary"
-                className="flex-1"
-              >
-                <Clock size={18} className="mr-2" />
-                Gestionar Flujo
-              </Button>
+            </section>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => handlePreviewPDF(selectedRepair)} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl border border-[rgba(72,185,230,0.2)] text-[#48B9E6] hover:bg-[#48B9E6]/10 transition-colors">
+                <FileSearch size={13} /> Vista previa
+              </button>
+              <button onClick={() => handleGeneratePDF(selectedRepair)} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">
+                <Printer size={13} /> Imprimir PDF
+              </button>
+              <button onClick={() => navigate('/flujo-reparaciones')} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors">
+                <Clock size={13} /> Gestionar Flujo
+              </button>
             </div>
           </div>
         </Modal>
