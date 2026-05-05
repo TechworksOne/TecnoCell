@@ -41,7 +41,7 @@ export interface RepairReception {
   
   // Anticipo
   montoAnticipo?: number;
-  metodoAnticipo?: 'efectivo' | 'transferencia';
+  metodoAnticipo?: 'efectivo' | 'transferencia' | 'tarjeta' | 'tarjeta_bac' | 'tarjeta_neonet' | 'tarjeta_otra';
   comprobanteTransferencia?: string; // Para transferencias
 }
 
@@ -90,6 +90,8 @@ export interface Repair {
   
   // Anticipo y saldo
   saldoAnticipo?: number; // Saldo restante del anticipo después de descontar repuestos
+  montoPagadoAdicional?: number; // Pago del saldo pendiente
+  metodoPagoAdicional?: 'efectivo' | 'tarjeta'; // Método del pago adicional
   diferenciaReparacion?: number; // Diferencia adicional cobrada al entregar
   totalInvertido?: number; // Total gastado en repuestos
   totalGanancia?: number; // Ganancia total de la reparación
@@ -102,6 +104,10 @@ export interface Repair {
   // Observaciones generales
   observaciones?: string;
   
+  // Cancelación
+  fechaCancelacion?: string;
+  motivoCancelacion?: string;
+
   // Auditoría
   createdAt: string;
   createdBy?: string;

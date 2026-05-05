@@ -159,12 +159,16 @@ export const getAllReparaciones = async (filters?: {
       impuestos: rep.impuestos || 0,
       total: rep.total || 0,
       saldoAnticipo: rep.saldo_anticipo || 0,
+      montoPagadoAdicional: rep.monto_pagado_adicional || 0,
+      metodoPagoAdicional: rep.metodo_pago_adicional || undefined,
       totalInvertido: rep.total_invertido || 0,
       totalGanancia: rep.total_ganancia,
       diferenciaReparacion: rep.diferencia_reparacion,
       fechaIngreso: rep.fecha_ingreso,
       fechaEstimadaEntrega: rep.fecha_estimada_entrega,
       fechaEntrega: rep.fecha_entrega,
+      fechaCancelacion: rep.fecha_cancelacion || undefined,
+      motivoCancelacion: rep.motivo_cancelacion || undefined,
       historialEstados: [],
       totalCambiosEstado: rep.total_cambios || 0,
       createdAt: rep.created_at,
@@ -276,13 +280,51 @@ export const getImageUrl = (urlPath: string): string => {
   return `${baseUrl}${urlPath}`;
 };
 
+// ========== ACTUALIZAR PRIORIDAD ==========
+export const updatePrioridad = async (id: string, prioridad: 'BAJA' | 'MEDIA' | 'ALTA'): Promise<void> => {
+  try {
+    await axios.patch(`${API_URL}/reparaciones/${id}/prioridad`, { prioridad });
+  } catch (error) {
+    console.error('Error al actualizar prioridad:', error);
+    throw error;
+  }
+};
+
+// ========== REGISTRAR PAGO SALDO PENDIENTE ==========
+export const registrarPagoSaldo = async (
+  id: string,
+  monto: number,
+  metodoPago: 'efectivo' | 'tarjeta'
+): Promise<{ totalPagado: number; saldoRestante: number }> => {
+  try {
+    const response = await axios.post(`${API_URL}/reparaciones/${id}/pago`, { monto, metodoPago });
+    return response.data.data;
+  } catch (error) {
+    console.error('Error al registrar pago de saldo:', error);
+    throw error;
+  }
+};
+
+// ========== CANCELAR REPARACIÓN ==========
+export const cancelarReparacion = async (id: string, motivo: string): Promise<void> => {
+  try {
+    await axios.patch(`${API_URL}/reparaciones/${id}/cancelar`, { motivo });
+  } catch (error) {
+    console.error('Error al cancelar reparación:', error);
+    throw error;
+  }
+};
+
 const repairService = {
   createReparacion,
   getAllReparaciones,
   getReparacionById,
   changeRepairState,
   uploadImages,
-  getImageUrl
+  getImageUrl,
+  updatePrioridad,
+  registrarPagoSaldo,
+  cancelarReparacion,
 };
 
 export default repairService;

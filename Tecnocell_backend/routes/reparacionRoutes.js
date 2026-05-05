@@ -9,8 +9,17 @@ router.get('/:id/historial-completo', reparacionController.getHistorialCompleto)
 router.get('/:id', reparacionController.getReparacionById);
 router.post('/', reparacionController.createReparacion);
 
-// Actualizar estado simple
+// Actualizar solo el estado (simple)
 router.put('/:id/estado', reparacionController.updateEstadoReparacion);
+
+// Actualizar prioridad
+router.patch('/:id/prioridad', reparacionController.updatePrioridad);
+
+// Registrar pago de saldo pendiente
+router.post('/:id/pago', reparacionController.registrarPagoSaldo);
+
+// Cancelar reparación
+router.patch('/:id/cancelar', reparacionController.cancelarReparacion);
 
 // Cambiar estado con imágenes
 router.post(

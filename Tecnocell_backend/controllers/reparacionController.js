@@ -263,7 +263,7 @@ exports.getAllReparaciones = async (req, res) => {
       params.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
     }
     
-    query += ' ORDER BY r.created_at DESC LIMIT ?';
+    query += ' ORDER BY r.updated_at DESC LIMIT ?';
     params.push(parseInt(limit));
     
     const [reparaciones] = await db.query(query, params);
@@ -277,6 +277,7 @@ exports.getAllReparaciones = async (req, res) => {
       total: centavosAQuetzales(rep.total),
       monto_anticipo: centavosAQuetzales(rep.monto_anticipo),
       saldo_anticipo: centavosAQuetzales(rep.saldo_anticipo),
+      monto_pagado_adicional: centavosAQuetzales(rep.monto_pagado_adicional || 0),
       total_invertido: centavosAQuetzales(rep.total_invertido || 0),
       diferencia_reparacion: centavosAQuetzales(rep.diferencia_reparacion || 0),
       total_ganancia: centavosAQuetzales(rep.total_ganancia || 0)
@@ -784,5 +785,218 @@ exports.getHistorialCompleto = async (req, res) => {
       message: 'Error al obtener el historial',
       error: error.message
     });
+  }
+};
+
+// ========== ACTUALIZAR PRIORIDAD ==========
+exports.updatePrioridad = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { id } = req.params;
+    const { prioridad } = req.body;
+    const usuario = req.user?.username || req.user?.name || req.user?.nombre || 'Usuario';
+
+    const PRIORIDADES_VALIDAS = ['BAJA', 'MEDIA', 'ALTA'];
+    if (!prioridad || !PRIORIDADES_VALIDAS.includes(prioridad)) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Prioridad inválida. Debe ser BAJA, MEDIA o ALTA' });
+    }
+
+    const [[rep]] = await connection.query(
+      'SELECT id, estado, prioridad FROM reparaciones WHERE id = ?', [id]
+    );
+    if (!rep) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+    if (rep.estado === 'CANCELADA') {
+      await connection.rollback();
+      return res.status(409).json({ success: false, message: 'No se puede modificar una reparación cancelada' });
+    }
+
+    const prioridadAnterior = rep.prioridad;
+    await connection.query(
+      'UPDATE reparaciones SET prioridad = ?, updated_by = ? WHERE id = ?',
+      [prioridad, usuario, id]
+    );
+
+    await connection.query(
+      `INSERT INTO reparaciones_historial
+        (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
+       VALUES (?, ?, ?, ?, 'CAMBIO_PRIORIDAD', ?, ?)`,
+      [
+        id, rep.estado,
+        `Prioridad cambiada de ${prioridadAnterior} a ${prioridad}`,
+        usuario, prioridadAnterior,
+        `Prioridad actualizada: ${prioridadAnterior} → ${prioridad}`
+      ]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Prioridad actualizada exitosamente', data: { prioridad } });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al actualizar prioridad:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar la prioridad', error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// ========== REGISTRAR PAGO DE SALDO PENDIENTE ==========
+exports.registrarPagoSaldo = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { id } = req.params;
+    const { monto, metodoPago } = req.body;
+    const usuario = req.user?.username || req.user?.name || req.user?.nombre || 'Usuario';
+
+    const montoNum = parseFloat(monto);
+    if (!monto || isNaN(montoNum) || montoNum <= 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'El monto debe ser un número mayor a cero' });
+    }
+
+    const METODOS_VALIDOS = ['efectivo', 'tarjeta'];
+    if (!metodoPago || !METODOS_VALIDOS.includes(metodoPago)) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Método de pago inválido. Use efectivo o tarjeta' });
+    }
+
+    const [[rep]] = await connection.query(
+      'SELECT id, estado, total, monto_anticipo, monto_pagado_adicional FROM reparaciones WHERE id = ?', [id]
+    );
+    if (!rep) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+    if (rep.estado === 'CANCELADA') {
+      await connection.rollback();
+      return res.status(409).json({ success: false, message: 'No se puede registrar pago en una reparación cancelada' });
+    }
+
+    const totalCentavos = rep.total || 0;
+    const yaPageadoCentavos = (rep.monto_anticipo || 0) + (rep.monto_pagado_adicional || 0);
+    const saldoPendienteCentavos = totalCentavos - yaPageadoCentavos;
+
+    if (saldoPendienteCentavos <= 0) {
+      await connection.rollback();
+      return res.status(409).json({ success: false, message: 'Esta reparación ya está totalmente pagada' });
+    }
+
+    const montoCentavos = quetzalesACentavos(montoNum);
+    if (montoCentavos > saldoPendienteCentavos) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `El monto excede el saldo pendiente de Q${centavosAQuetzales(saldoPendienteCentavos).toFixed(2)}`
+      });
+    }
+
+    const nuevoMontoPagadoAdicional = (rep.monto_pagado_adicional || 0) + montoCentavos;
+    await connection.query(
+      'UPDATE reparaciones SET monto_pagado_adicional = ?, metodo_pago_adicional = ?, updated_by = ? WHERE id = ?',
+      [nuevoMontoPagadoAdicional, metodoPago, usuario, id]
+    );
+
+    await connection.query(
+      `INSERT INTO reparaciones_historial
+        (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
+       VALUES (?, ?, ?, ?, 'PAGO_SALDO', NULL, ?)`,
+      [
+        id, rep.estado,
+        `Pago de saldo registrado: Q${montoNum.toFixed(2)} (${metodoPago})`,
+        usuario,
+        `Pago de saldo Q${montoNum.toFixed(2)} en ${metodoPago}`
+      ]
+    );
+
+    await connection.commit();
+
+    const totalPagado = centavosAQuetzales((rep.monto_anticipo || 0) + nuevoMontoPagadoAdicional);
+    const saldoRestante = centavosAQuetzales(totalCentavos - (rep.monto_anticipo || 0) - nuevoMontoPagadoAdicional);
+
+    res.json({
+      success: true,
+      message: 'Pago registrado exitosamente',
+      data: {
+        totalPagado,
+        saldoRestante,
+        montoPagadoAdicional: centavosAQuetzales(nuevoMontoPagadoAdicional)
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al registrar pago de saldo:', error);
+    res.status(500).json({ success: false, message: 'Error al registrar el pago', error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// ========== CANCELAR REPARACIÓN ==========
+exports.cancelarReparacion = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { id } = req.params;
+    const { motivo } = req.body;
+    const usuario = req.user?.username || req.user?.name || req.user?.nombre || 'Usuario';
+
+    const motivoLimpio = String(motivo || '').trim();
+    if (!motivoLimpio) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'El motivo de cancelación es requerido' });
+    }
+
+    const [[rep]] = await connection.query(
+      'SELECT id, estado FROM reparaciones WHERE id = ?', [id]
+    );
+    if (!rep) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+    if (rep.estado === 'CANCELADA') {
+      await connection.rollback();
+      return res.status(409).json({ success: false, message: 'La reparación ya está cancelada' });
+    }
+    if (rep.estado === 'ENTREGADA') {
+      await connection.rollback();
+      return res.status(409).json({ success: false, message: 'No se puede cancelar una reparación ya entregada' });
+    }
+
+    const estadoAnterior = rep.estado;
+    const fechaHoy = new Date().toISOString().split('T')[0];
+
+    await connection.query(
+      `UPDATE reparaciones
+         SET estado = 'CANCELADA', fecha_cancelacion = ?, motivo_cancelacion = ?, updated_by = ?
+       WHERE id = ?`,
+      [fechaHoy, motivoLimpio, usuario, id]
+    );
+
+    await connection.query(
+      `INSERT INTO reparaciones_historial
+        (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
+       VALUES (?, 'CANCELADA', ?, ?, 'CANCELACION', ?, ?)`,
+      [
+        id,
+        `Reparación cancelada. Motivo: ${motivoLimpio}`,
+        usuario,
+        estadoAnterior,
+        `Cancelada desde estado ${estadoAnterior}. Motivo: ${motivoLimpio}`
+      ]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Reparación cancelada exitosamente' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al cancelar reparación:', error);
+    res.status(500).json({ success: false, message: 'Error al cancelar la reparación', error: error.message });
+  } finally {
+    connection.release();
   }
 };
