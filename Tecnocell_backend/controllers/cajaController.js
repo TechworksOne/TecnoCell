@@ -120,11 +120,11 @@ exports.getSaldoCuentaBancaria = async (req, res) => {
     }
     
     const [ingresos] = await db.query(
-      "SELECT COALESCE(SUM(monto), 0) as total FROM movimientos_bancarios WHERE cuenta_id = ? AND tipo_movimiento = 'INGRESO'",
+      "SELECT COALESCE(SUM(monto), 0) as total FROM movimientos_bancarios WHERE cuenta_id = ? AND tipo_movimiento = 'INGRESO' AND estado = 'CONFIRMADO'",
       [id]
     );
     const [egresos] = await db.query(
-      "SELECT COALESCE(SUM(monto), 0) as total FROM movimientos_bancarios WHERE cuenta_id = ? AND tipo_movimiento = 'EGRESO'",
+      "SELECT COALESCE(SUM(monto), 0) as total FROM movimientos_bancarios WHERE cuenta_id = ? AND tipo_movimiento = 'EGRESO' AND estado = 'CONFIRMADO'",
       [id]
     );
     
@@ -826,6 +826,257 @@ exports.registrarReversaMovimientoVenta = async (
   } catch (error) {
     console.error('Error registrando reversa financiera de venta:', error);
     throw error;
+  }
+};
+
+// ========== RETIRO DE BANCO ==========
+// Saca dinero de una cuenta bancaria específica.
+// Si se marca a_caja_chica = true, el monto ingresa a caja chica también.
+exports.retirarDeBanco = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { cuenta_id, monto, concepto, a_caja_chica, observaciones, realizado_por } = req.body;
+
+    if (!cuenta_id || !monto || Number(monto) <= 0) {
+      return res.status(400).json({ success: false, message: 'cuenta_id y monto son requeridos' });
+    }
+    if (!concepto || !String(concepto).trim()) {
+      return res.status(400).json({ success: false, message: 'El concepto es requerido' });
+    }
+
+    const montoNum = Number(monto);
+
+    const [cuentas] = await conn.query(
+      'SELECT * FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [cuenta_id]
+    );
+
+    if (cuentas.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cuenta bancaria no encontrada o inactiva' });
+    }
+
+    const cuenta = cuentas[0];
+
+    if (Number(cuenta.saldo_actual) < montoNum) {
+      return res.status(409).json({
+        success: false,
+        message: `Saldo insuficiente. Disponible: Q${Number(cuenta.saldo_actual).toFixed(2)}`
+      });
+    }
+
+    await conn.beginTransaction();
+
+    const usuario = realizado_por || 'Usuario';
+
+    // Egreso del banco
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+        (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES (?, 'EGRESO', ?, ?, 'Retiro', 'CONFIRMADO', ?, ?)`,
+      [cuenta_id, montoNum, concepto, usuario, observaciones || null]
+    );
+
+    await conn.query(
+      'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual - ? WHERE id = ?',
+      [montoNum, cuenta_id]
+    );
+
+    // Ingreso a caja chica (opcional)
+    if (a_caja_chica) {
+      await conn.query(
+        `INSERT INTO caja_chica
+          (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+         VALUES ('INGRESO', ?, ?, 'Retiro Banco', 'CONFIRMADO', ?, ?)`,
+        [montoNum, `Retiro de ${cuenta.nombre} - ${concepto}`, usuario, observaciones || null]
+      );
+    }
+
+    await conn.commit();
+    conn.release();
+
+    res.status(201).json({
+      success: true,
+      message: a_caja_chica
+        ? `Retiro de Q${montoNum.toFixed(2)} registrado e ingresado a caja chica`
+        : `Retiro de Q${montoNum.toFixed(2)} registrado`
+    });
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error en retirarDeBanco:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ========== DEPÓSITO DE CAJA A BANCO ==========
+// Saca dinero de caja chica y lo deposita en una cuenta bancaria.
+exports.depositarAlBanco = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { cuenta_id, monto, concepto, observaciones, realizado_por } = req.body;
+
+    if (!cuenta_id || !monto || Number(monto) <= 0) {
+      return res.status(400).json({ success: false, message: 'cuenta_id y monto son requeridos' });
+    }
+    if (!concepto || !String(concepto).trim()) {
+      return res.status(400).json({ success: false, message: 'El concepto es requerido' });
+    }
+
+    const montoNum = Number(monto);
+
+    // Validar saldo de caja chica (solo CONFIRMADOS)
+    const [[saldoRow]] = await conn.query(
+      `SELECT COALESCE(SUM(CASE WHEN tipo_movimiento = 'INGRESO' THEN monto ELSE -monto END), 0) AS saldo
+       FROM caja_chica WHERE estado = 'CONFIRMADO'`
+    );
+    const saldoCaja = Number(saldoRow.saldo);
+
+    if (saldoCaja < montoNum) {
+      return res.status(409).json({
+        success: false,
+        message: `Saldo insuficiente en caja chica. Disponible: Q${saldoCaja.toFixed(2)}`
+      });
+    }
+
+    const [cuentas] = await conn.query(
+      'SELECT * FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [cuenta_id]
+    );
+
+    if (cuentas.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cuenta bancaria no encontrada o inactiva' });
+    }
+
+    const cuenta = cuentas[0];
+
+    await conn.beginTransaction();
+
+    const usuario = realizado_por || 'Usuario';
+
+    // Egreso de caja chica
+    await conn.query(
+      `INSERT INTO caja_chica
+        (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES ('EGRESO', ?, ?, 'Deposito Banco', 'CONFIRMADO', ?, ?)`,
+      [montoNum, `Depósito a ${cuenta.nombre} - ${concepto}`, usuario, observaciones || null]
+    );
+
+    // Ingreso al banco
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+        (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES (?, 'INGRESO', ?, ?, 'Deposito', 'CONFIRMADO', ?, ?)`,
+      [cuenta_id, montoNum, `Depósito desde Caja Chica - ${concepto}`, usuario, observaciones || null]
+    );
+
+    // Actualizar saldo banco
+    await conn.query(
+      'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
+      [montoNum, cuenta_id]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    res.status(201).json({
+      success: true,
+      message: `Depósito de Q${montoNum.toFixed(2)} a ${cuenta.nombre} registrado`
+    });
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error en depositarAlBanco:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ========== TRANSFERENCIA ENTRE BANCOS ==========
+// Mueve dinero de una cuenta bancaria a otra dentro del sistema.
+exports.transferenciaBancos = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { cuenta_origen_id, cuenta_destino_id, monto, concepto, observaciones, realizado_por } = req.body;
+
+    if (!cuenta_origen_id || !cuenta_destino_id || !monto || Number(monto) <= 0) {
+      return res.status(400).json({ success: false, message: 'cuenta_origen_id, cuenta_destino_id y monto son requeridos' });
+    }
+    if (Number(cuenta_origen_id) === Number(cuenta_destino_id)) {
+      return res.status(400).json({ success: false, message: 'La cuenta de origen y destino deben ser diferentes' });
+    }
+    if (!concepto || !String(concepto).trim()) {
+      return res.status(400).json({ success: false, message: 'El concepto es requerido' });
+    }
+
+    const montoNum = Number(monto);
+
+    const [cuentasOrigen] = await conn.query(
+      'SELECT * FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [cuenta_origen_id]
+    );
+    if (cuentasOrigen.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cuenta de origen no encontrada o inactiva' });
+    }
+
+    const [cuentasDestino] = await conn.query(
+      'SELECT * FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [cuenta_destino_id]
+    );
+    if (cuentasDestino.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cuenta de destino no encontrada o inactiva' });
+    }
+
+    const origen = cuentasOrigen[0];
+    const destino = cuentasDestino[0];
+
+    if (Number(origen.saldo_actual) < montoNum) {
+      return res.status(409).json({
+        success: false,
+        message: `Saldo insuficiente en ${origen.nombre}. Disponible: Q${Number(origen.saldo_actual).toFixed(2)}`
+      });
+    }
+
+    await conn.beginTransaction();
+
+    const usuario = realizado_por || 'Usuario';
+
+    // Egreso del origen
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+        (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES (?, 'EGRESO', ?, ?, 'Transferencia', 'CONFIRMADO', ?, ?)`,
+      [cuenta_origen_id, montoNum, `Transferencia a ${destino.nombre} - ${concepto}`, usuario, observaciones || null]
+    );
+
+    // Ingreso al destino
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+        (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES (?, 'INGRESO', ?, ?, 'Transferencia', 'CONFIRMADO', ?, ?)`,
+      [cuenta_destino_id, montoNum, `Transferencia desde ${origen.nombre} - ${concepto}`, usuario, observaciones || null]
+    );
+
+    // Actualizar saldos
+    await conn.query(
+      'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual - ? WHERE id = ?',
+      [montoNum, cuenta_origen_id]
+    );
+    await conn.query(
+      'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
+      [montoNum, cuenta_destino_id]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    res.status(201).json({
+      success: true,
+      message: `Transferencia de Q${montoNum.toFixed(2)} de ${origen.nombre} a ${destino.nombre} registrada`
+    });
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error en transferenciaBancos:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

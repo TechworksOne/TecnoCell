@@ -19,4 +19,9 @@ router.get('/bancos/movimientos', cajaController.getMovimientosBancarios);
 router.post('/bancos/movimiento', cajaController.registrarMovimientoBancario);
 router.put('/bancos/confirmar/:id', cajaController.confirmarMovimientoBancario);
 
+// ========== OPERACIONES ENTRE CAJA Y BANCOS ==========
+router.post('/retiro-banco', cajaController.retirarDeBanco);
+router.post('/depositar-banco', cajaController.depositarAlBanco);
+router.post('/transferencia-bancos', cajaController.transferenciaBancos);
+
 module.exports = router;

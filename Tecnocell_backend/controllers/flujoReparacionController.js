@@ -431,7 +431,7 @@ exports.getEntregadas = async (req, res) => {
         r.*,
         COALESCE(DATE(r.fecha_entrega), r.fecha_cierre) AS fecha_entrega_calc,
         CASE
-          WHEN (r.garantia_dias IS NULL OR r.garantia_dias = 0 OR (r.fecha_entrega IS NULL AND r.fecha_ciorre IS NULL))
+          WHEN (r.garantia_dias IS NULL OR r.garantia_dias = 0 OR (r.fecha_entrega IS NULL AND r.fecha_cierre IS NULL))
             THEN 'sin_garantia'
           WHEN DATE_ADD(COALESCE(DATE(r.fecha_entrega), r.fecha_cierre), INTERVAL r.garantia_dias DAY) >= CURDATE()
             THEN 'vigente'

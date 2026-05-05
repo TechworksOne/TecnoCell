@@ -59,12 +59,13 @@ export default function CajaBancosPage() {
 
   // Modal registrar movimiento
   const [showModal, setShowModal] = useState(false);
-  const [tipoMovimiento, setTipoMovimiento] = useState<'GASTO' | 'RETIRO' | 'DEPOSITO' | 'TRANSFERENCIA' | 'INGRESO_MANUAL'>('GASTO');
+  const [tipoMovimiento, setTipoMovimiento] = useState<'GASTO' | 'RETIRO' | 'DEPOSITO' | 'TRANSFERENCIA' | 'INGRESO_MANUAL' | 'RETIRO_BANCO'>('GASTO');
   const [monto, setMonto] = useState('');
   const [concepto, setConcepto] = useState('');
   const [cuentaDestino, setCuentaDestino] = useState('');
   const [cuentaOrigen, setCuentaOrigen] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  const [aCajaChica, setACajaChica] = useState(false);
 
   // Modal confirmación
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -199,46 +200,33 @@ export default function CajaBancosPage() {
           realizado_por: usuario,
           observaciones: observaciones || null
         }, config);
-      } else if (tipoMovimiento === 'DEPOSITO') {
-        if (!cuentaDestino) { alert('Selecciona una cuenta bancaria de destino'); return; }
-        const nombreBanco = cuentasBancarias.find(c => c.id === parseInt(cuentaDestino))?.nombre;
-        await axios.post(`${API_URL}/caja/caja-chica/movimiento`, {
-          tipo_movimiento: 'EGRESO',
+      } else if (tipoMovimiento === 'RETIRO_BANCO') {
+        if (!cuentaOrigen) { alert('Selecciona la cuenta bancaria'); return; }
+        await axios.post(`${API_URL}/caja/retiro-banco`, {
+          cuenta_id: parseInt(cuentaOrigen),
           monto: montoNum,
-          concepto: `Depósito a ${nombreBanco} - ${concepto}`,
-          categoria: 'Otro',
+          concepto,
+          a_caja_chica: aCajaChica,
           realizado_por: usuario,
           observaciones: observaciones || null
         }, config);
-        await axios.post(`${API_URL}/caja/bancos/movimiento`, {
+      } else if (tipoMovimiento === 'DEPOSITO') {
+        if (!cuentaDestino) { alert('Selecciona una cuenta bancaria de destino'); return; }
+        await axios.post(`${API_URL}/caja/depositar-banco`, {
           cuenta_id: parseInt(cuentaDestino),
-          tipo_movimiento: 'INGRESO',
           monto: montoNum,
-          concepto: `Depósito desde Caja Chica - ${concepto}`,
-          categoria: 'Deposito',
+          concepto,
           realizado_por: usuario,
           observaciones: observaciones || null
         }, config);
       } else if (tipoMovimiento === 'TRANSFERENCIA') {
         if (!cuentaOrigen || !cuentaDestino) { alert('Selecciona ambas cuentas bancarias'); return; }
         if (cuentaOrigen === cuentaDestino) { alert('La cuenta de origen y destino deben ser diferentes'); return; }
-        const nombreOrigen = cuentasBancarias.find(c => c.id === parseInt(cuentaOrigen))?.nombre;
-        const nombreDestino = cuentasBancarias.find(c => c.id === parseInt(cuentaDestino))?.nombre;
-        await axios.post(`${API_URL}/caja/bancos/movimiento`, {
-          cuenta_id: parseInt(cuentaOrigen),
-          tipo_movimiento: 'EGRESO',
+        await axios.post(`${API_URL}/caja/transferencia-bancos`, {
+          cuenta_origen_id: parseInt(cuentaOrigen),
+          cuenta_destino_id: parseInt(cuentaDestino),
           monto: montoNum,
-          concepto: `Transferencia a ${nombreDestino} - ${concepto}`,
-          categoria: 'Transferencia',
-          realizado_por: usuario,
-          observaciones: observaciones || null
-        }, config);
-        await axios.post(`${API_URL}/caja/bancos/movimiento`, {
-          cuenta_id: parseInt(cuentaDestino),
-          tipo_movimiento: 'INGRESO',
-          monto: montoNum,
-          concepto: `Transferencia desde ${nombreOrigen} - ${concepto}`,
-          categoria: 'Transferencia',
+          concepto,
           realizado_por: usuario,
           observaciones: observaciones || null
         }, config);
@@ -246,7 +234,7 @@ export default function CajaBancosPage() {
 
       setShowModal(false);
       setMonto(''); setConcepto(''); setObservaciones('');
-      setCuentaDestino(''); setCuentaOrigen('');
+      setCuentaDestino(''); setCuentaOrigen(''); setACajaChica(false);
       loadData();
     } catch (error: any) {
       console.error('Error registrando movimiento:', error);
@@ -254,6 +242,8 @@ export default function CajaBancosPage() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
+      } else if (error.response?.data?.message) {
+        alert(error.response.data.message);
       } else {
         alert('Error al registrar movimiento');
       }
@@ -281,7 +271,7 @@ export default function CajaBancosPage() {
   const abrirModal = (tipo: typeof tipoMovimiento) => {
     setTipoMovimiento(tipo);
     setMonto(''); setConcepto(''); setObservaciones('');
-    setCuentaDestino(''); setCuentaOrigen('');
+    setCuentaDestino(''); setCuentaOrigen(''); setACajaChica(false);
     setShowModal(true);
   };
 
@@ -392,10 +382,11 @@ export default function CajaBancosPage() {
         {/* ── ACCIONES RÁPIDAS ──────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 md:p-5">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Acciones rápidas</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
             {[
               { label: 'Registrar gasto', icon: <ArrowDownCircle size={18} />, color: 'hover:bg-red-50 hover:border-red-200 hover:text-red-700', tipo: 'GASTO' as const },
               { label: 'Registrar retiro', icon: <TrendingDown size={18} />, color: 'hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700', tipo: 'RETIRO' as const },
+              { label: 'Retiro de banco', icon: <Building2 size={18} />, color: 'hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700', tipo: 'RETIRO_BANCO' as const },
               { label: 'Depósito a banco', icon: <ArrowUpCircle size={18} />, color: 'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700', tipo: 'DEPOSITO' as const },
               { label: 'Transferencia', icon: <ArrowRightLeft size={18} />, color: 'hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700', tipo: 'TRANSFERENCIA' as const },
               { label: 'Ingreso manual', icon: <Banknote size={18} />, color: 'hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700', tipo: 'INGRESO_MANUAL' as const },
@@ -586,8 +577,9 @@ export default function CajaBancosPage() {
         onClose={() => setShowModal(false)}
         title={
           tipoMovimiento === 'GASTO' ? 'Registrar Gasto' :
-          tipoMovimiento === 'RETIRO' ? 'Registrar Retiro' :
-          tipoMovimiento === 'DEPOSITO' ? 'Depósito a Banco' :
+          tipoMovimiento === 'RETIRO' ? 'Registrar Retiro de Caja' :
+          tipoMovimiento === 'RETIRO_BANCO' ? 'Retiro de Banco' :
+          tipoMovimiento === 'DEPOSITO' ? 'Depósito de Caja a Banco' :
           tipoMovimiento === 'TRANSFERENCIA' ? 'Transferencia entre Bancos' :
           'Ingreso Manual'
         }
@@ -603,13 +595,51 @@ export default function CajaBancosPage() {
           </div>
 
           {tipoMovimiento === 'DEPOSITO' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cuenta bancaria de destino</label>
-              <Select value={cuentaDestino} onChange={e => setCuentaDestino(e.target.value)} className="w-full">
-                <option value="">Seleccione una cuenta...</option>
-                {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.pos_asociado ? `(${c.pos_asociado})` : ''}</option>)}
-              </Select>
-            </div>
+            <>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-sm text-emerald-700 font-medium">
+                Saldo caja chica disponible: <span className="font-bold">Q{Number(saldoCajaChica.saldo || 0).toFixed(2)}</span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cuenta bancaria de destino</label>
+                <Select value={cuentaDestino} onChange={e => setCuentaDestino(e.target.value)} className="w-full">
+                  <option value="">Seleccione una cuenta...</option>
+                  {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.pos_asociado ? `(${c.pos_asociado})` : ''}</option>)}
+                </Select>
+              </div>
+            </>
+          )}
+
+          {tipoMovimiento === 'RETIRO_BANCO' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cuenta bancaria</label>
+                <Select value={cuentaOrigen} onChange={e => setCuentaOrigen(e.target.value)} className="w-full">
+                  <option value="">Seleccione una cuenta...</option>
+                  {cuentasBancarias.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre} — Q{Number(c.saldo_actual || 0).toFixed(2)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              {cuentaOrigen && (() => {
+                const cuenta = cuentasBancarias.find(c => c.id === parseInt(cuentaOrigen));
+                return cuenta ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-sm text-blue-700 font-medium">
+                    Saldo disponible: <span className="font-bold">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</span>
+                  </div>
+                ) : null;
+              })()}
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700 font-medium select-none">
+                <input
+                  type="checkbox"
+                  checked={aCajaChica}
+                  onChange={e => setACajaChica(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-emerald-600"
+                />
+                Ingresar monto a caja chica
+              </label>
+            </>
           )}
 
           {tipoMovimiento === 'TRANSFERENCIA' && (
@@ -651,6 +681,7 @@ export default function CajaBancosPage() {
                 <span className="font-medium">
                   {tipoMovimiento === 'GASTO' && 'Gasto de Caja Chica'}
                   {tipoMovimiento === 'RETIRO' && 'Retiro de Caja Chica'}
+                  {tipoMovimiento === 'RETIRO_BANCO' && 'Retiro de Banco'}
                   {tipoMovimiento === 'DEPOSITO' && 'Depósito a Banco'}
                   {tipoMovimiento === 'TRANSFERENCIA' && 'Transferencia Bancaria'}
                   {tipoMovimiento === 'INGRESO_MANUAL' && 'Ingreso Manual'}
@@ -670,6 +701,7 @@ export default function CajaBancosPage() {
               className={`flex-1 ${
                 tipoMovimiento === 'GASTO' ? 'bg-red-600 hover:bg-red-700' :
                 tipoMovimiento === 'RETIRO' ? 'bg-orange-600 hover:bg-orange-700' :
+                tipoMovimiento === 'RETIRO_BANCO' ? 'bg-rose-600 hover:bg-rose-700' :
                 tipoMovimiento === 'DEPOSITO' ? 'bg-blue-600 hover:bg-blue-700' :
                 tipoMovimiento === 'TRANSFERENCIA' ? 'bg-violet-600 hover:bg-violet-700' :
                 'bg-emerald-600 hover:bg-emerald-700'
