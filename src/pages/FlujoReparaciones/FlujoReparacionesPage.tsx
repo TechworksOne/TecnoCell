@@ -1,282 +1,310 @@
-import { GitBranch, Search, User, AlertCircle, CheckCircle, ClipboardList, Edit, History, AlertTriangle, Smartphone, Wrench, Clock, Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import {
+  GitBranch, Search, CheckCircle, ClipboardList, Edit, History,
+  AlertTriangle, Smartphone, Wrench, Clock, Calendar, User,
+  ChevronRight, RefreshCw,
+} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import PageHeader from "../../components/common/PageHeader";
-import Button from "../../components/ui/Button";
-import Card from "../../components/ui/Card";
-import Input from "../../components/ui/Input";
-import Badge from "../../components/ui/Badge";
 import { getAllReparaciones } from "../../services/repairService";
-import { formatMoney } from "../../lib/format";
 import API_URL from "../../services/config";
 import axios from "axios";
 import ModalActualizarEstado from "../../components/repairs/ModalActualizarEstado";
 import ModalHistorialReparacion from "../../components/repairs/ModalHistorialReparacion";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface CheckEquipo {
   id: number;
   reparacion_id: string;
   fecha_checklist: string;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+const EXCLUDED_STATES = ['CANCELADA', 'ANULADA', 'CANCELADO'];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function safeDate(v?: string | null): string {
+  if (!v) return '—';
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '—';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function matches(rep: any, q: string): boolean {
+  const lq = q.toLowerCase();
+  return (
+    rep.clienteNombre?.toLowerCase().includes(lq) ||
+    rep.id?.toLowerCase().includes(lq) ||
+    rep.recepcion?.marca?.toLowerCase().includes(lq) ||
+    rep.recepcion?.modelo?.toLowerCase().includes(lq)
+  );
+}
+
+// ── Style maps ────────────────────────────────────────────────────────────────
+const ESTADO_MAP: Record<string, { label: string; cls: string }> = {
+  RECIBIDA:               { label: 'Recibida',             cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+  EN_DIAGNOSTICO:         { label: 'En Diagnóstico',       cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+  ESPERANDO_AUTORIZACION: { label: 'Esp. Autorización',    cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+  AUTORIZADA:             { label: 'Autorizada',           cls: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
+  EN_REPARACION:          { label: 'En Reparación',        cls: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300' },
+  EN_PROCESO:             { label: 'En Proceso',           cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+  ESPERANDO_PIEZA:        { label: 'Esp. Pieza',           cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+  STAND_BY:               { label: 'Stand By',             cls: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300' },
+  COMPLETADA:             { label: 'Completada',           cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  ENTREGADA:              { label: 'Entregada',            cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
+};
+
+const PRIORIDAD_MAP: Record<string, { label: string; cls: string }> = {
+  BAJA:  { label: 'Baja',  cls: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300' },
+  MEDIA: { label: 'Media', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+  ALTA:  { label: 'Alta',  cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+};
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function FlujoReparacionesPage() {
   const navigate = useNavigate();
   const [reparaciones, setReparaciones] = useState<any[]>([]);
   const [checksEquipo, setChecksEquipo] = useState<CheckEquipo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchTermFlujos, setSearchTermFlujos] = useState("");
+  const [searchChecklist, setSearchChecklist] = useState('');
+  const [searchFlujo, setSearchFlujo] = useState('');
   const [modalEstadoOpen, setModalEstadoOpen] = useState(false);
   const [modalHistorialOpen, setModalHistorialOpen] = useState(false);
   const [reparacionSeleccionada, setReparacionSeleccionada] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // ── Load ────────────────────────────────────────────────────────────────────
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await getAllReparaciones();
-      const data = Array.isArray(response) ? response : (response as any).data || [];
-      setReparaciones(data);
-      
-      // Cargar todos los checklists existentes
-      await loadAllChecks();
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
+      const [reps, checks] = await Promise.all([
+        getAllReparaciones().then(r => Array.isArray(r) ? r : (r as any).data || []),
+        loadAllChecks(),
+      ]);
+      setReparaciones(reps);
+      setChecksEquipo(checks);
+    } catch (e) {
+      console.error('Error al cargar datos:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadAllChecks = async () => {
+  const loadAllChecks = async (): Promise<CheckEquipo[]> => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_URL}/check-equipo`,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          validateStatus: (status) => status < 500
-        }
-      );
-      
-      if (response.data.success && Array.isArray(response.data.data)) {
-        setChecksEquipo(response.data.data);
-      } else {
-        setChecksEquipo([]);
-      }
-    } catch (error) {
-      console.error('Error loading checks:', error);
-      setChecksEquipo([]);
+      const res = await axios.get(`${API_URL}/check-equipo`, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: s => s < 500,
+      });
+      return res.data.success && Array.isArray(res.data.data) ? res.data.data : [];
+    } catch {
+      return [];
     }
   };
 
-  const getEstadoBadge = (estado: string) => {
-    const estados: { [key: string]: { color: string, label: string } } = {
-      'RECIBIDA': { color: 'blue', label: 'Recibida' },
-      'EN_DIAGNOSTICO': { color: 'yellow', label: 'En Diagnóstico' },
-      'ESPERANDO_AUTORIZACION': { color: 'yellow', label: 'Esperando Autorización' },
-      'AUTORIZADA': { color: 'blue', label: 'Autorizada' },
-      'EN_REPARACION': { color: 'yellow', label: 'En Reparación' },
-      'ESPERANDO_PIEZA': { color: 'yellow', label: 'Esperando Pieza' },
-      'COMPLETADA': { color: 'green', label: 'Completada' },
-      'ENTREGADA': { color: 'green', label: 'Entregada' },
-      'CANCELADA': { color: 'red', label: 'Cancelada' },
-      'STAND_BY': { color: 'yellow', label: 'Stand By' },
-    };
-    return estados[estado] || { color: 'gray', label: estado };
-  };
-
-  const getPrioridadBadge = (prioridad: string) => {
-    const prioridades: { [key: string]: { color: string, label: string } } = {
-      'BAJA': { color: 'green', label: 'Baja' },
-      'MEDIA': { color: 'yellow', label: 'Media' },
-      'ALTA': { color: 'red', label: 'Alta' },
-    };
-    return prioridades[prioridad] || { color: 'gray', label: prioridad };
-  };
-
-  const handleOpenModalEstado = (reparacion: any) => {
-    setReparacionSeleccionada(reparacion);
-    setModalEstadoOpen(true);
-  };
-
-  const handleCloseModalEstado = () => {
-    setModalEstadoOpen(false);
-    setReparacionSeleccionada(null);
-  };
-
-  const handleOpenModalHistorial = (reparacion: any) => {
-    setReparacionSeleccionada(reparacion);
-    setModalHistorialOpen(true);
-  };
-
-  const handleCloseModalHistorial = () => {
-    setModalHistorialOpen(false);
-    setReparacionSeleccionada(null);
-  };
-
-  const handleEstadoActualizado = async () => {
-    await loadData();
-  };
-
-  const filteredReparaciones = reparaciones.filter(r =>
-    r.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.recepcion?.marca?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.recepcion?.modelo?.toLowerCase().includes(searchTerm.toLowerCase())
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const activeReps = useMemo(() =>
+    reparaciones.filter(r => !EXCLUDED_STATES.includes(String(r.estado).toUpperCase())),
+    [reparaciones]
   );
 
-  const filteredFlujos = reparaciones.filter(r =>
-    r.clienteNombre?.toLowerCase().includes(searchTermFlujos.toLowerCase()) ||
-    r.id?.toLowerCase().includes(searchTermFlujos.toLowerCase()) ||
-    r.recepcion?.marca?.toLowerCase().includes(searchTermFlujos.toLowerCase()) ||
-    r.recepcion?.modelo?.toLowerCase().includes(searchTermFlujos.toLowerCase())
+  const checkSet = useMemo(() => new Set(checksEquipo.map(c => c.reparacion_id)), [checksEquipo]);
+
+  // Pendientes de checklist: sin check, ordenadas por fecha desc
+  const pendingChecklist = useMemo(() =>
+    activeReps
+      .filter(r => !checkSet.has(r.id) && matches(r, searchChecklist))
+      .sort((a, b) => {
+        const da = a.fechaIngreso ? new Date(String(a.fechaIngreso).replace(' ', 'T')).getTime() : 0;
+        const db = b.fechaIngreso ? new Date(String(b.fechaIngreso).replace(' ', 'T')).getTime() : 0;
+        return db - da;
+      }),
+    [activeReps, checkSet, searchChecklist]
   );
 
-  // Separar reparaciones con y sin checklist
-  const reparacionesSinCheck = filteredReparaciones.filter(r => 
-    !checksEquipo.some(c => c.reparacion_id === r.id)
+  // Flujo activo: con checklist
+  const flujoReps = useMemo(() =>
+    activeReps.filter(r => checkSet.has(r.id) && matches(r, searchFlujo)),
+    [activeReps, checkSet, searchFlujo]
   );
 
-  const reparacionesConCheck = filteredFlujos.filter(r => 
-    checksEquipo.some(c => c.reparacion_id === r.id)
+  // KPIs computed from activeReps (no filtered)
+  const kpiSinCheck  = useMemo(() => activeReps.filter(r => !checkSet.has(r.id)).length, [activeReps, checkSet]);
+  const kpiConCheck  = useMemo(() => activeReps.filter(r =>  checkSet.has(r.id)).length, [activeReps, checkSet]);
+  const kpiEnProceso = useMemo(() =>
+    activeReps.filter(r => ['EN_DIAGNOSTICO', 'EN_REPARACION', 'EN_PROCESO', 'ESPERANDO_PIEZA', 'AUTORIZADA'].includes(r.estado)).length,
+    [activeReps]
   );
 
-  const estadisticas = {
-    total: reparaciones.length,
-    sinCheck: reparacionesSinCheck.length,
-    conCheck: reparacionesConCheck.length,
-    enProceso: reparaciones.filter(r => ['EN_DIAGNOSTICO', 'EN_REPARACION', 'ESPERANDO_PIEZA'].includes(r.estado)).length,
-  };
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const openModalEstado    = (r: any) => { setReparacionSeleccionada(r); setModalEstadoOpen(true); };
+  const openModalHistorial = (r: any) => { setReparacionSeleccionada(r); setModalHistorialOpen(true); };
+  const closeModalEstado    = () => { setModalEstadoOpen(false);    setReparacionSeleccionada(null); };
+  const closeModalHistorial = () => { setModalHistorialOpen(false); setReparacionSeleccionada(null); };
+
+  // ── Shared classes ───────────────────────────────────────────────────────────
+  const searchCls = 'pl-9 pr-3 py-2 text-sm rounded-xl border bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition w-full sm:w-64';
+  const sectionCard = 'rounded-2xl border bg-white dark:bg-slate-900/70 border-slate-200 dark:border-slate-700 overflow-hidden';
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <PageHeader
-          title="Flujo de Equipos"
-          subtitle="Gestiona el estado y progreso de cada reparación"
-        />
+    <div className="space-y-5">
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            Flujo de Reparaciones
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Gestión del avance de equipos en servicio técnico
+          </p>
+        </div>
+        <button
+          onClick={loadData}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          Actualizar
+        </button>
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Total Reparaciones</p>
-              <p className="text-3xl font-bold mt-1">{estadisticas.total}</p>
-            </div>
-            <GitBranch size={40} className="text-blue-200" />
+      {/* ── KPIs ────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Total activas */}
+        <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+            <GitBranch size={18} className="text-blue-600 dark:text-blue-400" />
           </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-sm">Sin Checklist</p>
-              <p className="text-3xl font-bold mt-1">{estadisticas.sinCheck}</p>
-            </div>
-            <ClipboardList size={40} className="text-orange-200" />
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total activas</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{activeReps.length}</p>
           </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Con Checklist</p>
-              <p className="text-3xl font-bold mt-1">{estadisticas.conCheck}</p>
-            </div>
-            <CheckCircle size={40} className="text-green-200" />
+        </div>
+        {/* Sin checklist */}
+        <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-amber-300 dark:border-amber-700/50 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+            <ClipboardList size={18} className="text-amber-600 dark:text-amber-400" />
           </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm">En Proceso</p>
-              <p className="text-3xl font-bold mt-1">{estadisticas.enProceso}</p>
-            </div>
-            <User size={40} className="text-purple-200" />
+          <div>
+            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Sin checklist</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{kpiSinCheck}</p>
           </div>
-        </Card>
+        </div>
+        {/* Con checklist */}
+        <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+            <CheckCircle size={18} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Con checklist</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{kpiConCheck}</p>
+          </div>
+        </div>
+        {/* En proceso */}
+        <div className="rounded-2xl p-4 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+            <Wrench size={18} className="text-violet-600 dark:text-violet-400" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">En proceso</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight">{kpiEnProceso}</p>
+          </div>
+        </div>
       </div>
 
-      {/* TABLA 1: REPARACIONES SIN CHECKLIST */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-slate-800">Reparaciones Sin Checklist</h2>
-          <Input
-            placeholder="Buscar reparación..."
-            value={searchTerm}
-            onChange={(e: any) => setSearchTerm(e.target.value)}
-            icon={<Search size={18} />}
-            className="w-80"
-          />
+      {/* ── SECCIÓN 1: PENDIENTES DE CHECKLIST ──────────────────────────────── */}
+      <div className={sectionCard}>
+        {/* Header sección */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+              <ClipboardList size={15} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Pendientes de Checklist</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Reparaciones recién ingresadas sin checklist</p>
+            </div>
+            {kpiSinCheck > 0 && (
+              <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50">
+                {kpiSinCheck}
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchChecklist}
+              onChange={e => setSearchChecklist(e.target.value)}
+              className={searchCls}
+            />
+          </div>
         </div>
 
+        {/* Body */}
         {loading ? (
-          <Card className="py-16">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-              <p className="text-slate-600">Cargando...</p>
-            </div>
-          </Card>
-        ) : reparacionesSinCheck.length === 0 ? (
-          <Card className="py-12 bg-orange-50 border-orange-200">
-            <div className="text-center">
-              <ClipboardList size={48} className="text-orange-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                {searchTerm ? 'No se encontraron reparaciones' : 'Todas las reparaciones tienen checklist'}
-              </h3>
-              <p className="text-slate-600">
-                {searchTerm ? 'Intenta con otro término' : 'Crea una nueva reparación desde el módulo de Reparaciones'}
-              </p>
-              {!searchTerm && (
-                <Button onClick={() => navigate('/reparaciones')} className="mt-4 bg-orange-600 hover:bg-orange-700">
-                  Ir a Reparaciones
-                </Button>
-              )}
-            </div>
-          </Card>
+          <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
+            <div className="w-8 h-8 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+            <p className="text-sm">Cargando...</p>
+          </div>
+        ) : pendingChecklist.length === 0 ? (
+          <div className="py-10 flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+            <CheckCircle size={36} className="text-emerald-400 dark:text-emerald-500" />
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              {searchChecklist ? 'Sin resultados para esta búsqueda' : 'No hay reparaciones pendientes de checklist'}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              {searchChecklist ? 'Intenta con otro término' : 'Todas las reparaciones activas ya tienen checklist iniciado'}
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-100 border-b border-slate-200">
-                  <th className="text-left p-4 font-semibold text-slate-700">ID</th>
-                  <th className="text-left p-4 font-semibold text-slate-700">Cliente</th>
-                  <th className="text-left p-4 font-semibold text-slate-700">Equipo</th>
-                  <th className="text-left p-4 font-semibold text-slate-700">Estado</th>
-                  <th className="text-left p-4 font-semibold text-slate-700">Fecha Ingreso</th>
-                  <th className="text-center p-4 font-semibold text-slate-700">Acción</th>
+                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                  <th className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">ID</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Cliente</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 hidden sm:table-cell">Equipo</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Estado</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 hidden md:table-cell">Fecha ingreso</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody>
-                {reparacionesSinCheck.map((rep) => {
-                  const estado = getEstadoBadge(rep.estado);
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {pendingChecklist.map(rep => {
+                  const est = ESTADO_MAP[rep.estado];
                   return (
-                    <tr key={rep.id} className="border-b border-slate-200 hover:bg-slate-50">
-                      <td className="p-4 font-mono text-sm font-semibold">{rep.id}</td>
-                      <td className="p-4">{rep.clienteNombre}</td>
-                      <td className="p-4">{rep.recepcion?.marca} {rep.recepcion?.modelo}</td>
-                      <td className="p-4">
-                        <Badge color={estado.color}>{estado.label}</Badge>
+                    <tr key={rep.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-5 py-3 font-mono text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        {rep.id}
                       </td>
-                      <td className="p-4">
-                        {new Date(rep.fechaIngreso).toLocaleDateString('es-GT')}
+                      <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 max-w-[180px] truncate">
+                        {rep.clienteNombre || '—'}
                       </td>
-                      <td className="p-4 text-center">
-                        <Button
-                          size="sm"
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell max-w-[160px] truncate">
+                        {[rep.recepcion?.marca, rep.recepcion?.modelo].filter(Boolean).join(' ') || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {est
+                          ? <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${est.cls}`}>{est.label}</span>
+                          : <span className="text-xs text-slate-400">{rep.estado}</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap hidden md:table-cell">
+                        {safeDate(rep.fechaIngreso)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
                           onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
-                          className="bg-orange-600 hover:bg-orange-700"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                         >
-                          <ClipboardList size={16} className="mr-2" />
-                          Iniciar Checklist
-                        </Button>
+                          <ClipboardList size={12} />
+                          <span className="hidden sm:inline">Iniciar </span>Checklist
+                        </button>
                       </td>
                     </tr>
                   );
@@ -287,177 +315,154 @@ export default function FlujoReparacionesPage() {
         )}
       </div>
 
-      {/* TABLA 2: FLUJOS ACTIVOS (CON CHECKLIST) */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-slate-800">Flujo de Equipos</h2>
-          <Input
-            placeholder="Buscar flujo..."
-            value={searchTermFlujos}
-            onChange={(e: any) => setSearchTermFlujos(e.target.value)}
-            icon={<Search size={18} />}
-            className="w-80"
-          />
+      {/* ── SECCIÓN 2: FLUJO DE REPARACIONES ────────────────────────────────── */}
+      <div className={sectionCard}>
+        {/* Header sección */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+              <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Flujo de Reparaciones</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Reparaciones con checklist iniciado</p>
+            </div>
+            {kpiConCheck > 0 && (
+              <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50">
+                {kpiConCheck}
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchFlujo}
+              onChange={e => setSearchFlujo(e.target.value)}
+              className={searchCls}
+            />
+          </div>
         </div>
 
+        {/* Body */}
         {loading ? (
-          <Card className="py-16">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
-              <p className="text-slate-600">Cargando flujos...</p>
-            </div>
-          </Card>
-        ) : reparacionesConCheck.length === 0 ? (
-          <Card className="py-12 bg-green-50 border-green-200">
-            <div className="text-center">
-              <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                {searchTermFlujos ? 'No se encontraron flujos' : 'No hay flujos activos'}
-              </h3>
-              <p className="text-slate-600">
-                {searchTermFlujos ? 'Intenta con otro término' : 'Inicia el checklist de alguna reparación para crear un flujo'}
-              </p>
-            </div>
-          </Card>
+          <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
+            <div className="w-8 h-8 border-2 border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />
+            <p className="text-sm">Cargando...</p>
+          </div>
+        ) : flujoReps.length === 0 ? (
+          <div className="py-10 flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+            <ClipboardList size={36} className="text-slate-300 dark:text-slate-600" />
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              {searchFlujo ? 'Sin resultados para esta búsqueda' : 'No hay reparaciones en flujo activo'}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              {searchFlujo ? 'Intenta con otro término' : 'Inicia el checklist de una reparación para verla aquí'}
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-4">
-            {reparacionesConCheck.map((rep) => {
-              const estado = getEstadoBadge(rep.estado);
-              const prioridad = getPrioridadBadge(rep.prioridad);
-              const cambios = (rep as any).totalCambiosEstado || 0;
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {flujoReps.map(rep => {
+              const est     = ESTADO_MAP[rep.estado];
+              const prio    = PRIORIDAD_MAP[rep.prioridad];
+              const cambios = rep.totalCambiosEstado || 0;
 
-              // Color del borde lateral según estado
-              const borderColor =
+              const borderAccent =
                 ['COMPLETADA', 'ENTREGADA'].includes(rep.estado) ? 'border-l-emerald-500' :
-                ['CANCELADA'].includes(rep.estado) ? 'border-l-red-500' :
-                'border-l-amber-400';
-
-              // Color del badge de estado
-              const estadoBgMap: Record<string, string> = {
-                'RECIBIDA': 'bg-blue-100 text-blue-800',
-                'EN_DIAGNOSTICO': 'bg-amber-100 text-amber-800',
-                'ESPERANDO_AUTORIZACION': 'bg-amber-100 text-amber-800',
-                'AUTORIZADA': 'bg-blue-100 text-blue-800',
-                'EN_REPARACION': 'bg-violet-100 text-violet-800',
-                'ESPERANDO_PIEZA': 'bg-orange-100 text-orange-800',
-                'COMPLETADA': 'bg-emerald-100 text-emerald-800',
-                'ENTREGADA': 'bg-emerald-100 text-emerald-800',
-                'CANCELADA': 'bg-red-100 text-red-800',
-                'STAND_BY': 'bg-slate-100 text-slate-700',
-              };
-              const estadoClasses = estadoBgMap[rep.estado] || 'bg-slate-100 text-slate-700';
-
-              const prioridadClasses: Record<string, string> = {
-                'BAJA': 'bg-emerald-100 text-emerald-800',
-                'MEDIA': 'bg-amber-100 text-amber-800',
-                'ALTA': 'bg-red-100 text-red-800',
-              };
-              const prioridadClass = prioridadClasses[rep.prioridad] || 'bg-slate-100 text-slate-600';
+                'border-l-blue-500';
 
               return (
                 <div
                   key={rep.id}
-                  className={`bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 border-l-4 ${borderColor} overflow-hidden cursor-pointer`}
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 border-l-4 ${borderAccent} hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer`}
                   onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
                 >
-                  <div className="p-5">
-                    {/* ── HEADER ── */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-800 text-base font-mono tracking-tight">{rep.id}</span>
-                        {/* Estado */}
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${estadoClasses}`}>
-                          <Clock size={11} />
-                          {estado.label}
+                  {/* Left: badges + meta */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* Row 1: ID + badges */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                        {rep.id}
+                      </span>
+                      {est && (
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${est.cls}`}>
+                          <Clock size={10} />
+                          {est.label}
                         </span>
-                        {/* Prioridad */}
-                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${prioridadClass}`}>
-                          {prioridad.label}
+                      )}
+                      {prio && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${prio.cls}`}>
+                          {prio.label}
                         </span>
-                        {/* Checklist OK */}
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          <CheckCircle size={11} />
-                          Checklist OK
-                        </span>
-                      </div>
-
-                      {/* Badge de cambios de estado */}
+                      )}
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle size={10} />
+                        Checklist OK
+                      </span>
                       {cambios > 0 && (
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
-                          cambios >= 5 ? 'bg-red-100 text-red-700' :
-                          cambios >= 3 ? 'bg-amber-100 text-amber-700' :
-                          'bg-slate-100 text-slate-600'
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          cambios >= 5 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' :
+                          cambios >= 3 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' :
+                          'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                         }`}>
-                          <AlertTriangle size={12} />
+                          <AlertTriangle size={10} />
                           {cambios} {cambios === 1 ? 'cambio' : 'cambios'}
                         </span>
                       )}
                     </div>
 
-                    {/* ── BODY: datos en grid ── */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-5">
-                      <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Cliente</p>
-                        <div className="flex items-center gap-1.5">
-                          <User size={13} className="text-slate-400 shrink-0" />
-                          <p className="font-semibold text-slate-700 text-sm truncate">{rep.clienteNombre}</p>
-                        </div>
+                    {/* Row 2: info grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <User size={11} className="text-slate-400 shrink-0" />
+                        <span className="text-slate-600 dark:text-slate-300 font-medium truncate">{rep.clienteNombre || '—'}</span>
                       </div>
-                      <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Equipo</p>
-                        <div className="flex items-center gap-1.5">
-                          <Smartphone size={13} className="text-slate-400 shrink-0" />
-                          <p className="font-semibold text-slate-700 text-sm truncate">
-                            {rep.recepcion?.marca} {rep.recepcion?.modelo}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Smartphone size={11} className="text-slate-400 shrink-0" />
+                        <span className="text-slate-600 dark:text-slate-300 truncate">
+                          {[rep.recepcion?.marca, rep.recepcion?.modelo].filter(Boolean).join(' ') || '—'}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Técnico</p>
-                        <div className="flex items-center gap-1.5">
-                          <Wrench size={13} className="text-slate-400 shrink-0" />
-                          <p className="font-semibold text-slate-700 text-sm truncate">
-                            {rep.tecnicoAsignado || <span className="text-slate-400 font-normal italic">Sin asignar</span>}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Wrench size={11} className="text-slate-400 shrink-0" />
+                        <span className="text-slate-500 dark:text-slate-400 truncate">
+                          {rep.tecnicoAsignado || <i>Sin asignar</i>}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-0.5">Fecha ingreso</p>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-slate-400 shrink-0" />
-                          <p className="font-semibold text-slate-700 text-sm">
-                            {new Date(rep.fechaIngreso).toLocaleDateString('es-GT')}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={11} className="text-slate-400 shrink-0" />
+                        <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{safeDate(rep.fechaIngreso)}</span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* ── FOOTER: acciones ── */}
-                    <div
-                      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-4 border-t border-slate-100"
-                      onClick={e => e.stopPropagation()}
+                  {/* Right: actions */}
+                  <div
+                    className="flex items-center gap-2 shrink-0"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => openModalHistorial(rep)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
                     >
-                      <button
-                        onClick={() => handleOpenModalHistorial(rep)}
-                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-violet-300 text-violet-700 text-xs font-semibold hover:bg-violet-50 transition-colors"
-                      >
-                        <History size={14} />
-                        Ver historial
-                      </button>
-                      <button
-                        onClick={() => handleOpenModalEstado(rep)}
-                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
-                      >
-                        <Edit size={14} />
-                        Actualizar estado
-                      </button>
-                      <button
-                        onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
-                        className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors sm:ml-auto"
-                      >
-                        Ver detalles
-                      </button>
-                    </div>
+                      <History size={12} />
+                      <span className="hidden sm:inline">Historial</span>
+                    </button>
+                    <button
+                      onClick={() => openModalEstado(rep)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <Edit size={12} />
+                      <span className="hidden sm:inline">Estado</span>
+                    </button>
+                    <button
+                      onClick={() => navigate(`/flujo-reparaciones/${rep.id}`)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                    >
+                      Ver
+                      <ChevronRight size={12} />
+                    </button>
                   </div>
                 </div>
               );
@@ -466,21 +471,19 @@ export default function FlujoReparacionesPage() {
         )}
       </div>
 
-      {/* Modal de Actualización de Estado */}
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {modalEstadoOpen && reparacionSeleccionada && (
         <ModalActualizarEstado
           isOpen={modalEstadoOpen}
-          onClose={handleCloseModalEstado}
+          onClose={closeModalEstado}
           reparacion={reparacionSeleccionada}
-          onSuccess={handleEstadoActualizado}
+          onSuccess={loadData}
         />
       )}
-
-      {/* Modal de Historial */}
       {modalHistorialOpen && reparacionSeleccionada && (
         <ModalHistorialReparacion
           isOpen={modalHistorialOpen}
-          onClose={handleCloseModalHistorial}
+          onClose={closeModalHistorial}
           reparacionId={reparacionSeleccionada.id}
         />
       )}

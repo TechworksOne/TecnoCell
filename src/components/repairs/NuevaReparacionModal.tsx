@@ -32,7 +32,11 @@ interface Props {
   onCreated: () => void;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Returns today's date as YYYY-MM-DD in local timezone (avoids UTC offset issue)
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 const INITIAL_EQUIPMENT: EquipmentData = {
   tipo: 'Telefono',
   marca: '',
@@ -60,9 +64,7 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
   const [currentStep, setCurrentStep] = useState<Step>('cliente');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
   const [equipmentData, setEquipmentData] = useState<EquipmentData>(INITIAL_EQUIPMENT);
-  const [fechaRecepcion, setFechaRecepcion] = useState<string>(
-    new Date().toISOString().split('T')[0],
-  );
+  const [fechaRecepcion, setFechaRecepcion] = useState<string>(localToday());
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -84,7 +86,7 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
       setCurrentStep('cliente');
       setSelectedCustomer(undefined);
       setEquipmentData(INITIAL_EQUIPMENT);
-      setFechaRecepcion(new Date().toISOString().split('T')[0]);
+      setFechaRecepcion(localToday());
       setIsCreating(false);
       setErrorMsg(null);
       setShowNuevaMarca(false);

@@ -48,7 +48,10 @@ const STATUS_LABEL: Record<string, string> = {
 // ── Helpers ───────────────────────────────────────────────────────────────
 function safeDate(v?: string | null): string {
   if (!v) return 'No registrada';
-  const d = new Date(String(v).replace(' ', 'T'));
+  // Always extract the YYYY-MM-DD part and parse as local time to avoid UTC offset shifting the date
+  const match = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return 'No registrada';
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   if (isNaN(d.getTime())) return 'No registrada';
   return d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -790,7 +793,8 @@ export default function RepairsPage() {
                 </div>
               </section>
 
-              {/* Resumen económico */}
+              {/* Resumen económico — solo mostrar cuando ya hay un total definido */}
+              {r.total > 0 && (
               <section>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Resumen económico</p>
                 <div className="bg-[#0A1220] rounded-xl p-3 space-y-1.5">
@@ -832,6 +836,7 @@ export default function RepairsPage() {
                   )}
                 </div>
               </section>
+              )} {/* end r.total > 0 */}
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 pt-1">
