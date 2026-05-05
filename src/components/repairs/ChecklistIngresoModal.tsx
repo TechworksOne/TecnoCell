@@ -153,6 +153,7 @@ export default function ChecklistIngresoModal({
   const [cuentaBancariaId,   setCuentaBancariaId]   = useState('');
   const [cuentasBancarias,   setCuentasBancarias]   = useState<CuentaBancaria[]>([]);
   const [anticipoConfirmado, setAnticipoConfirmado] = useState(false);
+  const [interesAnticipo,    setInteresAnticipo]    = useState(0); // % recargo tarjeta (solo display)
 
   const bodyScrollLock = useRef(false);
 
@@ -174,6 +175,7 @@ export default function ChecklistIngresoModal({
       setMetodoAnticipo('efectivo');
       setCuentaBancariaId('');
       setAnticipoConfirmado(false);
+      setInteresAnticipo(0);
       return;
     }
 
@@ -648,7 +650,13 @@ export default function ChecklistIngresoModal({
                         <select
                           value={metodoAnticipo}
                           disabled={anticipoConfirmado}
-                          onChange={e => { setMetodoAnticipo(e.target.value as 'efectivo' | 'transferencia' | 'tarjeta_bac' | 'tarjeta_neonet'); setCuentaBancariaId(''); markDirty(); }}
+                          onChange={e => {
+                            const v = e.target.value as 'efectivo' | 'transferencia' | 'tarjeta_bac' | 'tarjeta_neonet';
+                            setMetodoAnticipo(v);
+                            setCuentaBancariaId('');
+                            if (v !== 'tarjeta_bac' && v !== 'tarjeta_neonet') setInteresAnticipo(0);
+                            markDirty();
+                          }}
                           className={inputCls}
                         >
                           <option value="efectivo">Efectivo</option>
@@ -657,6 +665,44 @@ export default function ChecklistIngresoModal({
                           <option value="tarjeta_neonet">Tarjeta Neonet</option>
                         </select>
                       </div>
+
+                      {/* ── Recargo tarjeta ── */}
+                      {(metodoAnticipo === 'tarjeta_bac' || metodoAnticipo === 'tarjeta_neonet') && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                              % Recargo tarjeta
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="20"
+                                value={interesAnticipo}
+                                disabled={anticipoConfirmado}
+                                onChange={e => { setInteresAnticipo(Number(e.target.value)); markDirty(); }}
+                                placeholder="0.0"
+                                className={inputCls + ' pr-8'}
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">%</span>
+                            </div>
+                          </div>
+
+                          {interesAnticipo > 0 && parseFloat(montoAnticipo) > 0 && (
+                            <div className="sm:col-span-2 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+                              <div className="text-xs text-orange-700 dark:text-orange-300">
+                                <p className="font-semibold">Total a cobrar al cliente</p>
+                                <p className="opacity-75">Q{parseFloat(montoAnticipo).toFixed(2)} base + {interesAnticipo}% recargo POS</p>
+                              </div>
+                              <p className="text-xl font-bold text-orange-700 dark:text-orange-300 whitespace-nowrap">
+                                Q{(parseFloat(montoAnticipo) * (1 + interesAnticipo / 100)).toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      )}
+
                       {metodoAnticipo === 'transferencia' && (
                         <div className="sm:col-span-2">
                           <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
