@@ -234,17 +234,35 @@ exports.registrarMovimientoBancario = async (req, res) => {
 exports.confirmarMovimientoCajaChica = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Actualizar estado a CONFIRMADO
-    await db.query(
-      "UPDATE caja_chica SET estado = 'CONFIRMADO' WHERE id = ?",
-      [id]
-    );
-    
-    res.json({ 
-      success: true, 
-      message: 'Movimiento confirmado exitosamente' 
-    });
+
+    const [[mov]] = await db.query('SELECT * FROM caja_chica WHERE id = ?', [id]);
+    if (!mov) {
+      return res.status(404).json({ success: false, message: 'Movimiento no encontrado' });
+    }
+
+    // No se puede confirmar un movimiento anulado
+    if (mov.estado === 'ANULADO') {
+      return res.status(409).json({
+        success: false,
+        message: 'Este movimiento ha sido anulado y no puede confirmarse'
+      });
+    }
+
+    // No se puede confirmar un anticipo de una reparación cancelada
+    if (mov.referencia_tipo === 'REPARACION' && mov.referencia_id) {
+      const [[rep]] = await db.query(
+        'SELECT estado FROM reparaciones WHERE id = ?', [mov.referencia_id]
+      );
+      if (rep && rep.estado === 'CANCELADA') {
+        return res.status(409).json({
+          success: false,
+          message: 'No se puede confirmar este movimiento porque la reparación asociada está cancelada'
+        });
+      }
+    }
+
+    await db.query("UPDATE caja_chica SET estado = 'CONFIRMADO' WHERE id = ?", [id]);
+    res.json({ success: true, message: 'Movimiento confirmado exitosamente' });
   } catch (error) {
     console.error('Error confirmando movimiento caja chica:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -267,7 +285,28 @@ exports.confirmarMovimientoBancario = async (req, res) => {
     }
     
     const mov = movimiento[0];
-    
+
+    // No se puede confirmar un movimiento anulado
+    if (mov.estado === 'ANULADO') {
+      return res.status(409).json({
+        success: false,
+        message: 'Este movimiento ha sido anulado y no puede confirmarse'
+      });
+    }
+
+    // No se puede confirmar un anticipo de una reparación cancelada
+    if (mov.referencia_tipo === 'REPARACION' && mov.referencia_id) {
+      const [[rep]] = await db.query(
+        'SELECT estado FROM reparaciones WHERE id = ?', [mov.referencia_id]
+      );
+      if (rep && rep.estado === 'CANCELADA') {
+        return res.status(409).json({
+          success: false,
+          message: 'No se puede confirmar este movimiento porque la reparación asociada está cancelada'
+        });
+      }
+    }
+
     // Actualizar estado a CONFIRMADO
     await db.query(
       "UPDATE movimientos_bancarios SET estado = 'CONFIRMADO' WHERE id = ?",

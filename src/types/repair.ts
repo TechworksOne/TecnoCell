@@ -30,7 +30,9 @@ export interface RepairReception {
   modelo?: string;
   color?: string;
   imeiSerie?: string;
+  imei?: string;           // alias mapped from API (imei_serie)
   patronContraseña?: string;
+  contraseña?: string;     // alias mapped from API (patron_contrasena)
   accesoriosRecibidos: AccessoriesReceived;
   estadoFisico?: string;
   diagnosticoInicial?: string;
@@ -62,6 +64,7 @@ export interface Repair {
   // Cliente
   clienteNombre: string;
   clienteTelefono?: string;
+  clienteEmail?: string;
   
   // Recepción del equipo
   recepcion: RepairReception;

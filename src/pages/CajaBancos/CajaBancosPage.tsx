@@ -32,7 +32,9 @@ interface Movimiento {
   monto: number;
   concepto: string;
   categoria: string;
-  estado: 'PENDIENTE' | 'CONFIRMADO';
+  estado: 'PENDIENTE' | 'CONFIRMADO' | 'ANULADO';
+  referencia_tipo?: string;
+  referencia_id?: string;
   fecha_movimiento: string;
   realizado_por: string;
   cuenta_nombre?: string;
@@ -48,7 +50,7 @@ export default function CajaBancosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [vistaActual, setVistaActual] = useState<'caja' | 'bancos'>('caja');
-  const [estadoFiltro, setEstadoFiltro] = useState<'PENDIENTE' | 'CONFIRMADO'>('PENDIENTE');
+  const [estadoFiltro, setEstadoFiltro] = useState<'PENDIENTE' | 'CONFIRMADO' | 'ANULADO'>('PENDIENTE');
 
   // Filtros
   const [busqueda, setBusqueda] = useState('');
@@ -262,6 +264,8 @@ export default function CajaBancosPage() {
 
   const pendientesCaja = movimientosCaja.filter(m => m.estado === 'PENDIENTE').length;
   const pendientesBancos = movimientosBancos.filter(m => m.estado === 'PENDIENTE').length;
+  const anuladosCaja = movimientosCaja.filter(m => m.estado === 'ANULADO').length;
+  const anuladosBancos = movimientosBancos.filter(m => m.estado === 'ANULADO').length;
 
   const aplicarFiltros = (movs: Movimiento[]) =>
     movs.filter(m => {
@@ -438,26 +442,23 @@ export default function CajaBancosPage() {
 
           {/* Sub-pestañas estado */}
           <div className="flex gap-1 p-3 border-b border-slate-100 bg-slate-50 flex-wrap">
-            {[
-              { key: 'PENDIENTE', label: 'Pendientes de confirmar', icon: <Clock size={14} /> },
-              { key: 'CONFIRMADO', label: 'Confirmados', icon: <ShieldCheck size={14} /> },
-            ].map(({ key, label, icon }) => (
+            {([
+              { key: 'PENDIENTE', label: 'Pendientes de confirmar', icon: <Clock size={14} />, activeClass: 'bg-amber-100 text-amber-800 border border-amber-300', count: vistaActual === 'caja' ? pendientesCaja : pendientesBancos },
+              { key: 'CONFIRMADO', label: 'Confirmados', icon: <ShieldCheck size={14} />, activeClass: 'bg-emerald-100 text-emerald-800 border border-emerald-300', count: null },
+              { key: 'ANULADO', label: 'Anulados', icon: <X size={14} />, activeClass: 'bg-red-100 text-red-700 border border-red-300', count: vistaActual === 'caja' ? anuladosCaja : anuladosBancos },
+            ] as const).map(({ key, label, icon, activeClass, count }) => (
               <button
                 key={key}
-                onClick={() => setEstadoFiltro(key as 'PENDIENTE' | 'CONFIRMADO')}
+                onClick={() => setEstadoFiltro(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   estadoFiltro === key
-                    ? key === 'PENDIENTE'
-                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    ? activeClass
                     : 'text-slate-500 hover:bg-white border border-transparent hover:border-slate-200'
                 }`}
               >
                 {icon}{label}
-                {key === 'PENDIENTE' && (
-                  <span className="ml-1 font-bold">
-                    ({vistaActual === 'caja' ? pendientesCaja : pendientesBancos})
-                  </span>
+                {count != null && count > 0 && (
+                  <span className="ml-1 font-bold">({count})</span>
                 )}
               </button>
             ))}
@@ -725,7 +726,7 @@ export default function CajaBancosPage() {
 // ─── Subcomponente: panel de movimientos (tabla en desktop, cards en móvil) ───
 interface MovimientosPanelProps {
   movimientos: Movimiento[];
-  estadoFiltro: 'PENDIENTE' | 'CONFIRMADO';
+  estadoFiltro: 'PENDIENTE' | 'CONFIRMADO' | 'ANULADO';
   onConfirmar: (mov: Movimiento) => void;
   mostrarBanco?: boolean;
 }
@@ -740,6 +741,8 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
         <p className="text-slate-500 font-medium">
           {estadoFiltro === 'PENDIENTE'
             ? 'No hay movimientos pendientes de confirmar'
+            : estadoFiltro === 'ANULADO'
+            ? 'No hay movimientos anulados'
             : 'No hay movimientos confirmados'}
         </p>
         <p className="text-slate-400 text-sm mt-1">Los movimientos aparecerán aquí cuando se registren.</p>
@@ -797,6 +800,8 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                     mov.estado === 'PENDIENTE'
                       ? 'bg-amber-50 text-amber-700'
+                      : mov.estado === 'ANULADO'
+                      ? 'bg-red-50 text-red-600'
                       : 'bg-emerald-50 text-emerald-700'
                   }`}>
                     {mov.estado}
@@ -836,7 +841,7 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
                   {mov.tipo_movimiento === 'INGRESO' ? '+' : '−'}Q{Number(mov.monto || 0).toFixed(2)}
                 </p>
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
-                  mov.estado === 'PENDIENTE' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                  mov.estado === 'PENDIENTE' ? 'bg-amber-50 text-amber-700' : mov.estado === 'ANULADO' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
                 }`}>
                   {mov.estado}
                 </span>

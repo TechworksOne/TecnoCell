@@ -559,11 +559,15 @@ export default function RepairsPage() {
 
   // ── PDF helpers ───────────────────────────────────────────────────────
   const buildPayload = (r: Repair) => ({
-    cliente: { nombre: r.clienteNombre, telefono: r.clienteTelefono, email: r.clienteEmail },
+    cliente: { nombre: r.clienteNombre, telefono: r.clienteTelefono ?? '', email: r.clienteEmail },
     equipo: {
-      tipo: r.recepcion.tipoEquipo, marca: r.recepcion.marca, modelo: r.recepcion.modelo,
-      color: r.recepcion.color, imei: r.recepcion.imei, contraseña: r.recepcion.contraseña,
-      diagnostico: r.recepcion.diagnosticoInicial,
+      tipo: r.recepcion.tipoEquipo,
+      marca: r.recepcion.marca ?? '',
+      modelo: r.recepcion.modelo ?? '',
+      color: r.recepcion.color ?? '',
+      imei: r.recepcion.imei ?? r.recepcion.imeiSerie,
+      contraseña: r.recepcion.contraseña ?? r.recepcion.patronContraseña,
+      diagnostico: r.recepcion.diagnosticoInicial ?? '',
     },
     numeroReparacion: r.id,
     fecha: r.recepcion.fechaRecepcion || new Date().toISOString().split('T')[0],

@@ -37,3 +37,12 @@ ALTER TABLE `reparaciones_historial`
     'EN_REPARACION','EN_PROCESO','ESPERANDO_PIEZA','COMPLETADA',
     'ENTREGADA','CANCELADA','STAND_BY','ANTICIPO_REGISTRADO'
   ) NOT NULL;
+
+-- 6. Agregar ANULADO al enum estado de caja_chica
+--    Permite marcar anticipos pendientes como anulados al cancelar una reparación.
+ALTER TABLE `caja_chica`
+  MODIFY COLUMN `estado` enum('PENDIENTE','CONFIRMADO','ANULADO') NOT NULL DEFAULT 'PENDIENTE';
+
+-- 7. Agregar ANULADO al enum estado de movimientos_bancarios
+ALTER TABLE `movimientos_bancarios`
+  MODIFY COLUMN `estado` enum('PENDIENTE','CONFIRMADO','ANULADO') NOT NULL DEFAULT 'PENDIENTE';
