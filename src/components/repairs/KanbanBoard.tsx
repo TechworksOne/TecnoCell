@@ -96,13 +96,14 @@ interface KanbanBoardProps {
   onOpenHistorial: (rep: any) => void;
   onOpenEstado: (rep: any) => void;
   onNavigate: (path: string) => void;
+  onOpenChecklist: (rep: any) => void;
   /** Called when a card is dropped on a different column */
   onEstadoChange: (repId: string, newEstado: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function KanbanBoard({
-  reps, checkSet, onOpenHistorial, onOpenEstado, onNavigate, onEstadoChange,
+  reps, checkSet, onOpenHistorial, onOpenEstado, onNavigate, onOpenChecklist, onEstadoChange,
 }: KanbanBoardProps) {
   const [activeRep, setActiveRep] = useState<any>(null);
 
@@ -159,6 +160,7 @@ export default function KanbanBoard({
             onOpenHistorial={onOpenHistorial}
             onOpenEstado={onOpenEstado}
             onNavigate={onNavigate}
+            onOpenChecklist={onOpenChecklist}
           />
         ))}
       </div>
@@ -172,6 +174,7 @@ export default function KanbanBoard({
             onOpenHistorial={() => {}}
             onOpenEstado={() => {}}
             onNavigate={() => {}}
+            onOpenChecklist={() => {}}
             isDragOverlay
           />
         ) : null}

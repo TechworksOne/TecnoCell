@@ -477,6 +477,7 @@ export default function FlujoReparacionesPage() {
               onOpenHistorial={openModalHistorial}
               onOpenEstado={openModalEstado}
               onNavigate={path => navigate(path)}
+              onOpenChecklist={openChecklistModal}
               onEstadoChange={handleEstadoChange}
             />
           )}

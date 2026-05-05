@@ -11,6 +11,7 @@ export interface KanbanCardProps {
   onOpenHistorial: (rep: any) => void;
   onOpenEstado: (rep: any) => void;
   onNavigate: (path: string) => void;
+  onOpenChecklist: (rep: any) => void;
   isDragOverlay?: boolean;
 }
 
@@ -42,7 +43,7 @@ function safeDate(v?: string | null): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function KanbanCard({
-  rep, checkSet, onOpenHistorial, onOpenEstado, onNavigate, isDragOverlay = false,
+  rep, checkSet, onOpenHistorial, onOpenEstado, onNavigate, onOpenChecklist, isDragOverlay = false,
 }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: rep.id,
@@ -180,8 +181,8 @@ export default function KanbanCard({
         <div className="w-px h-4 bg-slate-100 dark:bg-slate-800 shrink-0" />
 
         <button
-          onClick={() => onNavigate(`/flujo-reparaciones/${rep.id}`)}
-          title="Ver detalle"
+          onClick={() => onOpenChecklist(rep)}
+          title="Ver / editar checklist"
           className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
         >
           <ChevronRight size={11} />

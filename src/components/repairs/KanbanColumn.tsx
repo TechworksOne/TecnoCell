@@ -20,11 +20,12 @@ interface KanbanColumnProps {
   onOpenHistorial: (rep: any) => void;
   onOpenEstado: (rep: any) => void;
   onNavigate: (path: string) => void;
+  onOpenChecklist: (rep: any) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function KanbanColumn({
-  config, reps, checkSet, onOpenHistorial, onOpenEstado, onNavigate,
+  config, reps, checkSet, onOpenHistorial, onOpenEstado, onNavigate, onOpenChecklist,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: config.id });
 
@@ -82,6 +83,7 @@ export default function KanbanColumn({
               onOpenHistorial={onOpenHistorial}
               onOpenEstado={onOpenEstado}
               onNavigate={onNavigate}
+              onOpenChecklist={onOpenChecklist}
             />
           ))
         )}
