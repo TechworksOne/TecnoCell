@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Upload, X, Plus, Tag, Monitor, Smartphone, AlertCircle, DollarSign, User, Camera, Package2, ChevronDown, Building2 } from "lucide-react";
-import PageHeader from "../../components/common/PageHeader";
+import {
+  ArrowLeft, Save, Upload, X, Plus, Tag, Monitor, Smartphone,
+  DollarSign, Camera, Package2, ChevronDown, Building2, Wrench
+} from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
@@ -16,28 +18,59 @@ import * as marcaLineaService from "../../services/marcaLineaService";
 import type { Marca, Linea } from "../../services/marcaLineaService";
 import { UPLOADS_BASE_URL } from "../../services/config";
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = [
-  'Pantalla', 'Batería', 'Cámara', 'Flex', 'Placa', 'Back Cover', 'Altavoz', 'Conector', 'Otro'
+  "Pantalla", "Batería", "Cámara", "Flex", "Placa",
+  "Back Cover", "Altavoz", "Conector", "Otro",
 ];
+const CONDICIONES = ["Original", "OEM", "Genérico", "Usado"];
+const ALLOWED_MIME = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-const CONDICIONES = ['Original', 'OEM', 'Genérico', 'Usado'];
-
-const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-// ─── Image item type ────────────────────────────────────────────────────────
+// ─── Image item type ─────────────────────────────────────────────────────────
 interface ImageItem {
-  url: string;      // blob: URL for new files, /uploads/... for existing
+  url: string;       // blob: URL for new files, /uploads/... for existing
   file: File | null; // null for existing server images
 }
 
 function resolveImgSrc(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http')) return url;
+  if (!url) return "";
+  if (url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("http")) return url;
   return `${UPLOADS_BASE_URL}${url}`;
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// ─── Section header sub-component ────────────────────────────────────────────
+function SectionHeader({
+  icon: Icon,
+  title,
+  iconColor = "text-[#48B9E6]",
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  iconColor?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 mb-5">
+      <div className="p-2 rounded-xl bg-[rgba(72,185,230,0.10)] dark:bg-[rgba(72,185,230,0.08)] shrink-0">
+        <Icon size={16} className={iconColor} />
+      </div>
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#5E7184] dark:text-[#B8C2D1]">
+        {title}
+      </p>
+    </div>
+  );
+}
+
+// ─── Field label ─────────────────────────────────────────────────────────────
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#5E7184] dark:text-[#B8C2D1] mb-1.5">
+      {children}
+      {required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+  );
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function RepuestoForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -47,44 +80,41 @@ export default function RepuestoForm() {
   const hasChanges = useRef(false);
 
   const isEditing = Boolean(id);
-  
-  // Default values
+
   const [formData, setFormData] = useState<RepuestoFormData>({
-    nombre: '',
-    tipo: 'Pantalla',
-    marca: 'Apple',
-    linea: '',
-    modelo: '',
+    nombre: "",
+    tipo: "Pantalla",
+    marca: "Apple",
+    linea: "",
+    modelo: "",
     compatibilidad: [],
-    condicion: 'Original',
-    color: '',
-    notas: '',
+    condicion: "Original",
+    color: "",
+    notas: "",
     precio: 0,
     precioCosto: 0,
-    proveedor: '',
+    proveedor: "",
     stock: 0,
     stockMinimo: 1,
     imagenes: [],
     tags: [],
-    activo: true
+    activo: true,
   });
 
-  // Image state – replaces formData.imagenes for display + upload
   const [imageItems, setImageItems] = useState<ImageItem[]>([]);
   const blobUrlsRef = useRef<string[]>([]);
 
-  const [newCompatible, setNewCompatible] = useState('');
-  const [newTag, setNewTag] = useState('');
+  const [newCompatible, setNewCompatible] = useState("");
+  const [newTag, setNewTag] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showProveedoresDropdown, setShowProveedoresDropdown] = useState(false);
-  
-  // Estados para marcas y líneas dinámicas
+
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [showNewMarcaDialog, setShowNewMarcaDialog] = useState(false);
   const [showNewLineaDialog, setShowNewLineaDialog] = useState(false);
-  const [newMarcaNombre, setNewMarcaNombre] = useState('');
-  const [newLineaNombre, setNewLineaNombre] = useState('');
+  const [newMarcaNombre, setNewMarcaNombre] = useState("");
+  const [newLineaNombre, setNewLineaNombre] = useState("");
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -92,37 +122,35 @@ export default function RepuestoForm() {
   // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
-  // Cargar marcas al montar el componente
   useEffect(() => {
     const loadMarcas = async () => {
       try {
         const data = await marcaLineaService.getAllMarcas(true);
         setMarcas(data);
       } catch (error) {
-        console.error('Error al cargar marcas:', error);
-        toast.add('Error al cargar marcas', 'error');
+        console.error("Error al cargar marcas:", error);
+        toast.add("Error al cargar marcas", "error");
       }
     };
     loadMarcas();
     loadSuppliers();
   }, [toast, loadSuppliers]);
 
-  // Cargar líneas cuando cambia la marca
   useEffect(() => {
     const loadLineas = async () => {
       if (formData.marca) {
         try {
-          const marca = marcas.find(m => m.nombre === formData.marca);
+          const marca = marcas.find((m) => m.nombre === formData.marca);
           if (marca) {
             const data = await marcaLineaService.getLineasByMarca(marca.id, true);
             setLineas(data);
           }
         } catch (error) {
-          console.error('Error al cargar líneas:', error);
+          console.error("Error al cargar líneas:", error);
         }
       } else {
         setLineas([]);
@@ -131,7 +159,6 @@ export default function RepuestoForm() {
     loadLineas();
   }, [formData.marca, marcas]);
 
-  // Cargar datos si estamos editando
   useEffect(() => {
     if (isEditing && id) {
       const repuesto = getRepuestoById(id);
@@ -140,47 +167,44 @@ export default function RepuestoForm() {
           nombre: repuesto.nombre,
           tipo: repuesto.tipo,
           marca: repuesto.marca,
-          linea: repuesto.linea || '',
-          modelo: repuesto.modelo || '',
+          linea: repuesto.linea || "",
+          modelo: repuesto.modelo || "",
           compatibilidad: repuesto.compatibilidad || [],
           condicion: repuesto.condicion,
-          color: repuesto.color || '',
-          notas: repuesto.notas || '',
+          color: repuesto.color || "",
+          notas: repuesto.notas || "",
           precio: repuesto.precio,
           precioCosto: repuesto.precioCosto,
-          proveedor: repuesto.proveedor || '',
+          proveedor: repuesto.proveedor || "",
           stock: repuesto.stock,
           stockMinimo: repuesto.stockMinimo || 1,
           imagenes: repuesto.imagenes,
           tags: repuesto.tags || [],
-          activo: repuesto.activo
+          activo: repuesto.activo,
         });
-        // Load existing images into imageItems
-        setImageItems((repuesto.imagenes || []).map(url => ({ url, file: null })));
+        setImageItems((repuesto.imagenes || []).map((url) => ({ url, file: null })));
       } else {
-        toast.add('Repuesto no encontrado', 'error');
-        navigate('/repuestos');
+        toast.add("Repuesto no encontrado", "error");
+        navigate("/repuestos");
       }
     }
   }, [id, isEditing, getRepuestoById, navigate, toast]);
 
-  // Detectar cambios en el formulario
   useEffect(() => {
     const checkForChanges = () => {
       if (isEditing && id) {
         const original = getRepuestoById(id);
         if (original) {
-          hasChanges.current = (
+          hasChanges.current =
             formData.nombre !== original.nombre ||
             formData.precio !== original.precio ||
             formData.stock !== original.stock ||
             JSON.stringify(formData.compatibilidad) !== JSON.stringify(original.compatibilidad || []) ||
-            JSON.stringify(formData.tags) !== JSON.stringify(original.tags || [])
-          );
+            JSON.stringify(formData.tags) !== JSON.stringify(original.tags || []);
         }
       } else {
         hasChanges.current = !!(
-          formData.nombre.trim() !== '' ||
+          formData.nombre.trim() !== "" ||
           formData.precio > 0 ||
           formData.stock > 0 ||
           (formData.compatibilidad && formData.compatibilidad.length > 0) ||
@@ -191,7 +215,6 @@ export default function RepuestoForm() {
     checkForChanges();
   }, [formData, isEditing, id, getRepuestoById]);
 
-  // Interceptar navegación si hay cambios no guardados
   const handleNavigation = (path: string) => {
     if (hasChanges.current) {
       setPendingNavigation(path);
@@ -202,9 +225,7 @@ export default function RepuestoForm() {
   };
 
   const confirmNavigation = () => {
-    if (pendingNavigation) {
-      navigate(pendingNavigation);
-    }
+    if (pendingNavigation) navigate(pendingNavigation);
     setShowUnsavedDialog(false);
     setPendingNavigation(null);
   };
@@ -216,65 +237,40 @@ export default function RepuestoForm() {
 
   const validateForm = () => {
     const errors: string[] = [];
-
     if (!formData.nombre.trim()) {
-      errors.push('El nombre del repuesto es requerido');
+      errors.push("El nombre del repuesto es requerido");
     } else if (formData.nombre.trim().length < 3) {
-      errors.push('El nombre debe tener al menos 3 caracteres');
+      errors.push("El nombre debe tener al menos 3 caracteres");
     } else if (formData.nombre.trim().length > 120) {
-      errors.push('El nombre no puede exceder 120 caracteres');
+      errors.push("El nombre no puede exceder 120 caracteres");
     }
-
-    if (!formData.tipo) {
-      errors.push('El tipo de repuesto es requerido');
-    }
-
-    if (!formData.marca) {
-      errors.push('La marca es requerida');
-    }
-
-    if (formData.precio < 0) {
-      errors.push('El precio público debe ser mayor o igual a cero');
-    }
-
-    if (formData.precioCosto < 0) {
-      errors.push('El precio de costo debe ser mayor o igual a cero');
-    }
-
-    if (formData.precio > 0 && formData.precioCosto > 0 && formData.precio <= formData.precioCosto) {
-      errors.push('El precio público debe ser mayor al precio de costo');
-    }
-
-    if (formData.stock < 0) {
-      errors.push('El stock debe ser mayor o igual a cero');
-    }
-
-    if (formData.stockMinimo && formData.stockMinimo < 0) {
-      errors.push('El stock mínimo debe ser mayor o igual a cero');
-    }
-
+    if (!formData.tipo) errors.push("El tipo de repuesto es requerido");
+    if (!formData.marca) errors.push("La marca es requerida");
+    if (formData.precio < 0) errors.push("El precio público debe ser mayor o igual a cero");
+    if (formData.precioCosto < 0) errors.push("El precio de costo debe ser mayor o igual a cero");
+    if (formData.precio > 0 && formData.precioCosto > 0 && formData.precio <= formData.precioCosto)
+      errors.push("El precio público debe ser mayor al precio de costo");
+    if (formData.stock < 0) errors.push("El stock debe ser mayor o igual a cero");
+    if (formData.stockMinimo && formData.stockMinimo < 0)
+      errors.push("El stock mínimo debe ser mayor o igual a cero");
     return errors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
-      validationErrors.forEach(error => toast.add(error, 'error'));
+      validationErrors.forEach((error) => toast.add(error, "error"));
       return;
     }
-
     setIsLoading(true);
-    
     try {
-      // Split imageItems into existing server paths and new files
       const imagenesExistentes = imageItems
-        .filter(item => item.file === null)
-        .map(item => item.url);
+        .filter((item) => item.file === null)
+        .map((item) => item.url);
       const imagenesFiles = imageItems
-        .filter(item => item.file !== null)
-        .map(item => item.file as File);
+        .filter((item) => item.file !== null)
+        .map((item) => item.file as File);
 
       const dataToSave = {
         nombre: formData.nombre,
@@ -294,7 +290,7 @@ export default function RepuestoForm() {
         imagenes: imagenesExistentes,
         imagenesFiles,
         tags: formData.tags || [],
-        activo: formData.activo
+        activo: formData.activo,
       };
 
       if (isEditing && id) {
@@ -303,18 +299,12 @@ export default function RepuestoForm() {
         await repuestoService.createRepuesto(dataToSave);
       }
 
-      toast.add(
-        `Repuesto ${isEditing ? 'actualizado' : 'creado'} exitosamente`,
-        'success'
-      );
+      toast.add(`Repuesto ${isEditing ? "actualizado" : "creado"} exitosamente`, "success");
       hasChanges.current = false;
-      navigate('/repuestos');
+      navigate("/repuestos");
     } catch (error: any) {
-      console.error('Error al guardar repuesto:', error);
-      toast.add(
-        error.response?.data?.error || 'Error al guardar el repuesto',
-        'error'
-      );
+      console.error("Error al guardar repuesto:", error);
+      toast.add(error.response?.data?.error || "Error al guardar el repuesto", "error");
     } finally {
       setIsLoading(false);
     }
@@ -322,143 +312,124 @@ export default function RepuestoForm() {
 
   const handleCreateMarca = async () => {
     if (!newMarcaNombre.trim()) {
-      toast.add('El nombre de la marca es requerido', 'error');
+      toast.add("El nombre de la marca es requerido", "error");
       return;
     }
-
     try {
-      const nuevaMarca = await marcaLineaService.createMarca({
-        nombre: newMarcaNombre.trim()
-      });
-      setMarcas(prev => [...prev, nuevaMarca]);
-      setFormData(prev => ({ ...prev, marca: nuevaMarca.nombre as any }));
-      setNewMarcaNombre('');
+      const nuevaMarca = await marcaLineaService.createMarca({ nombre: newMarcaNombre.trim() });
+      setMarcas((prev) => [...prev, nuevaMarca]);
+      setFormData((prev) => ({ ...prev, marca: nuevaMarca.nombre as any }));
+      setNewMarcaNombre("");
       setShowNewMarcaDialog(false);
-      toast.add('Marca creada exitosamente', 'success');
+      toast.add("Marca creada exitosamente", "success");
     } catch (error: any) {
-      console.error('Error al crear marca:', error);
-      toast.add(
-        error.response?.data?.error || 'Error al crear marca',
-        'error'
-      );
+      toast.add(error.response?.data?.error || "Error al crear marca", "error");
     }
   };
 
   const handleCreateLinea = async () => {
     if (!newLineaNombre.trim()) {
-      toast.add('El nombre de la línea es requerido', 'error');
+      toast.add("El nombre de la línea es requerido", "error");
       return;
     }
-
-    const marca = marcas.find(m => m.nombre === formData.marca);
+    const marca = marcas.find((m) => m.nombre === formData.marca);
     if (!marca) {
-      toast.add('Selecciona una marca primero', 'error');
+      toast.add("Selecciona una marca primero", "error");
       return;
     }
-
     try {
       const nuevaLinea = await marcaLineaService.createLinea({
         marca_id: marca.id,
-        nombre: newLineaNombre.trim()
+        nombre: newLineaNombre.trim(),
       });
-      setLineas(prev => [...prev, nuevaLinea]);
-      setFormData(prev => ({ ...prev, linea: nuevaLinea.nombre }));
-      setNewLineaNombre('');
+      setLineas((prev) => [...prev, nuevaLinea]);
+      setFormData((prev) => ({ ...prev, linea: nuevaLinea.nombre }));
+      setNewLineaNombre("");
       setShowNewLineaDialog(false);
-      toast.add('Línea creada exitosamente', 'success');
+      toast.add("Línea creada exitosamente", "success");
     } catch (error: any) {
-      console.error('Error al crear línea:', error);
-      toast.add(
-        error.response?.data?.error || 'Error al crear línea',
-        'error'
-      );
+      toast.add(error.response?.data?.error || "Error al crear línea", "error");
     }
   };
 
   const handleSelectProveedor = (proveedor: any) => {
-    setFormData(prev => ({
-      ...prev,
-      proveedor: proveedor.nombre
-    }));
+    setFormData((prev) => ({ ...prev, proveedor: proveedor.nombre }));
     setShowProveedoresDropdown(false);
   };
 
   const handleAddCompatible = () => {
     if (newCompatible.trim() && !formData.compatibilidad?.includes(newCompatible.trim())) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        compatibilidad: [...(prev.compatibilidad || []), newCompatible.trim()]
+        compatibilidad: [...(prev.compatibilidad || []), newCompatible.trim()],
       }));
-      setNewCompatible('');
+      setNewCompatible("");
     }
   };
 
   const handleRemoveCompatible = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      compatibilidad: prev.compatibilidad?.filter((_, i) => i !== index) || []
+      compatibilidad: prev.compatibilidad?.filter((_, i) => i !== index) || [],
     }));
   };
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...(prev.tags || []), newTag.trim()]
-      }));
-      setNewTag('');
+      setFormData((prev) => ({ ...prev, tags: [...(prev.tags || []), newTag.trim()] }));
+      setNewTag("");
     }
   };
 
   const handleRemoveTag = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      tags: prev.tags?.filter((_, i) => i !== index) || []
+      tags: prev.tags?.filter((_, i) => i !== index) || [],
     }));
   };
 
-  // ─── Image helpers ──────────────────────────────────────────────────────
+  // ─── Image helpers ────────────────────────────────────────────────────────
   const addImageFiles = (files: File[]) => {
-    const valid = files.filter(f => ALLOWED_MIME.includes(f.type));
+    const valid = files.filter((f) => ALLOWED_MIME.includes(f.type));
     if (files.length > 0 && valid.length === 0) {
-      toast.add('Solo se permiten imágenes JPG, PNG o WEBP', 'error');
+      toast.add("Solo se permiten imágenes JPG, PNG o WEBP", "error");
       return;
     }
     const remaining = 10 - imageItems.length;
     if (remaining <= 0) {
-      toast.add('Máximo 10 imágenes por repuesto', 'error');
+      toast.add("Máximo 10 imágenes por repuesto", "error");
       return;
     }
     const toAdd = valid.slice(0, remaining);
-    const newItems: ImageItem[] = toAdd.map(file => {
+    const newItems: ImageItem[] = toAdd.map((file) => {
       const url = URL.createObjectURL(file);
       blobUrlsRef.current.push(url);
       return { url, file };
     });
-    setImageItems(prev => [...prev, ...newItems]);
+    setImageItems((prev) => [...prev, ...newItems]);
   };
 
   const handleRemoveImage = (index: number) => {
     const item = imageItems[index];
-    if (item.url.startsWith('blob:')) {
+    if (item.url.startsWith("blob:")) {
       URL.revokeObjectURL(item.url);
-      blobUrlsRef.current = blobUrlsRef.current.filter(u => u !== item.url);
+      blobUrlsRef.current = blobUrlsRef.current.filter((u) => u !== item.url);
     }
-    setImageItems(prev => prev.filter((_, i) => i !== index));
+    setImageItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleRemoveAllImages = () => {
-    imageItems.forEach(item => {
-      if (item.url.startsWith('blob:')) {
+    imageItems.forEach((item) => {
+      if (item.url.startsWith("blob:")) {
         URL.revokeObjectURL(item.url);
-        blobUrlsRef.current = blobUrlsRef.current.filter(u => u !== item.url);
+        blobUrlsRef.current = blobUrlsRef.current.filter((u) => u !== item.url);
       }
     });
     setImageItems([]);
   };
 
   const reorderImages = (fromIndex: number, toIndex: number) => {
-    setImageItems(prev => {
+    setImageItems((prev) => {
       const arr = [...prev];
       const [removed] = arr.splice(fromIndex, 1);
       arr.splice(toIndex, 0, removed);
@@ -466,778 +437,816 @@ export default function RepuestoForm() {
     });
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     addImageFiles(Array.from(e.dataTransfer.files));
   };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      addImageFiles(Array.from(e.target.files));
-    }
-    e.target.value = ''; // allow re-selecting same file
+    if (e.target.files && e.target.files.length > 0) addImageFiles(Array.from(e.target.files));
+    e.target.value = "";
   };
 
+  // Margin helper
+  const margin = formData.precio - formData.precioCosto;
+  const marginPct =
+    formData.precioCosto > 0 ? ((margin / formData.precioCosto) * 100).toFixed(1) : null;
+  const marginNegative = formData.precio > 0 && formData.precioCosto > 0 && margin <= 0;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Enhanced Header with breadcrumb navigation */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-[var(--color-bg)]">
+
+      {/* ── Page header ──────────────────────────────────────────────────── */}
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] shadow-[0_1px_6px_rgba(20,50,74,0.06)]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
           {/* Breadcrumb */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-            <button 
-              onClick={() => handleNavigation('/repuestos')}
-              className="hover:text-blue-600 transition-colors flex items-center gap-1"
+          <nav className="flex items-center gap-1.5 text-[11px] text-[#5E7184] dark:text-[#B8C2D1] mb-3">
+            <button
+              onClick={() => handleNavigation("/repuestos")}
+              className="flex items-center gap-1 hover:text-[#48B9E6] transition-colors"
             >
-              <Package2 size={16} />
+              <Package2 size={13} />
               Repuestos
             </button>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">
-              {isEditing ? 'Editar Repuesto' : 'Nuevo Repuesto'}
+            <span className="opacity-40">/</span>
+            <span className="text-[#14324A] dark:text-[#F8FAFC] font-semibold">
+              {isEditing ? "Editar Repuesto" : "Nuevo Repuesto"}
             </span>
           </nav>
 
-          {/* Title and subtitle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  {isEditing ? <Monitor size={24} className="text-blue-600" /> : <Plus size={24} className="text-blue-600" />}
-                </div>
-                {isEditing ? 'Editar Repuesto' : 'Nuevo Repuesto'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {isEditing ? 'Actualizar información del repuesto' : 'Registrar nuevo repuesto en inventario'}
-              </p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-[rgba(72,185,230,0.12)] dark:bg-[rgba(72,185,230,0.10)] shrink-0">
+                <Wrench size={20} className="text-[#48B9E6]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">
+                  {isEditing ? "Editar Repuesto" : "Nuevo Repuesto"}
+                </h1>
+                <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
+                  {isEditing
+                    ? "Actualiza la información del repuesto seleccionado"
+                    : "Registrar nuevo repuesto en inventario"}
+                </p>
+              </div>
             </div>
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              onClick={() => handleNavigation('/repuestos')}
-              className="flex items-center gap-2"
+              onClick={() => handleNavigation("/repuestos")}
+              className="flex items-center gap-1.5 text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[var(--color-border)] hover:border-[#48B9E6] rounded-xl px-3 py-2 transition-colors shrink-0"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={14} />
               Volver
-            </Button>
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
+      {/* ── Form ─────────────────────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* A) Información básica */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Monitor size={20} className="text-blue-600" />
+          {/* ── SKU preview (only when creating) ──────────────────────── */}
+          {!isEditing && formData.tipo && formData.marca && (
+            <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-2xl px-4 py-3 flex items-start gap-2.5">
+              <Wrench size={13} className="text-[#48B9E6] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] text-cyan-700 dark:text-cyan-200 font-semibold mb-0.5">
+                  SKU automático
+                </p>
+                <code className="text-[11px] font-mono text-[#48B9E6]">
+                  {formData.tipo.substring(0, 3).toUpperCase()}_
+                  {formData.marca.substring(0, 4).toUpperCase()}_
+                  {formData.modelo
+                    ? formData.modelo.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, "")
+                    : "GEN"}
+                  _######
+                </code>
+                <p className="text-[10px] text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
+                  Se genera automáticamente al guardar
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Información Básica</h3>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Vista previa del SKU que se generará */}
-              {!isEditing && formData.tipo && formData.marca && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    SKU (se generará automáticamente)
-                  </label>
-                  <div className="px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <span className="font-mono text-blue-700 font-semibold">
-                      {formData.tipo.substring(0, 3).toUpperCase()}_
-                      {formData.marca.substring(0, 4).toUpperCase()}_
-                      {formData.modelo ? formData.modelo.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') : 'GEN'}_
-                      XXXXXX
-                    </span>
-                    <span className="ml-2 text-xs text-blue-600">
-                      (Ejemplo: {formData.tipo.substring(0, 3).toUpperCase()}_
-                      {formData.marca.substring(0, 4).toUpperCase()}_
-                      {formData.modelo ? formData.modelo.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') : 'GEN'}_{Date.now().toString().slice(-6)})
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    El SKU se genera automáticamente usando: Tipo + Marca + Modelo + Timestamp
-                  </p>
-                </div>
-              )}
+          {/* ═══ Sección 1: Información básica ═══════════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={Monitor} title="Información básica" />
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Nombre */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del repuesto <span className="text-red-500">*</span>
-                </label>
+              <div className="sm:col-span-2">
+                <FieldLabel required>Nombre del repuesto</FieldLabel>
                 <Input
                   type="text"
                   value={formData.nombre}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setFormData((prev) => ({ ...prev, nombre: e.target.value }))
+                  }
                   placeholder="Pantalla iPhone 12 Pro Max Original"
-                  className="w-full"
+                  className="w-full rounded-2xl"
                   required
                 />
               </div>
 
               {/* Tipo */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo <span className="text-red-500">*</span>
-                </label>
+                <FieldLabel required>Tipo</FieldLabel>
                 <Select
                   value={formData.tipo}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, tipo: e.target.value as RepuestoFormData['tipo'] }))}
-                  className="w-full"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      tipo: e.target.value as RepuestoFormData["tipo"],
+                    }))
+                  }
+                  className="w-full rounded-2xl text-sm"
                   required
                 >
-                  {TIPOS_REPUESTO.map(tipo => (
-                    <option key={tipo} value={tipo}>{tipo}</option>
+                  {TIPOS_REPUESTO.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
                   ))}
                 </Select>
               </div>
 
               {/* Condición */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Condición <span className="text-red-500">*</span>
-                </label>
+                <FieldLabel required>Condición</FieldLabel>
                 <Select
                   value={formData.condicion}
-                  onChange={(e) => setFormData(prev => ({ ...prev, condicion: e.target.value as RepuestoFormData['condicion'] }))}
-                  className="w-full"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      condicion: e.target.value as RepuestoFormData["condicion"],
+                    }))
+                  }
+                  className="w-full rounded-2xl text-sm"
                   required
                 >
-                  {CONDICIONES.map(condicion => (
-                    <option key={condicion} value={condicion}>{condicion}</option>
+                  {CONDICIONES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </Select>
               </div>
 
               {/* Color */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Color
-                </label>
+                <FieldLabel>Color</FieldLabel>
                 <Input
                   type="text"
                   value={formData.color}
-                  onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                  placeholder="Negro, Blanco, etc."
-                  className="w-full"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setFormData((prev) => ({ ...prev, color: e.target.value }))
+                  }
+                  placeholder="Negro, Blanco..."
+                  className="w-full rounded-2xl"
                 />
               </div>
 
-              {/* Estado activo */}
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.activo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, activo: e.target.checked }))}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Repuesto activo</span>
+              {/* Activo */}
+              <div className="flex items-center gap-2.5 pt-5">
+                <input
+                  type="checkbox"
+                  id="activoCheck"
+                  checked={formData.activo}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, activo: e.target.checked }))
+                  }
+                  className="w-4 h-4 accent-[#48B9E6] rounded"
+                />
+                <label
+                  htmlFor="activoCheck"
+                  className="text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] cursor-pointer"
+                >
+                  Repuesto activo
                 </label>
               </div>
             </div>
           </Card>
 
-          {/* B) Marca/Línea/Modelo */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Smartphone size={20} className="text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Marca y Modelo</h3>
-            </div>
+          {/* ═══ Sección 2: Marca y modelo ═══════════════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={Smartphone} title="Marca y modelo" />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Marca */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Marca <span className="text-red-500">*</span>
-                </label>
+                <FieldLabel required>Marca</FieldLabel>
                 <div className="flex gap-2">
                   <Select
                     value={formData.marca}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      marca: e.target.value as RepuestoFormData['marca'],
-                      linea: ''
-                    }))}
-                    className="flex-1"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        marca: e.target.value as RepuestoFormData["marca"],
+                        linea: "",
+                      }))
+                    }
+                    className="flex-1 rounded-2xl text-sm"
                     required
                   >
-                    <option value="">Seleccionar marca</option>
-                    {marcas.map(marca => (
-                      <option key={marca.id} value={marca.nombre}>{marca.nombre}</option>
+                    <option value="">Seleccionar...</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.nombre}>
+                        {m.nombre}
+                      </option>
                     ))}
                   </Select>
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
                     onClick={() => setShowNewMarcaDialog(true)}
-                    className="px-3"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors"
                     title="Agregar nueva marca"
                   >
-                    <Plus size={20} />
-                  </Button>
+                    <Plus size={16} />
+                  </button>
                 </div>
               </div>
 
               {/* Línea */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Línea
-                </label>
+                <FieldLabel>Línea</FieldLabel>
                 <div className="flex gap-2">
                   {lineas.length > 0 ? (
                     <Select
                       value={formData.linea}
-                      onChange={(e) => setFormData(prev => ({ ...prev, linea: e.target.value }))}
-                      className="flex-1"
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
+                      }
+                      className="flex-1 rounded-2xl text-sm"
+                      disabled={!formData.marca}
                     >
-                      <option value="">Seleccionar línea</option>
-                      {lineas.map(linea => (
-                        <option key={linea.id} value={linea.nombre}>{linea.nombre}</option>
+                      <option value="">Seleccionar...</option>
+                      {lineas.map((l) => (
+                        <option key={l.id} value={l.nombre}>
+                          {l.nombre}
+                        </option>
                       ))}
                     </Select>
                   ) : (
                     <Input
                       type="text"
                       value={formData.linea}
-                      onChange={(e) => setFormData(prev => ({ ...prev, linea: e.target.value }))}
-                      placeholder="Especificar línea"
-                      className="flex-1"
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
+                      }
+                      placeholder="iPhone, Galaxy S..."
+                      className="flex-1 rounded-2xl"
+                      disabled={!formData.marca}
                     />
                   )}
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
                     onClick={() => setShowNewLineaDialog(true)}
-                    className="px-3"
                     disabled={!formData.marca}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Agregar nueva línea"
                   >
-                    <Plus size={20} />
-                  </Button>
+                    <Plus size={16} />
+                  </button>
                 </div>
               </div>
 
               {/* Modelo */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Modelo
-                </label>
+                <FieldLabel>Modelo</FieldLabel>
                 <Input
                   type="text"
                   value={formData.modelo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-                  placeholder="A2407, SM-S911B, etc."
-                  className="w-full"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setFormData((prev) => ({ ...prev, modelo: e.target.value }))
+                  }
+                  placeholder="A2407, SM-S911B..."
+                  className="w-full rounded-2xl"
                 />
               </div>
             </div>
           </Card>
 
-          {/* C) Compatibilidad */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Tag size={20} className="text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Compatibilidad</h3>
-            </div>
+          {/* ═══ Sección 3: Inventario y precios ═════════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={DollarSign} title="Inventario y precios" />
 
-            {/* Agregar compatible */}
-            <div className="flex gap-3 mb-4">
-              <Input
-                type="text"
-                value={newCompatible}
-                onChange={(e) => setNewCompatible(e.target.value)}
-                placeholder="iPhone 12 Pro Max"
-                className="flex-1"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCompatible())}
-              />
-              <Button type="button" onClick={handleAddCompatible}>
-                <Plus size={16} />
-                Agregar
-              </Button>
-            </div>
-
-            {/* Lista de compatibles */}
-            {formData.compatibilidad && formData.compatibilidad.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.compatibilidad.map((comp, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
-                  >
-                    {comp}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCompatible(index)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* D) Precios, Proveedor y Stock */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign size={20} className="text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Precios y Proveedor</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Precio Costo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Precio costo */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Precio Costo (Q) <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="number"
-                  value={formData.precioCosto}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, precioCosto: Number(e.target.value) }))}
-                  step="0.01"
-                  min="0"
-                  className="w-full"
-                  placeholder="950.00"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Lo que nos costó el repuesto</p>
-              </div>
-
-              {/* Precio Público */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Precio Público (Q) <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="number"
-                  value={formData.precio}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, precio: Number(e.target.value) }))}
-                  step="0.01"
-                  min="0"
-                  className="w-full"
-                  placeholder="1250.00"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Precio de venta al cliente</p>
-                {formData.precioCosto > 0 && formData.precio > 0 && (
-                  <p className="text-xs text-emerald-600 mt-1">
-                    Margen: Q{(formData.precio - formData.precioCosto).toFixed(2)} 
-                    ({(((formData.precio - formData.precioCosto) / formData.precioCosto) * 100).toFixed(1)}%)
-                  </p>
-                )}
-              </div>
-
-              {/* Proveedor - Selector con dropdown */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Building2 size={16} className="inline mr-1" />
-                  Proveedor
-                </label>
+                <FieldLabel required>Precio costo (Q)</FieldLabel>
                 <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowProveedoresDropdown(!showProveedoresDropdown)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-left flex items-center justify-between hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  >
-                    <span className={formData.proveedor ? "text-gray-900 font-medium" : "text-gray-400"}>
-                      {formData.proveedor || "Seleccionar proveedor..."}
-                    </span>
-                    <ChevronDown size={20} className="text-gray-400" />
-                  </button>
-                  
-                  {showProveedoresDropdown && (
-                    <div className="absolute z-20 w-full mt-2 max-h-64 overflow-y-auto border-2 border-blue-200 rounded-lg bg-white shadow-2xl">
-                      {suppliers.filter(s => s.activo).length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          No hay proveedores registrados
-                        </div>
-                      ) : (
-                        suppliers.filter(s => s.activo).map((proveedor) => (
-                          <div
-                            key={proveedor.id}
-                            onClick={() => handleSelectProveedor(proveedor)}
-                            className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">{proveedor.nombre}</div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              {proveedor.telefono && `📞 ${proveedor.telefono}`}
-                              {proveedor.nit && ` • NIT: ${proveedor.nit}`}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.precioCosto}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setFormData((prev) => ({ ...prev, precioCosto: Number(e.target.value) }))
+                    }
+                    className="pl-7 w-full rounded-2xl"
+                    placeholder="0.00"
+                    required
+                  />
                 </div>
-                <Input
-                  type="text"
-                  value={formData.proveedor}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, proveedor: e.target.value }))}
-                  placeholder="O escribe el nombre manualmente"
-                  className="w-full mt-2"
-                />
-                <p className="text-xs text-gray-500 mt-1">El stock inicial será 0. Actualiza el inventario desde Compras.</p>
+                <p className="text-[10px] text-[#7F8A99] dark:text-[#7F8A99] mt-1">
+                  Precio de adquisición
+                </p>
+              </div>
+
+              {/* Precio venta */}
+              <div>
+                <FieldLabel required>Precio venta (Q)</FieldLabel>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.precio}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setFormData((prev) => ({ ...prev, precio: Number(e.target.value) }))
+                    }
+                    className="pl-7 w-full rounded-2xl"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <p className="text-[10px] text-[#7F8A99] dark:text-[#7F8A99] mt-1">
+                  Precio al cliente
+                </p>
               </div>
 
               {/* Stock mínimo */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock Mínimo (Alerta)
-                </label>
+              <div>
+                <FieldLabel>Stock mínimo</FieldLabel>
                 <Input
                   type="number"
-                  value={formData.stockMinimo}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))}
                   min="0"
-                  className="w-full"
-                  placeholder="2"
+                  value={formData.stockMinimo}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setFormData((prev) => ({ ...prev, stockMinimo: Number(e.target.value) }))
+                  }
+                  className="w-full rounded-2xl"
+                  placeholder="1"
                 />
-                <p className="text-xs text-gray-500 mt-1">Alerta cuando el stock llegue a esta cantidad</p>
+                <p className="text-[10px] text-[#7F8A99] dark:text-[#7F8A99] mt-1">
+                  Alerta de stock bajo
+                </p>
               </div>
-            </div>
-          </Card>
 
-          {/* E) Tags */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Tag size={20} className="text-yellow-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Etiquetas</h3>
-            </div>
-
-            {/* Agregar tag */}
-            <div className="flex gap-3 mb-4">
-              <Input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                placeholder="OLED, Incell, Amoled"
-                className="flex-1"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-              />
-              <Button type="button" onClick={handleAddTag}>
-                <Plus size={16} />
-                Agregar
-              </Button>
+              {/* Stock actual (solo en edición) */}
+              {isEditing && (
+                <div>
+                  <FieldLabel>Stock actual</FieldLabel>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.stock}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setFormData((prev) => ({ ...prev, stock: Number(e.target.value) }))
+                    }
+                    className="w-full rounded-2xl"
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-[#7F8A99] dark:text-[#7F8A99] mt-1">
+                    Unidades disponibles
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Lista de tags */}
-            {formData.tags && formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(index)}
-                      className="text-purple-600 hover:text-purple-800"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
+            {/* Margin indicator */}
+            {formData.precioCosto > 0 && formData.precio > 0 && (
+              <div
+                className={`mt-4 rounded-2xl px-4 py-2.5 flex items-center justify-between ${
+                  marginNegative
+                    ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40"
+                    : "bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40"
+                }`}
+              >
+                <span
+                  className={`text-[11px] font-medium ${
+                    marginNegative
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
+                  {marginNegative ? "⚠ Precio venta ≤ costo" : "Margen de ganancia"}
+                </span>
+                <span
+                  className={`text-sm font-bold ${
+                    marginNegative
+                      ? "text-red-700 dark:text-red-300"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  Q{margin.toFixed(2)}
+                  {!marginNegative && marginPct && (
+                    <span className="text-[11px] font-normal ml-1">({marginPct}%)</span>
+                  )}
+                </span>
               </div>
             )}
+
+            {/* Proveedor */}
+            <div className="mt-5">
+              <FieldLabel>
+                <Building2 size={11} className="inline mr-1" />
+                Proveedor
+              </FieldLabel>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowProveedoresDropdown((p) => !p)}
+                  className="w-full h-10 text-left text-sm px-4 border border-[var(--color-border)] hover:border-[#48B9E6] rounded-2xl flex items-center justify-between transition-colors bg-[var(--color-input-bg)] text-[#14324A] dark:text-[#F8FAFC]"
+                >
+                  <span className={formData.proveedor ? "" : "text-[#7F8A99]"}>
+                    {formData.proveedor || "Seleccionar proveedor..."}
+                  </span>
+                  <ChevronDown size={16} className="text-[#7F8A99] shrink-0" />
+                </button>
+
+                {showProveedoresDropdown && (
+                  <div className="absolute z-20 w-full mt-1 max-h-56 overflow-y-auto border border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] shadow-xl">
+                    {suppliers.filter((s) => s.activo).length === 0 ? (
+                      <div className="p-4 text-center text-xs text-[#5E7184] dark:text-[#B8C2D1]">
+                        No hay proveedores registrados
+                      </div>
+                    ) : (
+                      suppliers
+                        .filter((s) => s.activo)
+                        .map((proveedor) => (
+                          <div
+                            key={proveedor.id}
+                            onClick={() => handleSelectProveedor(proveedor)}
+                            className="px-4 py-3 hover:bg-[var(--color-row-hover)] cursor-pointer border-b border-[var(--color-border)] last:border-b-0 transition-colors"
+                          >
+                            <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">
+                              {proveedor.nombre}
+                            </p>
+                            <p className="text-[10px] text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
+                              {proveedor.telefono && `📞 ${proveedor.telefono}`}
+                              {proveedor.nit && ` · NIT: ${proveedor.nit}`}
+                            </p>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <Input
+                type="text"
+                value={formData.proveedor}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setFormData((prev) => ({ ...prev, proveedor: e.target.value }))
+                }
+                placeholder="O escribe el nombre manualmente"
+                className="w-full mt-2 rounded-2xl text-sm"
+              />
+            </div>
           </Card>
 
-          {/* E2) Imágenes */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Camera size={20} className="text-indigo-600" />
+          {/* ═══ Sección 4: Compatibilidad y notas ═══════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={Tag} title="Compatibilidad y etiquetas" />
+
+            {/* Compatibilidad */}
+            <div className="mb-5">
+              <FieldLabel>Compatibilidad</FieldLabel>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  type="text"
+                  value={newCompatible}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewCompatible(e.target.value)
+                  }
+                  placeholder="iPhone 12 Pro Max"
+                  className="flex-1 rounded-2xl text-sm"
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleAddCompatible(); }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCompatible}
+                  className="shrink-0 px-3 h-10 flex items-center gap-1.5 rounded-2xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[11px] font-semibold text-[#48B9E6] transition-colors"
+                >
+                  <Plus size={14} /> Agregar
+                </button>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Imágenes del Repuesto</h3>
+              {formData.compatibilidad && formData.compatibilidad.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.compatibilidad.map((comp, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40"
+                    >
+                      {comp}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompatible(index)}
+                        className="opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Upload area */}
-            <div 
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
-                isDragging 
-                  ? 'border-indigo-500 bg-indigo-50' 
-                  : 'border-gray-300 hover:border-indigo-400'
+            {/* Tags */}
+            <div className="mb-5">
+              <FieldLabel>Etiquetas</FieldLabel>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  type="text"
+                  value={newTag}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTag(e.target.value)}
+                  placeholder="OLED, Incell, Amoled..."
+                  className="flex-1 rounded-2xl text-sm"
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleAddTag(); }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTag}
+                  className="shrink-0 px-3 h-10 flex items-center gap-1.5 rounded-2xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[11px] font-semibold text-[#48B9E6] transition-colors"
+                >
+                  <Plus size={14} /> Agregar
+                </button>
+              </div>
+              {formData.tags && formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(index)}
+                        className="opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Notas */}
+            <div>
+              <FieldLabel>Notas</FieldLabel>
+              <textarea
+                value={formData.notas}
+                onChange={(e) => setFormData((prev) => ({ ...prev, notas: e.target.value }))}
+                placeholder="Información adicional sobre el repuesto..."
+                rows={3}
+                className="w-full p-3 text-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-input-bg)] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:border-[#48B9E6] transition-colors resize-none"
+              />
+            </div>
+          </Card>
+
+          {/* ═══ Sección 5: Imágenes ══════════════════════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={Camera} title="Imágenes del repuesto" />
+
+            {/* Drop zone */}
+            <div
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${
+                isDragging
+                  ? "border-[#48B9E6] bg-[rgba(72,185,230,0.05)]"
+                  : "border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.03)]"
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <Camera size={48} className={`mx-auto mb-4 ${isDragging ? 'text-indigo-500' : 'text-gray-400'}`} />
-              <h4 className="text-lg font-medium text-gray-900 mb-2">
-                {isDragging ? 'Suelta las imágenes aquí' : 'Agregar imágenes'}
-              </h4>
-              <p className="text-gray-600 mb-4">
-                Arrastra imágenes aquí o haz clic para seleccionar
-              </p>
-              <input
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
-                multiple
-                className="hidden"
-                id="image-upload"
-                onChange={handleFileSelect}
-              />
-              <label
-                htmlFor="image-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors"
-              >
-                <Upload size={16} />
-                Seleccionar Imágenes
-              </label>
-              <p className="text-xs text-gray-500 mt-2">
-                JPG, PNG, WEBP hasta 5 MB cada una. Máximo 10 imágenes.
-              </p>
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 rounded-2xl bg-[rgba(72,185,230,0.10)] dark:bg-[rgba(72,185,230,0.08)]">
+                  <Upload size={24} className="text-[#48B9E6]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">
+                    {isDragging ? "Suelta las imágenes aquí" : "Arrastra imágenes o haz clic"}
+                  </p>
+                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1] mt-1">
+                    JPG, PNG, WEBP · máx 5 MB c/u · hasta 10 imágenes
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  id="image-upload"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <label
+                  htmlFor="image-upload"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold cursor-pointer bg-gradient-to-r from-[#48B9E6] to-[#2EA7D8] hover:from-[#2EA7D8] hover:to-[#2563EB] text-white transition-all shadow-sm"
+                >
+                  <Upload size={14} />
+                  Seleccionar imágenes
+                </label>
+              </div>
             </div>
 
-            {/* Preview de imágenes */}
+            {/* Image previews */}
             {imageItems.length > 0 && (
-              <div className="mt-6">
+              <div className="mt-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-gray-900">
-                    Imágenes ({imageItems.length})
-                  </h4>
+                  <p className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">
+                    {imageItems.length} imagen{imageItems.length !== 1 ? "es" : ""}
+                  </p>
                   <button
                     type="button"
                     onClick={handleRemoveAllImages}
-                    className="text-sm text-red-600 hover:text-red-700"
+                    className="text-[11px] text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                   >
                     Eliminar todas
                   </button>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {imageItems.map((item, index) => {
                     const src = resolveImgSrc(item.url);
                     const isNew = item.file !== null;
                     return (
                       <div key={index} className="relative group">
-                        {/* Vista previa de imagen */}
-                        <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-indigo-400 transition-colors">
+                        <div className="relative rounded-2xl overflow-hidden border border-[var(--color-border)] group-hover:border-[#48B9E6] transition-colors aspect-square">
                           <img
                             src={src}
-                            alt={`Imagen ${index + 1} del repuesto`}
-                            className="w-full h-40 object-cover cursor-pointer transition-transform hover:scale-105"
-                            onClick={() => window.open(src, '_blank')}
+                            alt={`Imagen ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onClick={() => window.open(src, "_blank")}
                           />
-                          
-                          {/* Overlay con controles */}
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                              {index > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => reorderImages(index, index - 1)}
-                                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                                  title="Mover hacia la izquierda"
-                                >
-                                  <ArrowLeft size={16} />
-                                </button>
-                              )}
+
+                          {/* Controls overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                            {index > 0 && (
                               <button
                                 type="button"
-                                onClick={() => handleRemoveImage(index)}
-                                className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600"
-                                title="Eliminar imagen"
+                                onClick={() => reorderImages(index, index - 1)}
+                                className="p-1.5 bg-[var(--color-surface)] rounded-xl shadow"
+                                title="Mover izquierda"
                               >
-                                <X size={16} />
+                                <ArrowLeft size={13} className="text-[#14324A] dark:text-[#F8FAFC]" />
                               </button>
-                              {index < imageItems.length - 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => reorderImages(index, index + 1)}
-                                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                                  title="Mover hacia la derecha"
-                                >
-                                  <ArrowLeft size={16} className="rotate-180" />
-                                </button>
-                              )}
-                            </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index)}
+                              className="p-1.5 bg-red-500 rounded-xl shadow"
+                              title="Eliminar"
+                            >
+                              <X size={13} className="text-white" />
+                            </button>
+                            {index < imageItems.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => reorderImages(index, index + 1)}
+                                className="p-1.5 bg-[var(--color-surface)] rounded-xl shadow"
+                                title="Mover derecha"
+                              >
+                                <ArrowLeft size={13} className="rotate-180 text-[#14324A] dark:text-[#F8FAFC]" />
+                              </button>
+                            )}
                           </div>
 
-                          {/* Badge de imagen principal */}
+                          {/* Badges */}
                           {index === 0 && (
-                            <div className="absolute top-2 left-2">
-                              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                                Principal
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Badge nueva/existente */}
-                          <div className="absolute top-2 right-2">
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${isNew ? 'bg-emerald-500 text-white' : 'bg-black bg-opacity-60 text-white'}`}>
-                              {isNew ? 'Nueva' : index + 1}
+                            <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#48B9E6] text-white">
+                              Principal
                             </span>
-                          </div>
+                          )}
+                          <span
+                            className={`absolute top-1.5 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                              isNew
+                                ? "bg-emerald-500 text-white"
+                                : "bg-black/50 text-white"
+                            }`}
+                          >
+                            {isNew ? "Nueva" : index + 1}
+                          </span>
                         </div>
-
-                        {/* Info de la imagen */}
-                        <div className="mt-2 text-center">
-                          <p className="text-xs text-gray-500">
-                            {index === 0 ? 'Imagen principal' : isNew ? `Nueva (${item.file?.name ?? ''})` : `Imagen ${index + 1}`}
-                          </p>
-                        </div>
+                        <p className="text-[10px] text-center text-[#7F8A99] mt-1 truncate">
+                          {isNew ? item.file?.name ?? "Nueva" : `Imagen ${index + 1}`}
+                        </p>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700 flex items-center gap-2">
-                    <Camera size={16} />
-                    <strong>Tip:</strong> La primera imagen será la que se muestre en el catálogo. 
-                    Usa las flechas para reordenar las imágenes.
+                <div className="mt-3 bg-[rgba(72,185,230,0.06)] dark:bg-[rgba(72,185,230,0.04)] border border-[rgba(72,185,230,0.18)] rounded-2xl px-4 py-2.5 flex items-center gap-2">
+                  <Camera size={13} className="text-[#48B9E6] shrink-0" />
+                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">
+                    <strong className="text-[#14324A] dark:text-[#F8FAFC]">Tip:</strong>{" "}
+                    La primera imagen se muestra en el catálogo. Usa las flechas para reordenar.
                   </p>
                 </div>
               </div>
             )}
           </Card>
 
-          {/* F) Notas */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <Tag size={20} className="text-gray-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Notas</h3>
-            </div>
-
-            <textarea
-              value={formData.notas}
-              onChange={(e) => setFormData(prev => ({ ...prev, notas: e.target.value }))}
-              placeholder="Información adicional sobre el repuesto..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              rows={4}
-            />
-          </Card>
-
-          {/* Botones de acción */}
-          <div className="flex gap-4 justify-end pt-6 border-t">
-            <Button
+          {/* ── Action buttons ──────────────────────────────────────────── */}
+          <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end pt-2 pb-8">
+            <button
               type="button"
-              variant="ghost"
-              onClick={() => handleNavigation('/repuestos')}
+              onClick={() => handleNavigation("/repuestos")}
               disabled={isLoading}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-2xl text-sm font-semibold border border-[var(--color-border)] hover:border-[#48B9E6] text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] transition-colors disabled:opacity-50"
             >
               Cancelar
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
               disabled={isLoading}
-              className="min-w-32"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#48B9E6] to-[#2EA7D8] hover:from-[#2EA7D8] hover:to-[#2563EB] text-white shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                'Guardando...'
+                <>
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Guardando...
+                </>
               ) : (
                 <>
-                  <Save size={16} />
-                  {isEditing ? 'Actualizar' : 'Crear'} Repuesto
+                  <Save size={15} />
+                  {isEditing ? "Guardar cambios" : "Crear repuesto"}
                 </>
               )}
-            </Button>
+            </button>
           </div>
         </form>
-
-        {/* Diálogo de confirmación para cambios no guardados */}
-        <ConfirmDialog
-          open={showUnsavedDialog}
-          onClose={cancelNavigation}
-          onConfirm={confirmNavigation}
-          title="Cambios sin guardar"
-          message="Tienes cambios sin guardar. ¿Estás seguro de que deseas salir sin guardar?"
-          confirmText="Salir sin guardar"
-        />
-
-        {/* Diálogo para crear nueva marca */}
-        <ConfirmDialog
-          open={showNewMarcaDialog}
-          onClose={() => {
-            setShowNewMarcaDialog(false);
-            setNewMarcaNombre('');
-          }}
-          onConfirm={handleCreateMarca}
-          title="Agregar Nueva Marca"
-          confirmText="Crear Marca"
-        >
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre de la Marca
-            </label>
-            <Input
-              type="text"
-              value={newMarcaNombre}
-              onChange={(e) => setNewMarcaNombre(e.target.value)}
-              placeholder="Ej: Oppo, Vivo, Realme"
-              className="w-full"
-              autoFocus
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCreateMarca();
-                }
-              }}
-            />
-          </div>
-        </ConfirmDialog>
-
-        {/* Diálogo para crear nueva línea */}
-        <ConfirmDialog
-          open={showNewLineaDialog}
-          onClose={() => {
-            setShowNewLineaDialog(false);
-            setNewLineaNombre('');
-          }}
-          onConfirm={handleCreateLinea}
-          title="Agregar Nueva Línea"
-          confirmText="Crear Línea"
-        >
-          <div className="mt-4">
-            <p className="text-sm text-gray-600 mb-3">
-              Marca: <strong>{formData.marca}</strong>
-            </p>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre de la Línea
-            </label>
-            <Input
-              type="text"
-              value={newLineaNombre}
-              onChange={(e) => setNewLineaNombre(e.target.value)}
-              placeholder="Ej: iPhone 16, Galaxy S25, Redmi Note 14"
-              className="w-full"
-              autoFocus
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCreateLinea();
-                }
-              }}
-            />
-          </div>
-        </ConfirmDialog>
       </div>
+
+      {/* ── Dialogs ─────────────────────────────────────────────────────── */}
+      <ConfirmDialog
+        open={showUnsavedDialog}
+        onClose={cancelNavigation}
+        onConfirm={confirmNavigation}
+        title="Cambios sin guardar"
+        message="Tienes cambios sin guardar. ¿Deseas salir sin guardar?"
+        confirmText="Salir sin guardar"
+      />
+
+      <ConfirmDialog
+        open={showNewMarcaDialog}
+        onClose={() => { setShowNewMarcaDialog(false); setNewMarcaNombre(""); }}
+        onConfirm={handleCreateMarca}
+        title="Agregar Nueva Marca"
+        confirmText="Crear Marca"
+      >
+        <div className="mt-4">
+          <FieldLabel>Nombre de la Marca</FieldLabel>
+          <Input
+            type="text"
+            value={newMarcaNombre}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMarcaNombre(e.target.value)}
+            placeholder="Ej: Oppo, Vivo, Realme"
+            className="w-full rounded-2xl"
+            autoFocus
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter") { e.preventDefault(); handleCreateMarca(); }
+            }}
+          />
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={showNewLineaDialog}
+        onClose={() => { setShowNewLineaDialog(false); setNewLineaNombre(""); }}
+        onConfirm={handleCreateLinea}
+        title="Agregar Nueva Línea"
+        confirmText="Crear Línea"
+      >
+        <div className="mt-4">
+          <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mb-3">
+            Marca: <strong className="text-[#14324A] dark:text-[#F8FAFC]">{formData.marca}</strong>
+          </p>
+          <FieldLabel>Nombre de la Línea</FieldLabel>
+          <Input
+            type="text"
+            value={newLineaNombre}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLineaNombre(e.target.value)}
+            placeholder="Ej: iPhone 16, Galaxy S25..."
+            className="w-full rounded-2xl"
+            autoFocus
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter") { e.preventDefault(); handleCreateLinea(); }
+            }}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }
