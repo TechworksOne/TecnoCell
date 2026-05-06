@@ -12,6 +12,7 @@ import Input from '../../components/ui/Input';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
 import QuotePicker from '../../components/sales/QuotePicker';
+import SaleFormModal from '../../components/sales/SaleFormModal';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../store/useAuth';
 import * as ventaService from '../../services/ventaService';
@@ -83,6 +84,9 @@ export default function SalesPage() {
   const [showAnularDialog, setShowAnularDialog] = useState(false);
   const [showQuotePicker, setShowQuotePicker] = useState(false);
   const [showNuevaVentaModal, setShowNuevaVentaModal] = useState(false);
+  const [showSaleForm, setShowSaleForm] = useState(false);
+  const [saleFormOrigen, setSaleFormOrigen] = useState<'DIRECTA' | 'COTIZACION'>('DIRECTA');
+  const [saleFormQuote, setSaleFormQuote] = useState<any>(undefined);
   const [anularTarget, setAnularTarget] = useState<VentaData | null>(null);
   const [motivo, setMotivo] = useState('');
 
@@ -705,19 +709,29 @@ export default function SalesPage() {
           onClose={() => setShowQuotePicker(false)}
           onSelect={(quote: any) => {
             setShowQuotePicker(false);
-            navigate(`/ventas/nueva?from=${quote.id}`);
+            setSaleFormOrigen('COTIZACION');
+            setSaleFormQuote(quote);
+            setShowSaleForm(true);
           }}
         />
       )}
 
       {/* ── Nueva Venta Modal ────────────────────────────────────────────── */}
+      <SaleFormModal
+        isOpen={showSaleForm}
+        onClose={() => setShowSaleForm(false)}
+        onSuccess={() => { loadVentas(); loadStats(); }}
+        origenVenta={saleFormOrigen}
+        preloadedQuote={saleFormQuote}
+      />
+
       <Modal isOpen={showNuevaVentaModal} onClose={() => setShowNuevaVentaModal(false)} title="Nueva Venta" size="md">
         <div className="space-y-4">
           <p className="text-sm text-[var(--color-text-sec)]">Selecciona cómo deseas crear la venta</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Venta Directa */}
             <button
-              onClick={() => { setShowNuevaVentaModal(false); navigate('/ventas/nueva'); }}
+              onClick={() => { setShowNuevaVentaModal(false); setSaleFormOrigen('DIRECTA'); setSaleFormQuote(undefined); setShowSaleForm(true); }}
               className="group flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all duration-200 text-left"
               style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-soft)' }}
               onMouseEnter={e => {
