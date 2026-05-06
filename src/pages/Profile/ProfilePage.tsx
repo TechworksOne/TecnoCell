@@ -1,10 +1,16 @@
-﻿import { useState, useEffect, useRef } from "react";
-import { User, Mail, Phone, MapPin, Shield, Clock, Calendar, Edit2, Save, X, Camera, CheckCircle, AlertCircle } from "lucide-react";
-import { useAuth } from "../../store/useAuth";
-import { useToast } from "../../components/ui/Toast";
-import { canViewCosts, isAdmin } from "../../lib/permissions";
-import API_URL, { UPLOADS_BASE_URL } from "../../services/config";
-import axios from "axios";
+import { useState, useEffect, useRef } from 'react';
+import {
+  User, Mail, Phone, MapPin, Shield, Clock, Calendar,
+  Edit2, Save, X, Camera, CheckCircle, Key, Tag,
+  Loader2, AlertTriangle,
+} from 'lucide-react';
+import { useAuth } from '../../store/useAuth';
+import { useToast } from '../../components/ui/Toast';
+import { canViewCosts, isAdmin } from '../../lib/permissions';
+import API_URL, { UPLOADS_BASE_URL } from '../../services/config';
+import axios from 'axios';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UserProfile {
   id: number;
@@ -27,294 +33,365 @@ interface UserProfile {
   roles: string[];
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  ADMINISTRADOR: "bg-red-100 text-red-700 border border-red-200",
-  TECNICO: "bg-blue-100 text-blue-700 border border-blue-200",
-  VENTAS: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(dt: string | null): string {
-  if (!dt) return "—";
-  return new Date(dt).toLocaleString("es-GT", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit"
+  if (!dt) return 'No registrado';
+  return new Date(dt).toLocaleString('es-GT', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 
-function avatarUrl(perfil: UserProfile["perfil"] | null | undefined, name: string): string {
-  if (perfil?.foto_perfil) {
-    return perfil.foto_perfil.startsWith("http")
-      ? perfil.foto_perfil
-      : `${UPLOADS_BASE_URL}${perfil.foto_perfil}`;
-  }
-  const initials = encodeURIComponent(name?.substring(0, 2)?.toUpperCase() || "TC");
-  return `https://ui-avatars.com/api/?name=${initials}&background=3b82f6&color=fff&size=128`;
+function buildAvatarUrl(foto: string | null | undefined): string | null {
+  if (!foto) return null;
+  return foto.startsWith('http') ? foto : `${UPLOADS_BASE_URL}${foto}`;
 }
 
-export default function ProfilePage() {
-  const { user, token } = useAuth();
-  const toast = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase() || 'TC';
+}
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ telefono: "", direccion: "" });
-  const [previewImg, setPreviewImg] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+// ─── Role badge config ────────────────────────────────────────────────────────
 
-  const showCost = canViewCosts(user?.roles);
-  const userIsAdmin = isAdmin(user?.roles);
+const ROLE_COLORS: Record<string, string> = {
+  ADMINISTRADOR:
+    'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-700/40',
+  TECNICO:
+    'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700/40',
+  VENTAS:
+    'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/40',
+};
+const rolColor = (r: string) =>
+  ROLE_COLORS[r] ??
+  'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/40';
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+// ─── Design tokens ────────────────────────────────────────────────────────────
 
-  async function loadProfile() {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.data.success) {
-        setProfile(res.data.data);
-        setForm({
-          telefono: res.data.data.perfil?.telefono || "",
-          direccion: res.data.data.perfil?.direccion || "",
-        });
-      }
-    } catch {
-      toast.add("Error al cargar perfil", "error");
-    } finally {
-      setLoading(false);
-    }
+const inputCls =
+  'w-full rounded-xl px-3 py-2.5 text-sm border outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-colors';
+const inputStyle = {
+  background: 'var(--color-input-bg)',
+  borderColor: 'var(--color-border)',
+  color: 'var(--color-text)',
+};
+const cardStyle = {
+  background: 'var(--color-surface)',
+  borderColor: 'var(--color-border)',
+};
+
+// ─── Avatar component ─────────────────────────────────────────────────────────
+
+function AvatarImage({
+  src, name, className,
+}: {
+  src: string | null;
+  name: string;
+  className?: string;
+}) {
+  const [err, setErr] = useState(false);
+  if (src && !err) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={className}
+        onError={() => setErr(true)}
+      />
+    );
   }
+  return (
+    <div
+      className={`${className} bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-bold`}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+// ─── Edit modal ───────────────────────────────────────────────────────────────
+
+interface EditForm {
+  nombres: string;
+  apellidos: string;
+  telefono: string;
+  direccion: string;
+  foto: File | null;
+  fotoPreview: string | null;
+}
+
+function ModalEditar({
+  profile,
+  token,
+  onClose,
+  onSaved,
+}: {
+  profile: UserProfile;
+  token: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState<EditForm>({
+    nombres: profile.perfil?.nombres ?? '',
+    apellidos: profile.perfil?.apellidos ?? '',
+    telefono: profile.perfil?.telefono ?? '',
+    direccion: profile.perfil?.direccion ?? '',
+    foto: null,
+    fotoPreview: buildAvatarUrl(profile.perfil?.foto_perfil),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const displayName =
+    form.nombres.trim() || profile.name || profile.username;
+
+  const set = (k: keyof EditForm, v: unknown) =>
+    setForm(f => ({ ...f, [k]: v }));
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedFile(file);
-    setPreviewImg(URL.createObjectURL(file));
-  }
+    set('foto', file);
+    set('fotoPreview', URL.createObjectURL(file));
+  };
 
-  async function handleSave() {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
     try {
-      setSaving(true);
       const fd = new FormData();
-      fd.append("telefono", form.telefono);
-      fd.append("direccion", form.direccion);
-      if (selectedFile) fd.append("foto_perfil", selectedFile);
+      fd.append('nombres', form.nombres);
+      fd.append('apellidos', form.apellidos);
+      fd.append('telefono', form.telefono);
+      fd.append('direccion', form.direccion);
+      if (form.foto) fd.append('foto_perfil', form.foto);
 
       await axios.put(`${API_URL}/auth/me/perfil`, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      toast.add("Perfil actualizado exitosamente", "success");
-      await loadProfile();
-      setEditing(false);
-      setPreviewImg(null);
-      setSelectedFile(null);
+      onSaved();
     } catch {
-      toast.add("Error al actualizar perfil", "error");
+      setError('Error al actualizar el perfil. Intenta nuevamente.');
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-48 bg-slate-100 rounded-2xl" />
-          <div className="h-32 bg-slate-100 rounded-2xl" />
-          <div className="h-32 bg-slate-100 rounded-2xl" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) return null;
-
-  const displayName = profile.perfil?.nombres
-    ? `${profile.perfil.nombres} ${profile.perfil.apellidos || ""}`.trim()
-    : profile.name || profile.username;
-
-  const avatar = previewImg || avatarUrl(profile.perfil, displayName);
+  const labelCls = 'block text-xs font-semibold text-[var(--color-text-sec)] mb-1.5';
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* ── Header Card ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="h-28 bg-gradient-to-r from-blue-600 to-indigo-700" />
-        <div className="px-6 pb-6 -mt-12 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-          <div className="relative group">
-            <img
-              src={avatar}
-              alt={displayName}
-              className="w-24 h-24 rounded-2xl border-4 border-white shadow-lg object-cover bg-blue-100"
-              onError={(e) => { e.currentTarget.src = avatarUrl(null, displayName); }}
-            />
-            {editing && (
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Camera size={22} className="text-white" />
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)', padding: '16px' }}
+    >
+      <div
+        className="flex flex-col rounded-3xl border shadow-2xl overflow-hidden"
+        style={{
+          ...cardStyle,
+          width: 'calc(100vw - 32px)',
+          maxWidth: 760,
+          maxHeight: 'calc(100vh - 32px)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-4 shrink-0 border-b"
+          style={{ background: 'var(--color-surface-soft)', borderColor: 'var(--color-border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl" style={{ background: 'rgba(72,185,230,0.14)' }}>
+              <Edit2 size={16} className="text-[var(--color-primary)]" />
+            </div>
+            <h2 className="text-base font-bold text-[var(--color-text)]">Editar perfil</h2>
           </div>
-          <div className="flex-1 min-w-0 pt-3 sm:pt-0">
-            <h1 className="text-xl font-bold text-slate-900 truncate">{displayName}</h1>
-            <p className="text-sm text-slate-500">@{profile.username}</p>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {profile.roles.map(r => (
-                <span key={r} className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[r] || "bg-slate-100 text-slate-600"}`}>
-                  {r}
-                </span>
-              ))}
-              {profile.roles.length === 0 && (
-                <span className="text-[11px] text-slate-400">Sin roles asignados</span>
-              )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-row-hover)] transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form
+          id="edit-profile-form"
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-6 space-y-5"
+        >
+          {/* Photo */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-2">
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+              Foto de perfil
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+            </p>
+            <div className="flex items-center gap-5">
+              <div className="relative group shrink-0">
+                <AvatarImage
+                  src={form.fotoPreview}
+                  name={displayName}
+                  className="w-20 h-20 rounded-2xl object-cover ring-2 ring-[var(--color-border)] text-2xl"
+                />
+                <label
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Camera size={20} className="text-white" />
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFile}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text)]">Foto de perfil</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">JPG, PNG. Max 5MB</p>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="mt-2 text-xs font-semibold text-[var(--color-primary)] hover:underline cursor-pointer"
+                >
+                  Cambiar foto
+                </button>
+              </div>
             </div>
           </div>
-          <div className="flex gap-2 shrink-0">
-            {!editing ? (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-xl transition-colors"
-              >
-                <Edit2 size={14} /> Editar
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => { setEditing(false); setPreviewImg(null); setSelectedFile(null); }}
-                  className="flex items-center gap-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors"
-                >
-                  <X size={14} /> Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-xl transition-colors"
-                >
-                  <Save size={14} /> {saving ? "Guardando..." : "Guardar"}
-                </button>
-              </>
-            )}
+
+          {/* Personal data */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-2">
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+              Datos personales
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Nombres</label>
+                <input
+                  value={form.nombres}
+                  onChange={e => set('nombres', e.target.value)}
+                  placeholder="Ej: Juan Carlos"
+                  className={inputCls}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Apellidos</label>
+                <input
+                  value={form.apellidos}
+                  onChange={e => set('apellidos', e.target.value)}
+                  placeholder="Ej: Perez Lopez"
+                  className={inputCls}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Telefono</label>
+                <input
+                  value={form.telefono}
+                  onChange={e => set('telefono', e.target.value)}
+                  placeholder="Ej: 5555-1234"
+                  className={inputCls}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Email</label>
+                <input
+                  value={profile.email}
+                  disabled
+                  className={inputCls + ' opacity-50 cursor-not-allowed'}
+                  style={inputStyle}
+                  title="El email se gestiona desde Administracion de Usuarios"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Direccion</label>
+                <input
+                  value={form.direccion}
+                  onChange={e => set('direccion', e.target.value)}
+                  placeholder="Ej: Zona 10, Ciudad de Guatemala"
+                  className={inputCls}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Info personal ────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
-        <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-          <User size={15} className="text-blue-500" /> Información personal
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoRow icon={<Mail size={14} />} label="Correo electrónico" value={profile.email} />
-          <InfoRow
-            icon={<Phone size={14} />}
-            label="Teléfono"
-            value={
-              editing
-                ? <input
-                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={form.telefono}
-                    onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
-                    placeholder="Sin número"
-                  />
-                : profile.perfil?.telefono || "—"
-            }
-          />
-          <InfoRow
-            icon={<MapPin size={14} />}
-            label="Dirección"
-            value={
-              editing
-                ? <input
-                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={form.direccion}
-                    onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))}
-                    placeholder="Sin dirección"
-                  />
-                : profile.perfil?.direccion || "—"
-            }
-          />
-          {profile.perfil?.dpi && (
-            <InfoRow icon={<Shield size={14} />} label="DPI" value={profile.perfil.dpi} />
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl">
+              <AlertTriangle size={15} className="shrink-0" /> {error}
+            </div>
           )}
-        </div>
-      </div>
+        </form>
 
-      {/* ── Acceso al sistema ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
-        <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-          <Shield size={15} className="text-blue-500" /> Acceso al sistema
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoRow icon={<User size={14} />} label="Usuario" value={profile.username} />
-          <InfoRow
-            icon={<CheckCircle size={14} />}
-            label="Estado"
-            value={
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${profile.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                {profile.active ? "Activo" : "Inactivo"}
-              </span>
-            }
-          />
-          <InfoRow
-            icon={<Clock size={14} />}
-            label="Último acceso"
-            value={formatDate(profile.ultimo_login)}
-          />
-          <InfoRow
-            icon={<Calendar size={14} />}
-            label="Cuenta creada"
-            value={formatDate(profile.created_at)}
-          />
-        </div>
-      </div>
-
-      {/* ── Roles y permisos ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
-        <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-          <Shield size={15} className="text-blue-500" /> Roles y permisos
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {profile.roles.length > 0
-            ? profile.roles.map(r => (
-                <span key={r} className={`text-xs font-semibold px-3 py-1 rounded-full ${ROLE_COLORS[r] || "bg-slate-100 text-slate-600"}`}>
-                  {r}
-                </span>
-              ))
-            : <span className="text-sm text-slate-400">Sin roles asignados</span>
-          }
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <PermissionRow label="Acceso de administrador" granted={userIsAdmin} />
-          <PermissionRow label="Ver datos de costos" granted={showCost} />
-          <PermissionRow label="Gestión de compras" granted={userIsAdmin} />
-          <PermissionRow label="Gestión de proveedores" granted={userIsAdmin} />
-          <PermissionRow label="Stickers de garantía" granted={userIsAdmin} />
-          <PermissionRow label="Admin de usuarios" granted={userIsAdmin} />
+        {/* Footer */}
+        <div
+          className="flex gap-3 justify-end px-6 py-4 border-t shrink-0"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-soft)' }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold border text-[var(--color-text-sec)] hover:bg-[var(--color-row-hover)] transition-colors cursor-pointer"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="edit-profile-form"
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white transition-colors disabled:opacity-60 shadow-sm cursor-pointer"
+          >
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            Guardar cambios
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <div className="mt-0.5 text-slate-400 shrink-0">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{label}</p>
-        <div className="text-sm text-slate-700 font-medium mt-0.5 break-words">{value}</div>
+    <div className="flex items-center gap-2 mb-4">
+      <span className="text-[var(--color-primary)]">{icon}</span>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 text-[var(--color-text-muted)] shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+          {label}
+        </p>
+        <div className="text-sm font-medium text-[var(--color-text)] mt-0.5 break-words">{value}</div>
       </div>
     </div>
   );
@@ -322,11 +399,279 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 function PermissionRow({ label, granted }: { label: string; granted: boolean }) {
   return (
-    <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
-      <span className="text-xs text-slate-600">{label}</span>
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${granted ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
-        {granted ? "Sí" : "No"}
+    <div
+      className="flex items-center justify-between rounded-xl px-3 py-2.5"
+      style={{ background: 'var(--color-surface-soft)', border: '1px solid var(--color-border)' }}
+    >
+      <span className="text-xs text-[var(--color-text-sec)]">{label}</span>
+      <span
+        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          granted
+            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+            : 'bg-slate-100 dark:bg-slate-800/50 text-[var(--color-text-muted)]'
+        }`}
+      >
+        {granted ? 'Si' : 'No'}
       </span>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ProfilePage() {
+  const { user, token } = useAuth();
+  const toast = useToast();
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const showCost   = canViewCosts(user?.roles);
+  const userIsAdmin = isAdmin(user?.roles);
+
+  async function loadProfile() {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.success) setProfile(res.data.data);
+    } catch {
+      toast.add('Error al cargar perfil', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadProfile(); }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div
+          className="h-52 rounded-3xl animate-pulse"
+          style={{ background: 'var(--color-surface)' }}
+        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => (
+            <div
+              key={i}
+              className="h-40 rounded-2xl animate-pulse"
+              style={{ background: 'var(--color-surface)' }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) return null;
+
+  const displayName =
+    profile.perfil?.nombres
+      ? `${profile.perfil.nombres} ${profile.perfil.apellidos ?? ''}`.trim()
+      : profile.name || profile.username;
+
+  const avatarSrc = buildAvatarUrl(profile.perfil?.foto_perfil);
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Profile hero ──────────────────────────────────────────────────── */}
+      <div
+        className="rounded-3xl border overflow-hidden"
+        style={cardStyle}
+      >
+        {/* Gradient banner */}
+        <div className="h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative">
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                'radial-gradient(ellipse at 30% 50%, rgba(255,255,255,0.15) 0%, transparent 60%)',
+            }}
+          />
+        </div>
+
+        {/* Avatar + info + edit button */}
+        <div className="px-6 pb-6 -mt-14 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+          <div className="relative shrink-0">
+            <AvatarImage
+              src={avatarSrc}
+              name={displayName}
+              className="w-28 h-28 rounded-2xl object-cover ring-4 text-3xl shadow-xl"
+              style={{ ringColor: 'var(--color-surface)' } as React.CSSProperties}
+            />
+          </div>
+
+          <div className="flex-1 min-w-0 sm:pb-1">
+            <h1 className="text-xl font-extrabold text-[var(--color-text)] truncate leading-tight">
+              {displayName}
+            </h1>
+            <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
+              @{profile.username}
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {profile.roles.length > 0 ? (
+                profile.roles.map(r => (
+                  <span key={r} className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${rolColor(r)}`}>
+                    {r}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-[var(--color-text-muted)]">Sin roles asignados</span>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 self-end sm:self-auto">
+            <button
+              onClick={() => setEditOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white transition-colors shadow-sm cursor-pointer"
+            >
+              <Edit2 size={15} /> Editar perfil
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2-column grid ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Left column */}
+        <div className="space-y-6 lg:col-span-1">
+
+          {/* Informacion personal */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<User size={14} />} label="Informacion personal" />
+            <div className="space-y-4">
+              <InfoRow
+                icon={<Mail size={14} />}
+                label="Correo electronico"
+                value={profile.email || 'No registrado'}
+              />
+              <InfoRow
+                icon={<Phone size={14} />}
+                label="Telefono"
+                value={profile.perfil?.telefono || 'No registrado'}
+              />
+              <InfoRow
+                icon={<MapPin size={14} />}
+                label="Direccion"
+                value={profile.perfil?.direccion || 'No registrado'}
+              />
+              {profile.perfil?.dpi && (
+                <InfoRow icon={<Shield size={14} />} label="DPI" value={profile.perfil.dpi} />
+              )}
+            </div>
+          </div>
+
+          {/* Roles */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<Tag size={14} />} label="Roles asignados" />
+            <div className="flex flex-wrap gap-2">
+              {profile.roles.length > 0 ? (
+                profile.roles.map(r => (
+                  <span key={r} className={`text-xs font-semibold px-3 py-1.5 rounded-full ${rolColor(r)}`}>
+                    {r}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-[var(--color-text-muted)]">Sin roles asignados</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6 lg:col-span-2">
+
+          {/* Acceso al sistema */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<Key size={14} />} label="Acceso al sistema" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <InfoRow icon={<User size={14} />} label="Nombre de usuario" value={profile.username} />
+              <InfoRow
+                icon={<CheckCircle size={14} />}
+                label="Estado de cuenta"
+                value={
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                      profile.active
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-slate-800/50 text-[var(--color-text-muted)]'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${profile.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    {profile.active ? 'Activo' : 'Inactivo'}
+                  </span>
+                }
+              />
+              <InfoRow
+                icon={<Clock size={14} />}
+                label="Ultimo acceso"
+                value={formatDate(profile.ultimo_login)}
+              />
+              <InfoRow
+                icon={<Calendar size={14} />}
+                label="Cuenta creada"
+                value={formatDate(profile.created_at)}
+              />
+            </div>
+          </div>
+
+          {/* Permisos */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<Shield size={14} />} label="Permisos del sistema" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <PermissionRow label="Acceso de administrador"  granted={userIsAdmin} />
+              <PermissionRow label="Ver datos de costos"      granted={showCost} />
+              <PermissionRow label="Gestion de compras"       granted={userIsAdmin} />
+              <PermissionRow label="Gestion de proveedores"   granted={userIsAdmin} />
+              <PermissionRow label="Stickers de garantia"     granted={userIsAdmin} />
+              <PermissionRow label="Admin de usuarios"        granted={userIsAdmin} />
+            </div>
+          </div>
+
+          {/* Account summary */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<Calendar size={14} />} label="Resumen de cuenta" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Roles activos', value: String(profile.roles.length), color: 'text-blue-500 dark:text-blue-400' },
+                { label: 'Estado', value: profile.active ? 'Activo' : 'Inactivo', color: profile.active ? 'text-emerald-500 dark:text-emerald-400' : 'text-[var(--color-text-muted)]' },
+                { label: 'Ultimo login', value: profile.ultimo_login ? new Date(profile.ultimo_login).toLocaleDateString('es-GT') : 'Nunca', color: 'text-[var(--color-text-sec)]' },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  className="rounded-xl p-3 text-center border"
+                  style={{ background: 'var(--color-surface-soft)', borderColor: 'var(--color-border)' }}
+                >
+                  <p className={`text-lg font-extrabold ${item.color}`}>{item.value}</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mt-0.5">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit modal */}
+      {editOpen && (
+        <ModalEditar
+          profile={profile}
+          token={token ?? ''}
+          onClose={() => setEditOpen(false)}
+          onSaved={async () => {
+            setEditOpen(false);
+            toast.add('Perfil actualizado exitosamente', 'success');
+            await loadProfile();
+          }}
+        />
+      )}
     </div>
   );
 }
