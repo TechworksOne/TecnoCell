@@ -1,4 +1,111 @@
 const db = require('../config/database');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const UPLOADS_BASE = path.join(__dirname, '..', 'uploads');
+const REPUESTOS_UPLOAD_DIR = path.join(UPLOADS_BASE, 'repuestos');
+
+if (!fs.existsSync(REPUESTOS_UPLOAD_DIR)) {
+  fs.mkdirSync(REPUESTOS_UPLOAD_DIR, { recursive: true });
+}
+
+const storageRepuestos = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, REPUESTOS_UPLOAD_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExt = ['.jpg', '.jpeg', '.png', '.webp'];
+    const safeExt = allowedExt.includes(ext) ? ext : '.jpg';
+
+    const baseName = path
+      .basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9-_]/g, '_')
+      .substring(0, 40);
+
+    const filename = `repuesto_${Date.now()}_${Math.round(Math.random() * 1e9)}_${baseName}${safeExt}`;
+
+    cb(null, filename);
+  },
+});
+
+const fileFilterRepuestos = (_req, file, cb) => {
+  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    return cb(new Error('Solo se permiten imágenes JPG, PNG o WEBP'), false);
+  }
+
+  cb(null, true);
+};
+
+const uploadRepuestos = multer({
+  storage: storageRepuestos,
+  fileFilter: fileFilterRepuestos,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 10,
+  },
+});
+
+exports.uploadRepuestos = uploadRepuestos.array('imagenes', 10);
+
+function safeJsonArray(value) {
+  if (!value) return [];
+
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function safeJsonStringArray(value) {
+  return JSON.stringify(safeJsonArray(value));
+}
+
+function parseBoolean(value, defaultValue = true) {
+  if (value === undefined || value === null || value === '') return defaultValue;
+
+  if (typeof value === 'boolean') return value;
+
+  if (typeof value === 'number') return value === 1;
+
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase().trim();
+    if (normalized === 'true' || normalized === '1' || normalized === 'si' || normalized === 'sí') return true;
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  }
+
+  return defaultValue;
+}
+
+function toNumber(value, defaultValue = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : defaultValue;
+}
+
+function obtenerImagenesRepuesto(req) {
+  const imagenesExistentes = safeJsonArray(req.body.imagenes);
+
+  const imagenesSubidas = (req.files || []).map((file) => {
+    return `/uploads/repuestos/${file.filename}`;
+  });
+
+  return [...imagenesExistentes, ...imagenesSubidas];
+}
 
 /**
  * Crear un nuevo repuesto
@@ -6,42 +113,55 @@ const db = require('../config/database');
  */
 exports.createRepuesto = async (req, res) => {
   const connection = await db.getConnection();
-  
+
   try {
     await connection.beginTransaction();
-    
+
     const {
-      codigo, nombre, tipo, marca, linea, modelo, compatibilidad, condicion,
-      color, notas, precio_publico, precio_costo, proveedor,
-      stock, stock_minimo, imagenes, tags, activo
+      codigo,
+      nombre,
+      tipo,
+      marca,
+      linea,
+      modelo,
+      compatibilidad,
+      condicion,
+      color,
+      notas,
+      precio_publico,
+      precio_costo,
+      proveedor,
+      stock,
+      stock_minimo,
+      tags,
+      activo,
     } = req.body;
 
-    // Validaciones básicas
     if (!nombre || !tipo || !marca) {
       await connection.rollback();
-      return res.status(400).json({ 
-        error: 'Nombre, tipo y marca son requeridos' 
+
+      return res.status(400).json({
+        error: 'Nombre, tipo y marca son requeridos',
       });
     }
 
-    // Generar SKU automático SIEMPRE (no permitir manual)
-    // Formato: TIPO_MARCA_MODELO_TIMESTAMP
-    // Ejemplo: PAN_APPL_IP12_123456 (Pantalla Apple iPhone 12)
-    
-    const tipoAbrev = tipo.substring(0, 3).toUpperCase(); // PAN, BAT, CAM, etc.
-    const marcaAbrev = marca.substring(0, 4).toUpperCase(); // APPL, SAMS, XIAO, etc.
-    const modeloAbrev = modelo ? modelo.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') : 'GEN';
+    const tipoAbrev = String(tipo).substring(0, 3).toUpperCase();
+    const marcaAbrev = String(marca).substring(0, 4).toUpperCase();
+    const modeloAbrev = modelo
+      ? String(modelo).substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '')
+      : 'GEN';
+
     const timestamp = Date.now().toString().slice(-6);
-    
+
     const skuFinal = `${tipoAbrev}_${marcaAbrev}_${modeloAbrev}_${timestamp}`;
     const skuGenerado = true;
-    
+
     console.log('✅ SKU de repuesto generado automáticamente:', skuFinal);
 
-    // Convertir arrays a JSON strings para MySQL
-    const compatibilidadJSON = compatibilidad ? JSON.stringify(compatibilidad) : null;
-    const imagenesJSON = imagenes ? JSON.stringify(imagenes) : '[]';
-    const tagsJSON = tags ? JSON.stringify(tags) : '[]';
+    const compatibilidadJSON = safeJsonStringArray(compatibilidad);
+    const imagenesFinales = obtenerImagenesRepuesto(req);
+    const imagenesJSON = JSON.stringify(imagenesFinales);
+    const tagsJSON = safeJsonStringArray(tags);
 
     const query = `
       INSERT INTO repuestos (
@@ -52,13 +172,28 @@ exports.createRepuesto = async (req, res) => {
     `;
 
     const [result] = await connection.query(query, [
-      skuFinal, codigo || null, nombre, tipo, marca, linea || null, modelo || null, 
-      compatibilidadJSON, condicion, color || null, notas || null, 
-      precio_publico || 0, precio_costo || 0, proveedor || null,
-      stock || 0, stock_minimo || 1, imagenesJSON, tagsJSON, activo !== false, skuGenerado
+      skuFinal,
+      codigo || null,
+      nombre,
+      tipo,
+      marca,
+      linea || null,
+      modelo || null,
+      compatibilidadJSON,
+      condicion || 'Original',
+      color || null,
+      notas || null,
+      toNumber(precio_publico, 0),
+      toNumber(precio_costo, 0),
+      proveedor || null,
+      toNumber(stock, 0),
+      toNumber(stock_minimo, 1),
+      imagenesJSON,
+      tagsJSON,
+      parseBoolean(activo, true) ? 1 : 0,
+      skuGenerado,
     ]);
 
-    // Obtener el repuesto recién creado
     const [newRepuesto] = await connection.query(
       'SELECT * FROM repuestos WHERE id = ?',
       [result.insertId]
@@ -66,16 +201,17 @@ exports.createRepuesto = async (req, res) => {
 
     await connection.commit();
 
-    // Parsear JSON fields
     const repuesto = parseRepuestoJSON(newRepuesto[0]);
 
     res.status(201).json(repuesto);
   } catch (error) {
     await connection.rollback();
+
     console.error('Error al crear repuesto:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al crear el repuesto',
-      details: error.message 
+      details: error.message,
     });
   } finally {
     connection.release();
@@ -85,20 +221,25 @@ exports.createRepuesto = async (req, res) => {
 /**
  * Obtener todos los repuestos con filtros opcionales
  * GET /api/repuestos
- * Query params: tipo, marca, linea, activo, soloConStock, precioMin, precioMax, searchTerm, page, limit
  */
 exports.getAllRepuestos = async (req, res) => {
   try {
     const {
-      tipo, marca, linea, activo, soloConStock,
-      precioMin, precioMax, searchTerm,
-      page = 1, limit = 100
+      tipo,
+      marca,
+      linea,
+      activo,
+      soloConStock,
+      precioMin,
+      precioMax,
+      searchTerm,
+      page = 1,
+      limit = 100,
     } = req.query;
 
     let query = 'SELECT * FROM repuestos WHERE 1=1';
     const params = [];
 
-    // Filtros
     if (tipo) {
       query += ' AND tipo = ?';
       params.push(tipo);
@@ -139,29 +280,33 @@ exports.getAllRepuestos = async (req, res) => {
       params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
     }
 
-    // Ordenamiento y paginación
     query += ' ORDER BY created_at DESC';
-    
+
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
     const [repuestos] = await db.query(query, params);
 
-    // Parsear JSON fields para cada repuesto
     const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
-    const repuestosParsed = repuestos.map(r => {
+
+    const repuestosParsed = repuestos.map((r) => {
       const parsed = parseRepuestoJSON(r);
-      if (!isAdmin) delete parsed.precio_costo;
+
+      if (!isAdmin) {
+        delete parsed.precio_costo;
+      }
+
       return parsed;
     });
 
     res.json(repuestosParsed);
   } catch (error) {
     console.error('Error al obtener repuestos:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al obtener repuestos',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -184,14 +329,20 @@ exports.getRepuestoById = async (req, res) => {
     }
 
     const repuesto = parseRepuestoJSON(repuestos[0]);
+
     const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
-    if (!isAdmin) delete repuesto.precio_costo;
+
+    if (!isAdmin) {
+      delete repuesto.precio_costo;
+    }
+
     res.json(repuesto);
   } catch (error) {
     console.error('Error al obtener repuesto:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al obtener el repuesto',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -201,114 +352,151 @@ exports.getRepuestoById = async (req, res) => {
  * PUT /api/repuestos/:id
  */
 exports.updateRepuesto = async (req, res) => {
+  const connection = await db.getConnection();
+
   try {
+    await connection.beginTransaction();
+
     const { id } = req.params;
     const updateData = req.body;
 
     console.log('=== UPDATE REPUESTO ===');
     console.log('ID:', id);
     console.log('Body recibido:', JSON.stringify(updateData, null, 2));
+    console.log('Archivos recibidos:', req.files?.length || 0);
 
-    // Verificar que existe
-    const [existing] = await db.query('SELECT * FROM repuestos WHERE id = ?', [id]);
+    const [existing] = await connection.query(
+      'SELECT * FROM repuestos WHERE id = ?',
+      [id]
+    );
+
     if (existing.length === 0) {
-      return res.status(404).json({ error: 'Repuesto no encontrado' });
+      await connection.rollback();
+
+      return res.status(404).json({
+        error: 'Repuesto no encontrado',
+      });
     }
 
     console.log('Repuesto existente encontrado:', existing[0].nombre);
 
-    // Construir query dinámicamente solo con los campos que vienen en el body
     const updates = [];
     const values = [];
 
-    // Solo actualizar campos que están presentes en el body
     if (updateData.nombre !== undefined) {
       updates.push('nombre = ?');
       values.push(updateData.nombre);
     }
+
     if (updateData.tipo !== undefined) {
       updates.push('tipo = ?');
       values.push(updateData.tipo);
     }
+
     if (updateData.marca !== undefined) {
       updates.push('marca = ?');
       values.push(updateData.marca);
     }
+
     if (updateData.linea !== undefined) {
       updates.push('linea = ?');
       values.push(updateData.linea || null);
     }
+
     if (updateData.modelo !== undefined) {
       updates.push('modelo = ?');
       values.push(updateData.modelo || null);
     }
+
     if (updateData.compatibilidad !== undefined) {
       updates.push('compatibilidad = ?');
-      values.push(JSON.stringify(updateData.compatibilidad));
+      values.push(safeJsonStringArray(updateData.compatibilidad));
     }
+
     if (updateData.condicion !== undefined) {
       updates.push('condicion = ?');
-      values.push(updateData.condicion);
+      values.push(updateData.condicion || 'Original');
     }
+
     if (updateData.color !== undefined) {
       updates.push('color = ?');
       values.push(updateData.color || null);
     }
+
     if (updateData.notas !== undefined) {
       updates.push('notas = ?');
       values.push(updateData.notas || null);
     }
+
     if (updateData.precio_publico !== undefined) {
       updates.push('precio_publico = ?');
-      values.push(updateData.precio_publico);
+      values.push(toNumber(updateData.precio_publico, 0));
     }
+
     if (updateData.precio_costo !== undefined) {
       updates.push('precio_costo = ?');
-      values.push(updateData.precio_costo);
+      values.push(toNumber(updateData.precio_costo, 0));
     }
+
     if (updateData.proveedor !== undefined) {
       updates.push('proveedor = ?');
       values.push(updateData.proveedor || null);
     }
+
     if (updateData.stock !== undefined) {
       updates.push('stock = ?');
-      values.push(updateData.stock);
+      values.push(toNumber(updateData.stock, 0));
     }
+
     if (updateData.stock_minimo !== undefined) {
       updates.push('stock_minimo = ?');
-      values.push(updateData.stock_minimo);
+      values.push(toNumber(updateData.stock_minimo, 1));
     }
-    if (updateData.imagenes !== undefined) {
+
+    const hayImagenesEnBody = updateData.imagenes !== undefined;
+    const hayArchivos = Array.isArray(req.files) && req.files.length > 0;
+
+    if (hayImagenesEnBody || hayArchivos) {
+      const imagenesFinales = obtenerImagenesRepuesto(req);
+
       updates.push('imagenes = ?');
-      values.push(JSON.stringify(updateData.imagenes));
+      values.push(JSON.stringify(imagenesFinales));
     }
+
     if (updateData.tags !== undefined) {
       updates.push('tags = ?');
-      values.push(JSON.stringify(updateData.tags));
+      values.push(safeJsonStringArray(updateData.tags));
     }
+
     if (updateData.activo !== undefined) {
       updates.push('activo = ?');
-      values.push(updateData.activo ? 1 : 0);
+      values.push(parseBoolean(updateData.activo, true) ? 1 : 0);
     }
 
-    // Si no hay campos para actualizar, devolver error
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No hay campos para actualizar' });
+      await connection.rollback();
+
+      return res.status(400).json({
+        error: 'No hay campos para actualizar',
+      });
     }
 
-    // Agregar el ID al final
     values.push(id);
 
     const query = `UPDATE repuestos SET ${updates.join(', ')} WHERE id = ?`;
 
     console.log('Query a ejecutar:', query);
-    console.log('Valores:', values);
     console.log('Número de campos a actualizar:', updates.length);
 
-    await db.query(query, values);
+    await connection.query(query, values);
 
-    // Obtener repuesto actualizado
-    const [updated] = await db.query('SELECT * FROM repuestos WHERE id = ?', [id]);
+    const [updated] = await connection.query(
+      'SELECT * FROM repuestos WHERE id = ?',
+      [id]
+    );
+
+    await connection.commit();
+
     const repuesto = parseRepuestoJSON(updated[0]);
 
     console.log('Repuesto actualizado exitosamente');
@@ -316,11 +504,16 @@ exports.updateRepuesto = async (req, res) => {
 
     res.json(repuesto);
   } catch (error) {
+    await connection.rollback();
+
     console.error('Error al actualizar repuesto:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al actualizar el repuesto',
-      details: error.message 
+      details: error.message,
     });
+  } finally {
+    connection.release();
   }
 };
 
@@ -332,18 +525,26 @@ exports.deleteRepuesto = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [result] = await db.query('DELETE FROM repuestos WHERE id = ?', [id]);
+    const [result] = await db.query(
+      'DELETE FROM repuestos WHERE id = ?',
+      [id]
+    );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Repuesto no encontrado' });
+      return res.status(404).json({
+        error: 'Repuesto no encontrado',
+      });
     }
 
-    res.json({ message: 'Repuesto eliminado exitosamente' });
+    res.json({
+      message: 'Repuesto eliminado exitosamente',
+    });
   } catch (error) {
     console.error('Error al eliminar repuesto:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al eliminar el repuesto',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -352,15 +553,17 @@ exports.deleteRepuesto = async (req, res) => {
  * Obtener repuestos con stock bajo
  * GET /api/repuestos/stock-bajo
  */
-exports.getStockBajo = async (req, res) => {
+exports.getStockBajo = async (_req, res) => {
   try {
     const [repuestos] = await db.query('SELECT * FROM v_repuestos_stock_bajo');
+
     res.json(repuestos);
   } catch (error) {
     console.error('Error al obtener repuestos con stock bajo:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al obtener repuestos con stock bajo',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -369,11 +572,10 @@ exports.getStockBajo = async (req, res) => {
  * Obtener estadísticas de repuestos
  * GET /api/repuestos/estadisticas
  */
-exports.getEstadisticas = async (req, res) => {
+exports.getEstadisticas = async (_req, res) => {
   try {
     const [estadisticas] = await db.query('SELECT * FROM v_estadisticas_repuestos');
-    
-    // Obtener totales generales
+
     const [totales] = await db.query(`
       SELECT 
         COUNT(*) as total_repuestos,
@@ -386,13 +588,14 @@ exports.getEstadisticas = async (req, res) => {
 
     res.json({
       por_tipo_marca: estadisticas,
-      totales: totales[0]
+      totales: totales[0],
     });
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al obtener estadísticas',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -404,14 +607,20 @@ exports.getEstadisticas = async (req, res) => {
 exports.registrarMovimiento = async (req, res) => {
   try {
     const { id } = req.params;
+
     const {
-      tipo_movimiento, cantidad, precio_unitario,
-      referencia_tipo, referencia_id, usuario_id, notas
+      tipo_movimiento,
+      cantidad,
+      precio_unitario,
+      referencia_tipo,
+      referencia_id,
+      usuario_id,
+      notas,
     } = req.body;
 
     if (!tipo_movimiento || !cantidad) {
-      return res.status(400).json({ 
-        error: 'Tipo de movimiento y cantidad son requeridos' 
+      return res.status(400).json({
+        error: 'Tipo de movimiento y cantidad son requeridos',
       });
     }
 
@@ -420,20 +629,26 @@ exports.registrarMovimiento = async (req, res) => {
     `;
 
     const [result] = await db.query(query, [
-      id, tipo_movimiento, cantidad, precio_unitario || 0,
-      referencia_tipo || 'AJUSTE_MANUAL', referencia_id || null,
-      usuario_id || null, notas || null
+      id,
+      tipo_movimiento,
+      cantidad,
+      precio_unitario || 0,
+      referencia_tipo || 'AJUSTE_MANUAL',
+      referencia_id || null,
+      usuario_id || null,
+      notas || null,
     ]);
 
-    res.json({ 
+    res.json({
       message: 'Movimiento registrado exitosamente',
-      resultado: result[0][0]
+      resultado: result[0][0],
     });
   } catch (error) {
     console.error('Error al registrar movimiento:', error);
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Error al registrar movimiento',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -443,24 +658,46 @@ exports.registrarMovimiento = async (req, res) => {
  */
 function parseRepuestoJSON(repuesto) {
   if (!repuesto) return null;
-  
+
+  let compatibilidad = [];
+  let imagenes = [];
+  let tags = [];
+
+  try {
+    compatibilidad = repuesto.compatibilidad
+      ? typeof repuesto.compatibilidad === 'string'
+        ? JSON.parse(repuesto.compatibilidad)
+        : repuesto.compatibilidad
+      : [];
+  } catch {
+    compatibilidad = [];
+  }
+
+  try {
+    imagenes = repuesto.imagenes
+      ? typeof repuesto.imagenes === 'string'
+        ? JSON.parse(repuesto.imagenes)
+        : repuesto.imagenes
+      : [];
+  } catch {
+    imagenes = [];
+  }
+
+  try {
+    tags = repuesto.tags
+      ? typeof repuesto.tags === 'string'
+        ? JSON.parse(repuesto.tags)
+        : repuesto.tags
+      : [];
+  } catch {
+    tags = [];
+  }
+
   return {
     ...repuesto,
-    compatibilidad: repuesto.compatibilidad 
-      ? (typeof repuesto.compatibilidad === 'string' 
-          ? JSON.parse(repuesto.compatibilidad) 
-          : repuesto.compatibilidad)
-      : [],
-    imagenes: repuesto.imagenes 
-      ? (typeof repuesto.imagenes === 'string' 
-          ? JSON.parse(repuesto.imagenes) 
-          : repuesto.imagenes)
-      : [],
-    tags: repuesto.tags 
-      ? (typeof repuesto.tags === 'string' 
-          ? JSON.parse(repuesto.tags) 
-          : repuesto.tags)
-      : [],
-    activo: repuesto.activo === 1 || repuesto.activo === true
+    compatibilidad,
+    imagenes,
+    tags,
+    activo: repuesto.activo === 1 || repuesto.activo === true,
   };
 }

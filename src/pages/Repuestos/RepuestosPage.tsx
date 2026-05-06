@@ -18,10 +18,17 @@ import * as marcaLineaService from '../../services/marcaLineaService';
 import type { Marca, Linea } from '../../services/marcaLineaService';
 import { useToast } from '../../components/ui/Toast';
 import { canViewCosts } from '../../lib/permissions';
+import { UPLOADS_BASE_URL } from '../../services/config';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────────────────────
 const toNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const fmtQ = (v: unknown): string => `Q ${toNum(v).toFixed(2)}`;
+
+function buildImageUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  return `${UPLOADS_BASE_URL}${path}`;
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = ['Pantalla', 'Batería', 'Cámara', 'Flex', 'Placa', 'Back Cover', 'Altavoz', 'Conector', 'Otro'];
@@ -88,7 +95,7 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
   const stockMin = toNum(repuesto.stockMinimo ?? 1);
   const lowStock = stock > 0 && stock <= stockMin;
   const noStock = stock === 0;
-  const img = repuesto.imagenes?.[0] || REPUESTO_PLACEHOLDER;
+  const img = repuesto.imagenes?.[0] ? buildImageUrl(repuesto.imagenes[0]) : REPUESTO_PLACEHOLDER;
 
   return (
     <>
@@ -818,10 +825,10 @@ export function RepuestosPage() {
             <div className="lg:w-44 shrink-0">
               {selectedRepuesto.imagenes && selectedRepuesto.imagenes.length > 0 ? (
                 <button
-                  onClick={() => { setSelectedImages(selectedRepuesto.imagenes!); setCurrentImageIndex(0); setShowImageModal(true); }}
+                  onClick={() => { setSelectedImages(selectedRepuesto.imagenes!.map(buildImageUrl)); setCurrentImageIndex(0); setShowImageModal(true); }}
                   className="w-full aspect-square rounded-2xl overflow-hidden bg-slate-100 block"
                 >
-                  <img src={selectedRepuesto.imagenes[0]} alt={selectedRepuesto.nombre} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                  <img src={buildImageUrl(selectedRepuesto.imagenes[0])} alt={selectedRepuesto.nombre} className="w-full h-full object-cover hover:scale-105 transition-transform" />
                 </button>
               ) : (
                 <div className="w-full aspect-square rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-400">
@@ -832,10 +839,10 @@ export function RepuestosPage() {
               {selectedRepuesto.imagenes && selectedRepuesto.imagenes.length > 1 && (
                 <div className="flex gap-1 mt-2 flex-wrap">
                   {selectedRepuesto.imagenes.slice(1, 5).map((img, i) => (
-                    <button key={i} onClick={() => { setSelectedImages(selectedRepuesto.imagenes!); setCurrentImageIndex(i + 1); setShowImageModal(true); }}
+                    <button key={i} onClick={() => { setSelectedImages(selectedRepuesto.imagenes!.map(buildImageUrl)); setCurrentImageIndex(i + 1); setShowImageModal(true); }}
                       className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-300 transition-colors shrink-0"
                     >
-                      <img src={img} className="w-full h-full object-cover" />
+                      <img src={buildImageUrl(img)} className="w-full h-full object-cover" />
                     </button>
                   ))}
                   {selectedRepuesto.imagenes.length > 5 && (

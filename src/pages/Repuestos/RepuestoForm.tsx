@@ -14,13 +14,30 @@ import { RepuestoFormData, MARCAS_LINEAS } from "../../types/repuesto";
 import * as repuestoService from "../../services/repuestoService";
 import * as marcaLineaService from "../../services/marcaLineaService";
 import type { Marca, Linea } from "../../services/marcaLineaService";
+import { UPLOADS_BASE_URL } from "../../services/config";
 
+// ─── Constants ─────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = [
   'Pantalla', 'Batería', 'Cámara', 'Flex', 'Placa', 'Back Cover', 'Altavoz', 'Conector', 'Otro'
 ];
 
 const CONDICIONES = ['Original', 'OEM', 'Genérico', 'Usado'];
 
+const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+// ─── Image item type ────────────────────────────────────────────────────────
+interface ImageItem {
+  url: string;      // blob: URL for new files, /uploads/... for existing
+  file: File | null; // null for existing server images
+}
+
+function resolveImgSrc(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http')) return url;
+  return `${UPLOADS_BASE_URL}${url}`;
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 export default function RepuestoForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -52,6 +69,10 @@ export default function RepuestoForm() {
     activo: true
   });
 
+  // Image state – replaces formData.imagenes for display + upload
+  const [imageItems, setImageItems] = useState<ImageItem[]>([]);
+  const blobUrlsRef = useRef<string[]>([]);
+
   const [newCompatible, setNewCompatible] = useState('');
   const [newTag, setNewTag] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +88,13 @@ export default function RepuestoForm() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   // Cargar marcas al montar el componente
   useEffect(() => {
@@ -88,7 +116,6 @@ export default function RepuestoForm() {
     const loadLineas = async () => {
       if (formData.marca) {
         try {
-          // Buscar el ID de la marca por nombre
           const marca = marcas.find(m => m.nombre === formData.marca);
           if (marca) {
             const data = await marcaLineaService.getLineasByMarca(marca.id, true);
@@ -128,6 +155,8 @@ export default function RepuestoForm() {
           tags: repuesto.tags || [],
           activo: repuesto.activo
         });
+        // Load existing images into imageItems
+        setImageItems((repuesto.imagenes || []).map(url => ({ url, file: null })));
       } else {
         toast.add('Repuesto no encontrado', 'error');
         navigate('/repuestos');
@@ -150,7 +179,6 @@ export default function RepuestoForm() {
           );
         }
       } else {
-        // Para nuevos repuestos, verificar si hay datos ingresados
         hasChanges.current = !!(
           formData.nombre.trim() !== '' ||
           formData.precio > 0 ||
@@ -160,7 +188,6 @@ export default function RepuestoForm() {
         );
       }
     };
-
     checkForChanges();
   }, [formData, isEditing, id, getRepuestoById]);
 
@@ -241,7 +268,14 @@ export default function RepuestoForm() {
     setIsLoading(true);
     
     try {
-      // Convertir precios de quetzales a centavos (enteros)
+      // Split imageItems into existing server paths and new files
+      const imagenesExistentes = imageItems
+        .filter(item => item.file === null)
+        .map(item => item.url);
+      const imagenesFiles = imageItems
+        .filter(item => item.file !== null)
+        .map(item => item.file as File);
+
       const dataToSave = {
         nombre: formData.nombre,
         tipo: formData.tipo,
@@ -255,18 +289,17 @@ export default function RepuestoForm() {
         precio_publico: repuestoService.quetzalesACentavos(formData.precio),
         precio_costo: repuestoService.quetzalesACentavos(formData.precioCosto),
         proveedor: formData.proveedor || undefined,
-        stock: isEditing ? formData.stock : 0, // Nuevos repuestos siempre con stock 0
+        stock: isEditing ? formData.stock : 0,
         stock_minimo: formData.stockMinimo || 1,
-        imagenes: formData.imagenes || [],
+        imagenes: imagenesExistentes,
+        imagenesFiles,
         tags: formData.tags || [],
         activo: formData.activo
       };
 
       if (isEditing && id) {
-        // Actualizar repuesto existente
         await repuestoService.updateRepuesto(Number(id), dataToSave);
       } else {
-        // Crear nuevo repuesto con stock inicial 0
         await repuestoService.createRepuesto(dataToSave);
       }
 
@@ -384,7 +417,55 @@ export default function RepuestoForm() {
     }));
   };
 
-  // Funciones para drag & drop de imágenes
+  // ─── Image helpers ──────────────────────────────────────────────────────
+  const addImageFiles = (files: File[]) => {
+    const valid = files.filter(f => ALLOWED_MIME.includes(f.type));
+    if (files.length > 0 && valid.length === 0) {
+      toast.add('Solo se permiten imágenes JPG, PNG o WEBP', 'error');
+      return;
+    }
+    const remaining = 10 - imageItems.length;
+    if (remaining <= 0) {
+      toast.add('Máximo 10 imágenes por repuesto', 'error');
+      return;
+    }
+    const toAdd = valid.slice(0, remaining);
+    const newItems: ImageItem[] = toAdd.map(file => {
+      const url = URL.createObjectURL(file);
+      blobUrlsRef.current.push(url);
+      return { url, file };
+    });
+    setImageItems(prev => [...prev, ...newItems]);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const item = imageItems[index];
+    if (item.url.startsWith('blob:')) {
+      URL.revokeObjectURL(item.url);
+      blobUrlsRef.current = blobUrlsRef.current.filter(u => u !== item.url);
+    }
+    setImageItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveAllImages = () => {
+    imageItems.forEach(item => {
+      if (item.url.startsWith('blob:')) {
+        URL.revokeObjectURL(item.url);
+        blobUrlsRef.current = blobUrlsRef.current.filter(u => u !== item.url);
+      }
+    });
+    setImageItems([]);
+  };
+
+  const reorderImages = (fromIndex: number, toIndex: number) => {
+    setImageItems(prev => {
+      const arr = [...prev];
+      const [removed] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, removed);
+      return arr;
+    });
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -398,41 +479,14 @@ export default function RepuestoForm() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
-    if (imageFiles.length > 0) {
-      // Simular URLs de placeholder (en producción usarías FileReader o subirías al servidor)
-      const newImages = imageFiles.map((file, index) => 
-        `/api/placeholder/400/400?img=${Date.now()}-${index}&name=${encodeURIComponent(file.name)}`
-      );
-      setFormData(prev => ({
-        ...prev,
-        imagenes: [...prev.imagenes, ...newImages]
-      }));
-    }
+    addImageFiles(Array.from(e.dataTransfer.files));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newImages = Array.from(e.target.files).map((file, index) => 
-        `/api/placeholder/400/400?img=${Date.now()}-${index}&name=${encodeURIComponent(file.name)}`
-      );
-      setFormData(prev => ({
-        ...prev,
-        imagenes: [...prev.imagenes, ...newImages]
-      }));
+      addImageFiles(Array.from(e.target.files));
     }
-  };
-
-  const reorderImages = (fromIndex: number, toIndex: number) => {
-    setFormData(prev => {
-      const newImages = [...prev.imagenes];
-      const [removed] = newImages.splice(fromIndex, 1);
-      newImages.splice(toIndex, 0, removed);
-      return { ...prev, imagenes: newImages };
-    });
+    e.target.value = ''; // allow re-selecting same file
   };
 
   return (
@@ -618,7 +672,7 @@ export default function RepuestoForm() {
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
                       marca: e.target.value as RepuestoFormData['marca'],
-                      linea: '' // Reset línea cuando cambia marca
+                      linea: ''
                     }))}
                     className="flex-1"
                     required
@@ -940,7 +994,7 @@ export default function RepuestoForm() {
               </p>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
                 multiple
                 className="hidden"
                 id="image-upload"
@@ -954,20 +1008,20 @@ export default function RepuestoForm() {
                 Seleccionar Imágenes
               </label>
               <p className="text-xs text-gray-500 mt-2">
-                PNG, JPG hasta 5MB cada una. La primera imagen será la principal.
+                JPG, PNG, WEBP hasta 5 MB cada una. Máximo 10 imágenes.
               </p>
             </div>
 
-            {/* Preview de imágenes mejorado */}
-            {formData.imagenes && formData.imagenes.length > 0 && (
+            {/* Preview de imágenes */}
+            {imageItems.length > 0 && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-medium text-gray-900">
-                    Imágenes ({formData.imagenes.length})
+                    Imágenes ({imageItems.length})
                   </h4>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, imagenes: [] }))}
+                    onClick={handleRemoveAllImages}
                     className="text-sm text-red-600 hover:text-red-700"
                   >
                     Eliminar todas
@@ -975,84 +1029,80 @@ export default function RepuestoForm() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {formData.imagenes.map((imagen, index) => (
-                    <div key={index} className="relative group">
-                      {/* Vista previa de imagen */}
-                      <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-indigo-400 transition-colors">
-                        <img
-                          src={imagen}
-                          alt={`Imagen ${index + 1} del repuesto`}
-                          className="w-full h-40 object-cover cursor-pointer transition-transform hover:scale-105"
-                          onClick={() => {
-                            // Modal para vista ampliada (opcional)
-                            window.open(imagen, '_blank');
-                          }}
-                        />
-                        
-                        {/* Overlay con controles */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                            {index > 0 && (
+                  {imageItems.map((item, index) => {
+                    const src = resolveImgSrc(item.url);
+                    const isNew = item.file !== null;
+                    return (
+                      <div key={index} className="relative group">
+                        {/* Vista previa de imagen */}
+                        <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-indigo-400 transition-colors">
+                          <img
+                            src={src}
+                            alt={`Imagen ${index + 1} del repuesto`}
+                            className="w-full h-40 object-cover cursor-pointer transition-transform hover:scale-105"
+                            onClick={() => window.open(src, '_blank')}
+                          />
+                          
+                          {/* Overlay con controles */}
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                              {index > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => reorderImages(index, index - 1)}
+                                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                                  title="Mover hacia la izquierda"
+                                >
+                                  <ArrowLeft size={16} />
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => reorderImages(index, index - 1)}
-                                className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                                title="Mover hacia la izquierda"
+                                onClick={() => handleRemoveImage(index)}
+                                className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600"
+                                title="Eliminar imagen"
                               >
-                                <ArrowLeft size={16} />
+                                <X size={16} />
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  imagenes: prev.imagenes.filter((_, i) => i !== index)
-                                }));
-                              }}
-                              className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600"
-                              title="Eliminar imagen"
-                            >
-                              <X size={16} />
-                            </button>
-                            {index < formData.imagenes.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={() => reorderImages(index, index + 1)}
-                                className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
-                                title="Mover hacia la derecha"
-                              >
-                                <ArrowLeft size={16} className="rotate-180" />
-                              </button>
-                            )}
+                              {index < imageItems.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => reorderImages(index, index + 1)}
+                                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                                  title="Mover hacia la derecha"
+                                >
+                                  <ArrowLeft size={16} className="rotate-180" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Badge de imagen principal */}
-                        {index === 0 && (
-                          <div className="absolute top-2 left-2">
-                            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                              Principal
+                          {/* Badge de imagen principal */}
+                          {index === 0 && (
+                            <div className="absolute top-2 left-2">
+                              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                                Principal
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Badge nueva/existente */}
+                          <div className="absolute top-2 right-2">
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${isNew ? 'bg-emerald-500 text-white' : 'bg-black bg-opacity-60 text-white'}`}>
+                              {isNew ? 'Nueva' : index + 1}
                             </span>
                           </div>
-                        )}
+                        </div>
 
-                        {/* Número de imagen */}
-                        <div className="absolute top-2 right-2">
-                          <span className="bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
-                            {index + 1}
-                          </span>
+                        {/* Info de la imagen */}
+                        <div className="mt-2 text-center">
+                          <p className="text-xs text-gray-500">
+                            {index === 0 ? 'Imagen principal' : isNew ? `Nueva (${item.file?.name ?? ''})` : `Imagen ${index + 1}`}
+                          </p>
                         </div>
                       </div>
-
-                      {/* Info de la imagen */}
-                      <div className="mt-2 text-center">
-                        <p className="text-xs text-gray-500">
-                          {index === 0 ? 'Imagen principal' : `Imagen ${index + 1}`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">

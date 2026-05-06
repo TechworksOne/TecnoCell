@@ -43,6 +43,7 @@ export interface RepuestoData {
   stock: number;
   stock_minimo?: number;
   imagenes?: string[];
+  imagenesFiles?: File[]; // Archivos nuevos a subir
   tags?: string[];
   activo?: boolean;
   created_at?: string;
@@ -73,6 +74,31 @@ export interface MovimientoStock {
 }
 
 // ============================================
+// HELPER FORMDATA
+// ============================================
+
+function buildRepuestoFormData(data: Record<string, unknown>): FormData {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null) continue;
+    if (key === 'imagenesFiles') {
+      for (const file of value as File[]) {
+        formData.append('imagenes', file);
+      }
+    } else if (key === 'imagenes') {
+      formData.append('imagenes', JSON.stringify(value));
+    } else if (key === 'compatibilidad' || key === 'tags') {
+      formData.append(key, JSON.stringify(value));
+    } else if (Array.isArray(value) || (typeof value === 'object' && !(value instanceof File))) {
+      formData.append(key, JSON.stringify(value));
+    } else {
+      formData.append(key, String(value));
+    }
+  }
+  return formData;
+}
+
+// ============================================
 // FUNCIONES DEL SERVICIO
 // ============================================
 
@@ -80,8 +106,18 @@ export interface MovimientoStock {
  * Crear un nuevo repuesto
  */
 export const createRepuesto = async (data: Omit<RepuestoData, 'id'>): Promise<RepuestoData> => {
-  const response = await api.post('/repuestos', data);
-  return response.data;
+  const token = localStorage.getItem('token');
+  const formData = buildRepuestoFormData(data as Record<string, unknown>);
+  const response = await fetch(`${API_BASE_URL}/repuestos`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token ?? ''}` },
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Error al crear repuesto' }));
+    throw { response: { data: err } };
+  }
+  return response.json();
 };
 
 /**
@@ -104,8 +140,18 @@ export const getRepuestoById = async (id: number): Promise<RepuestoData> => {
  * Actualizar un repuesto
  */
 export const updateRepuesto = async (id: number, data: Partial<RepuestoData>): Promise<RepuestoData> => {
-  const response = await api.put(`/repuestos/${id}`, data);
-  return response.data;
+  const token = localStorage.getItem('token');
+  const formData = buildRepuestoFormData(data as Record<string, unknown>);
+  const response = await fetch(`${API_BASE_URL}/repuestos/${id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token ?? ''}` },
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Error al actualizar repuesto' }));
+    throw { response: { data: err } };
+  }
+  return response.json();
 };
 
 /**

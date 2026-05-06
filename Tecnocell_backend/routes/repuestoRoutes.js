@@ -16,13 +16,13 @@ router.get('/estadisticas', repuestoController.getEstadisticas);
 router.get('/', repuestoController.getAllRepuestos);
 
 // POST /api/repuestos - Crear nuevo repuesto
-router.post('/', repuestoController.createRepuesto);
+router.post('/', repuestoController.uploadRepuestos, repuestoController.createRepuesto);
 
 // GET /api/repuestos/:id - Obtener repuesto por ID
 router.get('/:id', repuestoController.getRepuestoById);
 
 // PUT /api/repuestos/:id - Actualizar repuesto
-router.put('/:id', repuestoController.updateRepuesto);
+router.put('/:id', repuestoController.uploadRepuestos, repuestoController.updateRepuesto);
 
 // DELETE /api/repuestos/:id - Eliminar repuesto
 router.delete('/:id', repuestoController.deleteRepuesto);
