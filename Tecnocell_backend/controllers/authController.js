@@ -25,11 +25,6 @@ const login = async (req, res) => {
 
     const user = users[0];
 
-    // Bloquear usuarios inactivos
-    if (!user.active) {
-      return res.status(401).json({ message: 'Tu cuenta está inactiva. Contacta al administrador.' });
-    }
-
     // Verificar contraseña
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
