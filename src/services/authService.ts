@@ -12,9 +12,13 @@ export interface LoginResponse {
     username: string;
     name: string;
     email: string;
-    role: 'admin' | 'employee';
+    role: string;
     roles: string[];
-    perfil: { nombres?: string; apellidos?: string; foto_perfil?: string | null } | null;
+    perfil: {
+      nombres?: string;
+      apellidos?: string;
+      foto_perfil?: string | null;
+    } | null;
   };
 }
 
@@ -39,22 +43,53 @@ export const authService = {
         body: JSON.stringify(credentials),
       });
 
+      let data: LoginResponse | ApiError;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Respuesta inválida del servidor');
+      }
+
       if (!response.ok) {
-        const error: ApiError = await response.json();
+        const error = data as ApiError;
         throw new Error(error.message || 'Error al iniciar sesión');
       }
 
-      const data: LoginResponse = await response.json();
+      const loginData = data as LoginResponse;
 
-      // Guardar token en sessionStorage (se borra al cerrar el navegador/pestaña)
-      sessionStorage.setItem('token', data.token);
-      sessionStorage.setItem('user', JSON.stringify(data.user));
+      if (!loginData.token) {
+        throw new Error('El servidor no devolvió token de autenticación');
+      }
 
-      return data;
+      const user = loginData.user;
+
+      /**
+       * Guardar sesión en localStorage.
+       * Esto es importante porque DashboardPage y otros módulos leen:
+       * localStorage.getItem('token')
+       */
+      localStorage.setItem('token', loginData.token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('userName', user?.name || user?.username || user?.email || 'Usuario');
+      localStorage.setItem('role', user?.role || '');
+
+      /**
+       * Limpiar sessionStorage viejo para evitar conflictos.
+       */
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('userName');
+      sessionStorage.removeItem('role');
+
+      window.dispatchEvent(new Event('auth-change'));
+
+      return loginData;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
       }
+
       throw new Error('Error de conexión con el servidor');
     }
   },
@@ -63,23 +98,34 @@ export const authService = {
    * Cerrar sesión
    */
   logout(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('role');
+
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userName');
+    sessionStorage.removeItem('role');
+
+    window.dispatchEvent(new Event('auth-change'));
   },
 
   /**
    * Obtener token almacenado
    */
   getToken(): string | null {
-    return sessionStorage.getItem('token');
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
   },
 
   /**
    * Obtener usuario almacenado
    */
   getUser(): LoginResponse['user'] | null {
-    const userStr = sessionStorage.getItem('user');
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+
     if (!userStr) return null;
+
     try {
       return JSON.parse(userStr);
     } catch {
