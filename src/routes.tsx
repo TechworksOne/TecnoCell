@@ -21,7 +21,6 @@ import RepairFormSimple from "./pages/Repairs/RepairFormSimple";
 import FlujoReparacionesPage from "./pages/FlujoReparaciones/FlujoReparacionesPage";
 import FlujoReparacionDetailPage from "./pages/FlujoReparaciones/FlujoReparacionDetailPage";
 import { RepuestosPage } from "./pages/Repuestos/RepuestosPage";
-import RepuestoForm from "./pages/Repuestos/RepuestoForm";
 import StickersGarantiaPage from "./pages/StickersGarantia/StickersGarantiaPage";
 import AdminUsuariosPage from "./pages/AdminUsuarios/AdminUsuariosPage";
 import CajaBancosPage from "./pages/CajaBancos/CajaBancosPage";
@@ -36,8 +35,6 @@ const routes = [
   { path: "/dashboard", element: <DashboardPage /> },
   { path: "/productos", element: <ProductsPage /> },
   { path: "/repuestos", element: <RepuestosPage /> },
-  { path: "/repuestos/nuevo", element: <RepuestoForm /> },
-  { path: "/repuestos/editar/:id", element: <RepuestoForm /> },
   { path: "/compras", element: <ProtectedRoute roles={ADMIN}><PurchasesPage /></ProtectedRoute> },
   { path: "/compras/nueva", element: <ProtectedRoute roles={ADMIN}><PurchaseFormPage /></ProtectedRoute> },
   { path: "/cotizaciones", element: <QuotesPage /> },

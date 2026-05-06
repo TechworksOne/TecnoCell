@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import Modal from "../../components/ui/Modal";
 import {
   ArrowLeft, Save, Upload, X, Plus, Tag, Monitor, Smartphone,
   DollarSign, Camera, Package2, ChevronDown, Building2, Wrench
@@ -71,15 +71,22 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function RepuestoForm() {
-  const navigate = useNavigate();
-  const { id } = useParams();
+export default function RepuestoForm({
+  open,
+  onClose,
+  editId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editId?: string | null;
+}) {
+  const id = editId ? String(editId) : undefined;
   const toast = useToast();
   const { getRepuestoById, upsertRepuesto } = useRepuestosStore();
   const { suppliers, loadSuppliers } = useSuppliersStore();
   const hasChanges = useRef(false);
 
-  const isEditing = Boolean(id);
+  const isEditing = Boolean(editId);
 
   const [formData, setFormData] = useState<RepuestoFormData>({
     nombre: "",
@@ -185,7 +192,7 @@ export default function RepuestoForm() {
         setImageItems((repuesto.imagenes || []).map((url) => ({ url, file: null })));
       } else {
         toast.add("Repuesto no encontrado", "error");
-        navigate("/repuestos");
+        onClose();
       }
     }
   }, [id, isEditing, getRepuestoById, navigate, toast]);
@@ -215,19 +222,19 @@ export default function RepuestoForm() {
     checkForChanges();
   }, [formData, isEditing, id, getRepuestoById]);
 
-  const handleNavigation = (path: string) => {
+  const handleClose = () => {
     if (hasChanges.current) {
-      setPendingNavigation(path);
+      setPendingNavigation("close");
       setShowUnsavedDialog(true);
     } else {
-      navigate(path);
+      onClose();
     }
   };
 
   const confirmNavigation = () => {
-    if (pendingNavigation) navigate(pendingNavigation);
     setShowUnsavedDialog(false);
     setPendingNavigation(null);
+    onClose();
   };
 
   const cancelNavigation = () => {
@@ -301,7 +308,7 @@ export default function RepuestoForm() {
 
       toast.add(`Repuesto ${isEditing ? "actualizado" : "creado"} exitosamente`, "success");
       hasChanges.current = false;
-      navigate("/repuestos");
+      onClose();
     } catch (error: any) {
       console.error("Error al guardar repuesto:", error);
       toast.add(error.response?.data?.error || "Error al guardar el repuesto", "error");
@@ -457,57 +464,13 @@ export default function RepuestoForm() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-
-      {/* ── Page header ──────────────────────────────────────────────────── */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] shadow-[0_1px_6px_rgba(20,50,74,0.06)]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-1.5 text-[11px] text-[#5E7184] dark:text-[#B8C2D1] mb-3">
-            <button
-              onClick={() => handleNavigation("/repuestos")}
-              className="flex items-center gap-1 hover:text-[#48B9E6] transition-colors"
-            >
-              <Package2 size={13} />
-              Repuestos
-            </button>
-            <span className="opacity-40">/</span>
-            <span className="text-[#14324A] dark:text-[#F8FAFC] font-semibold">
-              {isEditing ? "Editar Repuesto" : "Nuevo Repuesto"}
-            </span>
-          </nav>
-
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-[rgba(72,185,230,0.12)] dark:bg-[rgba(72,185,230,0.10)] shrink-0">
-                <Wrench size={20} className="text-[#48B9E6]" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">
-                  {isEditing ? "Editar Repuesto" : "Nuevo Repuesto"}
-                </h1>
-                <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
-                  {isEditing
-                    ? "Actualiza la información del repuesto seleccionado"
-                    : "Registrar nuevo repuesto en inventario"}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleNavigation("/repuestos")}
-              className="flex items-center gap-1.5 text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[var(--color-border)] hover:border-[#48B9E6] rounded-xl px-3 py-2 transition-colors shrink-0"
-            >
-              <ArrowLeft size={14} />
-              Volver
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Form ─────────────────────────────────────────────────────────── */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEditing ? "Editar Repuesto" : "Nuevo Repuesto"}
+      size="5xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* ── SKU preview (only when creating) ──────────────────────── */}
           {!isEditing && formData.tipo && formData.marca && (
@@ -1162,7 +1125,7 @@ export default function RepuestoForm() {
           <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end pt-2 pb-8">
             <button
               type="button"
-              onClick={() => handleNavigation("/repuestos")}
+              onClick={() => handleClose()}
               disabled={isLoading}
               className="w-full sm:w-auto px-6 py-2.5 rounded-2xl text-sm font-semibold border border-[var(--color-border)] hover:border-[#48B9E6] text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] transition-colors disabled:opacity-50"
             >
@@ -1187,7 +1150,6 @@ export default function RepuestoForm() {
             </button>
           </div>
         </form>
-      </div>
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}
       <ConfirmDialog
@@ -1247,6 +1209,6 @@ export default function RepuestoForm() {
           />
         </div>
       </ConfirmDialog>
-    </div>
+    </Modal>
   );
 }

@@ -17,6 +17,7 @@ import * as repuestoService from '../../services/repuestoService';
 import * as marcaLineaService from '../../services/marcaLineaService';
 import type { Marca, Linea } from '../../services/marcaLineaService';
 import { useToast } from '../../components/ui/Toast';
+import RepuestoForm from './RepuestoForm';
 import { canViewCosts } from '../../lib/permissions';
 import { UPLOADS_BASE_URL } from '../../services/config';
 
@@ -232,6 +233,7 @@ export function RepuestosPage() {
 
   // Modals
   const [showFormModal, setShowFormModal] = useState(false);
+  const [formEditId, setFormEditId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -342,7 +344,7 @@ export function RepuestosPage() {
 
   // Handlers
   const handleViewDetails = (r: Repuesto) => { setSelectedRepuesto(r); setShowDetailModal(true); };
-  const handleEditRepuesto = (r: Repuesto) => navigate(`/repuestos/editar/${r.id}`);
+  const handleEditRepuesto = (r: Repuesto) => { setFormEditId(r.id); setShowFormModal(true); };
   const handleDeleteRepuesto = (id: string) => { setRepuestoToDelete(id); setShowDeleteDialog(true); };
   const confirmDelete = () => {
     if (repuestoToDelete) { removeRepuesto(repuestoToDelete); setRepuestoToDelete(null); }
@@ -350,7 +352,7 @@ export function RepuestosPage() {
   };
   const handleDuplicateRepuesto = (r: Repuesto) => {
     const dup = duplicateRepuesto(r.id);
-    if (dup) navigate(`/repuestos/editar/${dup.id}`);
+    if (dup) { setFormEditId(dup.id); setShowFormModal(true); }
   };
 
   const handleToggleActive = async (r: Repuesto) => {
@@ -372,7 +374,7 @@ export function RepuestosPage() {
     }
   };
 
-  const openNewModal = () => { setFormData(emptyForm()); setShowFormModal(true); };
+  const openNewModal = () => { setFormEditId(null); setShowFormModal(true); };
 
   const handleAddCompatible = () => {
     if (newCompatible.trim() && !formData.compatibilidad?.includes(newCompatible.trim())) {
@@ -534,290 +536,14 @@ export function RepuestosPage() {
         )}
       </div>
 
-      {/* ── New Repuesto Modal ───────────────────────────────────────── */}
-      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title="Nuevo Repuesto" size="3xl">
-        <div className="space-y-5">
+      {/* ── Repuesto Form Modal ─────────────────────────────────────────── */}
+      <RepuestoForm
+        open={showFormModal}
+        onClose={() => { setShowFormModal(false); setFormEditId(null); loadRepuestos(); }}
+        editId={formEditId ?? undefined}
+      />
 
-          {/* SKU notice */}
-          <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/40 rounded-2xl px-4 py-3 flex items-center gap-2">
-            <Sparkles size={13} className="text-cyan-500 dark:text-cyan-400 shrink-0" />
-            <p className="text-[11px] text-cyan-700 dark:text-cyan-200">
-              <span className="font-semibold">SKU automático:</span> se generará como TIPO_MARCA_MODELO_######
-            </p>
-          </div>
-
-          {/* ── Sección 1: Datos generales ─────────────────────────────── */}
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Datos generales</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Nombre <span className="text-red-400">*</span></label>
-                <Input
-                  value={formData.nombre}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, nombre: e.target.value }))}
-                  placeholder="Pantalla iPhone 15 Pro OLED Original"
-                  className="text-sm rounded-2xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Tipo <span className="text-red-400">*</span></label>
-                <Select
-                  value={formData.tipo}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, tipo: e.target.value as RepuestoFormData['tipo'] }))}
-                  className="text-sm rounded-2xl w-full"
-                >
-                  {TIPOS_REPUESTO.map(t => <option key={t} value={t}>{t}</option>)}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Marca <span className="text-red-400">*</span></label>
-                <Select
-                  value={formData.marca}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, marca: e.target.value as RepuestoFormData['marca'], linea: '' }))}
-                  className="text-sm rounded-2xl w-full"
-                >
-                  <option value="">Seleccionar...</option>
-                  {marcas.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Línea</label>
-                {lineas.length > 0 ? (
-                  <Select
-                    value={formData.linea}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
-                    className="text-sm rounded-2xl w-full"
-                    disabled={!formData.marca}
-                  >
-                    <option value="">Seleccionar...</option>
-                    {lineas.map(l => <option key={l.id} value={l.nombre}>{l.nombre}</option>)}
-                  </Select>
-                ) : (
-                  <Input
-                    value={formData.linea}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, linea: e.target.value }))}
-                    placeholder="iPhone, Galaxy S..."
-                    className="text-sm rounded-2xl"
-                    disabled={!formData.marca}
-                  />
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Modelo</label>
-                <Input
-                  value={formData.modelo}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, modelo: e.target.value }))}
-                  placeholder="15 Pro, S24, etc."
-                  className="text-sm rounded-2xl"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Condición</label>
-                <Select
-                  value={formData.condicion}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(p => ({ ...p, condicion: e.target.value as RepuestoFormData['condicion'] }))}
-                  className="text-sm rounded-2xl w-full"
-                >
-                  {CONDICIONES.map(c => <option key={c} value={c}>{c}</option>)}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Color</label>
-                <Input
-                  value={formData.color}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, color: e.target.value }))}
-                  placeholder="Negro, Blanco..."
-                  className="text-sm rounded-2xl"
-                />
-              </div>
-              <div className="flex items-center gap-2 pt-5">
-                <input
-                  type="checkbox"
-                  id="formActivo"
-                  checked={formData.activo}
-                  onChange={(e) => setFormData(p => ({ ...p, activo: e.target.checked }))}
-                  className="w-4 h-4 accent-[#48B9E6] rounded"
-                />
-                <label htmlFor="formActivo" className="text-xs font-medium text-[#5E7184] dark:text-[#B8C2D1] cursor-pointer">Activo</label>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Sección 2: Información comercial ──────────────────────── */}
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Información comercial</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {showCost && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Precio Costo <span className="text-red-400">*</span></label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
-                    <Input
-                      type="number" step="0.01" min="0"
-                      value={formData.precioCosto}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precioCosto: Number(e.target.value) }))}
-                      className="pl-7 text-sm rounded-2xl"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Precio Venta <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7F8A99]">Q</span>
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={formData.precio}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, precio: Number(e.target.value) }))}
-                    className="pl-7 text-sm rounded-2xl"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Stock mínimo</label>
-                <Input
-                  type="number" min="0"
-                  value={formData.stockMinimo}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, stockMinimo: Number(e.target.value) }))}
-                  className="text-sm rounded-2xl"
-                  placeholder="1"
-                />
-              </div>
-            </div>
-
-            {/* Margin preview */}
-            {showCost && formData.precioCosto > 0 && formData.precio > 0 && (
-              <div className={`mt-3 rounded-2xl px-3 py-2 flex items-center justify-between ${formData.precio <= formData.precioCosto ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40' : 'bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/40'}`}>
-                <span className={`text-[11px] font-medium ${formData.precio <= formData.precioCosto ? 'text-red-600 dark:text-red-400' : 'text-violet-600 dark:text-violet-400'}`}>
-                  {formData.precio <= formData.precioCosto ? '⚠ Precio venta ≤ costo' : 'Margen de ganancia'}
-                </span>
-                <span className={`text-sm font-bold ${formData.precio <= formData.precioCosto ? 'text-red-700 dark:text-red-300' : 'text-violet-700 dark:text-violet-300'}`}>
-                  Q{(formData.precio - formData.precioCosto).toFixed(2)}
-                  {formData.precio > formData.precioCosto && (
-                    <span className="font-normal text-[11px] ml-1">
-                      ({(((formData.precio - formData.precioCosto) / formData.precioCosto) * 100).toFixed(1)}%)
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-
-            {/* Proveedor */}
-            <div className="mt-4 space-y-1.5" ref={suppliersRef}>
-              <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest flex items-center gap-1">
-                <Building2 size={11} /> Proveedor
-              </label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowSuppliersDropdown(p => !p)}
-                  className="w-full h-12 text-left text-sm px-4 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl flex items-center justify-between hover:border-[#48B9E6] dark:hover:border-[#48B9E6] transition-colors bg-[#F8FDFF] dark:bg-[#060B14]"
-                >
-                  <span className={formData.proveedor ? 'text-[#14324A] dark:text-[#F8FAFC] font-medium' : 'text-[#7F8A99]'}>
-                    {formData.proveedor || 'Seleccionar proveedor...'}
-                  </span>
-                  <ChevronDown size={14} className="text-[#7F8A99] shrink-0" />
-                </button>
-                {showSuppliersDropdown && (
-                  <div className="absolute z-30 w-full mt-1 max-h-48 overflow-y-auto border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl bg-white dark:bg-[#0D1526] shadow-xl dark:shadow-sky-950/40">
-                    {suppliers.filter(s => s.activo).length === 0 ? (
-                      <div className="p-3 text-center text-xs text-[#7F8A99]">No hay proveedores registrados</div>
-                    ) : (
-                      suppliers.filter(s => s.activo).map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => { setFormData(p => ({ ...p, proveedor: s.nombre })); setShowSuppliersDropdown(false); }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-[#F0FAFF] dark:hover:bg-[#0A1220] transition-colors border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.08)] last:border-0"
-                        >
-                          <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">{s.nombre}</p>
-                          {s.telefono && <p className="text-[11px] text-[#7F8A99] mt-0.5">{s.telefono}</p>}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-              <Input
-                value={formData.proveedor}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, proveedor: e.target.value }))}
-                placeholder="O escribe el nombre manualmente"
-                className="text-sm rounded-2xl mt-1.5"
-              />
-              <p className="text-[11px] text-[#7F8A99]">El stock inicial siempre es 0. Actualiza el inventario en Compras.</p>
-            </div>
-          </div>
-
-          {/* ── Sección 3: Compatibilidad y observaciones ─────────────── */}
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5E7184] dark:text-[#B8C2D1] mb-3">Compatibilidad y observaciones</p>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Compatibilidad</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newCompatible}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCompatible(e.target.value)}
-                    placeholder="iPhone 15 Pro, Samsung S24..."
-                    className="text-sm rounded-2xl flex-1"
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCompatible(); }}}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddCompatible}
-                    className="h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] text-white hover:brightness-110 transition-all"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-                {formData.compatibilidad && formData.compatibilidad.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {formData.compatibilidad.map((c, i) => (
-                      <span key={i} className="text-[11px] bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/40 px-2.5 py-1 rounded-full flex items-center gap-1">
-                        {c}
-                        <button type="button" onClick={() => setFormData(p => ({ ...p, compatibilidad: p.compatibilidad?.filter((_, j) => j !== i) || [] }))} className="hover:text-blue-900 dark:hover:text-blue-100">
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest">Notas</label>
-                <textarea
-                  value={formData.notas}
-                  onChange={(e) => setFormData(p => ({ ...p, notas: e.target.value }))}
-                  placeholder="Información adicional..."
-                  className="w-full text-sm px-4 py-3 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] rounded-2xl bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:ring-2 focus:ring-[#48B9E6]/20 focus:border-[#48B9E6] resize-none outline-none min-h-[80px]"
-                  rows={3}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Footer ────────────────────────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.14)]">
-            <p className="text-[11px] text-[#7F8A99] self-center">Para imágenes y etiquetas edita después de crear.</p>
-            <div className="flex gap-2 shrink-0">
-              <Button variant="ghost" onClick={() => setShowFormModal(false)} className="text-sm border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] text-[#5E7184] dark:text-[#B8C2D1] hover:bg-slate-50 dark:hover:bg-[#0A1220] rounded-2xl px-4 py-2">
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveRepuesto}
-                disabled={isSaving || !formData.nombre || !formData.tipo || !formData.marca}
-                className="text-sm bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:brightness-110 text-white font-semibold rounded-2xl px-5 py-2 disabled:opacity-50 transition-all"
-              >
-                {isSaving ? 'Guardando...' : 'Crear Repuesto'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* ── Detail Modal ─────────────────────────────────────────────── */}
+            {/* ── Detail Modal ─────────────────────────────────────────────── */}
       <Modal open={showDetailModal} onClose={() => setShowDetailModal(false)} title="Detalle del Repuesto">
         {selectedRepuesto && (
           <div className="flex flex-col lg:flex-row gap-5">
