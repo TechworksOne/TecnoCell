@@ -2,7 +2,7 @@ import axios from 'axios';
 import API_URL from './config';
 
 const getConfig = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   return { headers: { Authorization: `Bearer ${token}` } };
 };
 

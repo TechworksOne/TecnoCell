@@ -67,7 +67,7 @@ export default function StickersGarantiaPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       const [dRes, aRes, sRes] = await Promise.all([
         axios.get(`${API_URL}/stickers/disponibles`, { headers }),

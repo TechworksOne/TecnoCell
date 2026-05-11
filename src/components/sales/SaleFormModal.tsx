@@ -150,7 +150,7 @@ export default function SaleFormModal({ isOpen, onClose, onSuccess, origenVenta,
     if (!isOpen) return;
     (async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const res = await fetch(`${API_URL}/caja/bancos`, {
           headers: { Authorization: `Bearer ${token}` },
         });

@@ -115,7 +115,7 @@ export default function SaleNewPage() {
   useEffect(() => {
     const loadCuentasBancarias = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const response = await fetch(`${API_URL}/caja/bancos`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -69,7 +69,7 @@ export default function ModalHistorialReparacion({
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(
         `${API_URL}/reparaciones/${reparacionId}/historial-completo`,
         { headers: { Authorization: `Bearer ${token}` } }

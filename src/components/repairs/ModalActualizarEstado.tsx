@@ -47,7 +47,7 @@ export default function ModalActualizarEstado({
 
   const loadRepuestos = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(
         `${API_URL}/repuestos`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -62,7 +62,7 @@ export default function ModalActualizarEstado({
 
   const loadStickersDisponibles = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(
         `${API_URL}/stickers/disponibles`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -126,7 +126,7 @@ export default function ModalActualizarEstado({
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const formData = new FormData();
 
       // Datos básicos

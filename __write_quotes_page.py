@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+new_content = r"""import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText, Plus, Search, Eye, ShoppingBag, Wrench, Calendar,
@@ -246,3 +246,8 @@ export default function QuotesPage() {
     </div>
   );
 }
+"""
+
+with open(r'c:\Users\brenn\Desktop\TechWorksOne\Tecnocell_web\src\pages\Quotes\QuotesPage.tsx', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print("Done!")

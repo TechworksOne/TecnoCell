@@ -57,8 +57,8 @@ export default function ReingresarGarantiaModal({ repair, onClose, onSuccess }: 
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const userName = localStorage.getItem('userName') || 'Sistema';
+      const token = sessionStorage.getItem('token');
+      const userName = sessionStorage.getItem('userName') || 'Sistema';
       await reingresarGarantia(repair.id, {
         motivo:       motivo.trim(),
         repuesto:     repuestoFinal.trim(),

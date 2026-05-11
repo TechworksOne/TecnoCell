@@ -9,7 +9,7 @@ const api = axios.create({
 // Interceptor para agregar el token JWT
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -106,7 +106,7 @@ function buildRepuestoFormData(data: Record<string, unknown>): FormData {
  * Crear un nuevo repuesto
  */
 export const createRepuesto = async (data: Omit<RepuestoData, 'id'>): Promise<RepuestoData> => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const formData = buildRepuestoFormData(data as Record<string, unknown>);
   const response = await fetch(`${API_BASE_URL}/repuestos`, {
     method: 'POST',
@@ -140,7 +140,7 @@ export const getRepuestoById = async (id: number): Promise<RepuestoData> => {
  * Actualizar un repuesto
  */
 export const updateRepuesto = async (id: number, data: Partial<RepuestoData>): Promise<RepuestoData> => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const formData = buildRepuestoFormData(data as Record<string, unknown>);
   const response = await fetch(`${API_BASE_URL}/repuestos/${id}`, {
     method: 'PUT',

@@ -144,7 +144,7 @@ export default function FlujoReparacionDetailPage() {
   useEffect(() => {
     const loadBancos = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const response = await axios.get(`${API_URL}/caja/bancos`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -182,7 +182,7 @@ export default function FlujoReparacionDetailPage() {
 
   const loadChecklistExistente = async (reparacionId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(
         `${API_URL}/check-equipo/reparacion/${reparacionId}`,
         {
@@ -261,7 +261,7 @@ export default function FlujoReparacionDetailPage() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       
       // Preparar checks específicos según tipo de equipo
       let checksEspecificos = {};

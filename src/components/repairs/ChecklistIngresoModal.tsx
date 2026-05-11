@@ -211,7 +211,7 @@ export default function ChecklistIngresoModal({
   const loadChecklistExistente = async (repId: string) => {
     setLoadingChecklist(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const res = await axios.get(`${API_URL}/check-equipo/reparacion/${repId}`, {
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: s => s < 500,
@@ -253,7 +253,7 @@ export default function ChecklistIngresoModal({
 
   const loadBancos = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const res = await axios.get(`${API_URL}/caja/bancos`, {
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: s => s < 500,
@@ -311,7 +311,7 @@ export default function ChecklistIngresoModal({
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const tipoEquipo = repair.recepcion?.tipoEquipo;
 
       let checksEspecificos: Record<string, boolean> = {};

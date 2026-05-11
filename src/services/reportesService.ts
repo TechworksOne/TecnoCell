@@ -2,7 +2,7 @@ import axios from 'axios';
 import API_URL from './config';
 
 const headers = () => ({
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
+  Authorization: `Bearer ${sessionStorage.getItem('token')}`,
 });
 
 // ===== TYPES =====

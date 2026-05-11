@@ -114,7 +114,7 @@ export default function FlujoReparacionesPage() {
 
   const loadAllChecks = async (): Promise<CheckEquipo[]> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const res = await axios.get(`${API_URL}/check-equipo`, {
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: s => s < 500,
@@ -134,7 +134,7 @@ export default function FlujoReparacionesPage() {
     setReparaciones(prev => prev.map(r => r.id === repId ? { ...r, estado: newEstado } : r));
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await axios.put(
         `${API_URL}/reparaciones/${repId}/estado`,
         { estado: newEstado },

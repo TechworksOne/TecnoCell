@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Modal from "../../components/ui/Modal";
 import {
   ArrowLeft, Save, Upload, X, Plus, Tag, Monitor, Smartphone,
@@ -195,7 +195,7 @@ export default function RepuestoForm({
         onClose();
       }
     }
-  }, [id, isEditing, getRepuestoById, navigate, toast]);
+  }, [id, isEditing, getRepuestoById, toast, onClose]);
 
   useEffect(() => {
     const checkForChanges = () => {

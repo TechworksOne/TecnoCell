@@ -79,7 +79,7 @@ export default function CajaBancosPage() {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
 
       if (!token) {
         window.location.href = '/login';
@@ -116,7 +116,7 @@ export default function CajaBancosPage() {
 
   const confirmarMovimientoCaja = async (id: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.put(`${API_URL}/caja/caja-chica/confirmar/${id}`, {}, config);
       setShowConfirmModal(false);
@@ -134,7 +134,7 @@ export default function CajaBancosPage() {
 
   const confirmarMovimientoBanco = async (id: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.put(`${API_URL}/caja/bancos/confirmar/${id}`, {}, config);
       setShowConfirmModal(false);
@@ -166,7 +166,7 @@ export default function CajaBancosPage() {
 
   const handleRegistrarMovimiento = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const montoNum = parseFloat(monto);
 
@@ -180,7 +180,7 @@ export default function CajaBancosPage() {
         return;
       }
 
-      const usuario = localStorage.getItem('userName') || 'Usuario';
+      const usuario = sessionStorage.getItem('userName') || 'Usuario';
 
       if (tipoMovimiento === 'GASTO' || tipoMovimiento === 'RETIRO') {
         await axios.post(`${API_URL}/caja/caja-chica/movimiento`, {

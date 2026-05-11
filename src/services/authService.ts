@@ -64,23 +64,17 @@ export const authService = {
 
       const user = loginData.user;
 
-      /**
-       * Guardar sesión en localStorage.
-       * Esto es importante porque DashboardPage y otros módulos leen:
-       * localStorage.getItem('token')
-       */
-      localStorage.setItem('token', loginData.token);
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('userName', user?.name || user?.username || user?.email || 'Usuario');
-      localStorage.setItem('role', user?.role || '');
+      // Guardar sesión en sessionStorage (se borra al cerrar el navegador)
+      // Limpiar datos viejos de localStorage si los hubiera
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('role');
 
-      /**
-       * Limpiar sessionStorage viejo para evitar conflictos.
-       */
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('userName');
-      sessionStorage.removeItem('role');
+      sessionStorage.setItem('token', loginData.token);
+      sessionStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('userName', user?.name || user?.username || user?.email || 'Usuario');
+      sessionStorage.setItem('role', user?.role || '');
 
       window.dispatchEvent(new Event('auth-change'));
 
@@ -115,14 +109,14 @@ export const authService = {
    * Obtener token almacenado
    */
   getToken(): string | null {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
+    return sessionStorage.getItem('token');
   },
 
   /**
    * Obtener usuario almacenado
    */
   getUser(): LoginResponse['user'] | null {
-    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
 
     if (!userStr) return null;
 
