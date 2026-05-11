@@ -785,9 +785,68 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
 // ENTRY POINT — Detecta rol y carga el dashboard correcto
 // ═══════════════════════════════════════════════════════════════════════════════
 
+
+function normalizeRole(value: unknown): string {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function getStoredAuthToken(): string | null {
+  const directToken =
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("accessToken");
+
+  if (directToken && directToken !== "null" && directToken !== "undefined") {
+    return directToken;
+  }
+
+  for (const key of Object.keys(localStorage)) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      const possibleToken =
+        parsed?.token ||
+        parsed?.accessToken ||
+        parsed?.state?.token ||
+        parsed?.state?.accessToken ||
+        parsed?.state?.auth?.token ||
+        parsed?.state?.user?.token ||
+        parsed?.user?.token;
+
+      if (
+        possibleToken &&
+        possibleToken !== "null" &&
+        possibleToken !== "undefined"
+      ) {
+        return possibleToken;
+      }
+    } catch {
+      // Ignorar entradas que no son JSON
+    }
+  }
+
+  return null;
+}
+
 export default function DashboardPage() {
-  const role = useAuth((state) => state.role);
-  const isTecnico = role === "tecnico";
+  const authState = useAuth();
+  const role = (authState as any)?.role;
+  const roles = (authState as any)?.roles;
+
+  const normalizedRoles = Array.isArray(roles)
+    ? roles.map(normalizeRole)
+    : [normalizeRole(role)];
+
+  const isTecnico =
+    normalizedRoles.includes("tecnico") ||
+    normalizedRoles.includes("technician");
 
   const [adminStats,  setAdminStats]  = useState<DashboardStats | null>(null);
   const [tecnicoData, setTecnicoData] = useState<TecnicoData | null>(null);
@@ -801,26 +860,63 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let mounted = true;
 
-    const token    = localStorage.getItem("token");
-    const endpoint = isTecnico ? "/dashboard/tecnico" : "/dashboard/stats";
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError(null);
 
-    fetch(`${API_URL}${endpoint}`, {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-        return res.json();
-      })
-      .then(data => {
-        if (isTecnico) setTecnicoData(data as TecnicoData);
-        else           setAdminStats(data as DashboardStats);
-      })
-      .catch(err => {
+      const token =
+        (authState as any)?.token ||
+        (authState as any)?.accessToken ||
+        getStoredAuthToken();
+
+      if (!token) {
+        if (!mounted) return;
+
+        setError("Sesión no válida. Vuelve a iniciar sesión.");
+        setAdminStats({
+          ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
+          productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
+          reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0 },
+          cotizaciones: { total: 0, abiertas: 0 },
+          gastos:       { mes: 0 },
+          ganancias:    { hoy: 0, mes: 0 },
+        });
+        setLoading(false);
+        return;
+      }
+
+      const endpoint = isTecnico ? "/dashboard/tecnico" : "/dashboard/stats";
+
+      try {
+        const res = await fetch(`${API_URL}${endpoint}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+
+        if (!mounted) return;
+
+        if (isTecnico) {
+          setTecnicoData(data as TecnicoData);
+        } else {
+          setAdminStats(data as DashboardStats);
+        }
+      } catch (err) {
         console.error("Dashboard fetch error:", err);
-        setError("No se pudieron cargar las estadísticas. Verifica la conexión.");
+
+        if (!mounted) return;
+
+        setError("No se pudieron cargar las estadísticas. Verifica la sesión o permisos.");
+
         if (!isTecnico) {
           setAdminStats({
             ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
@@ -831,11 +927,20 @@ export default function DashboardPage() {
             ganancias:    { hoy: 0, mes: 0 },
           });
         }
-      })
-      .finally(() => setLoading(false));
-  }, [isTecnico]);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  // ── Loading ──
+    loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authState, isTecnico]);
+
   if (loading) {
     return (
       <div className="space-y-4 max-w-screen-2xl">
@@ -852,19 +957,24 @@ export default function DashboardPage() {
     );
   }
 
-  // ── Error banner (solo si no hay datos tampoco) ──
   const errorBanner = error && (
     <div
       className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm mb-4"
-      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.20)", color: "#B91C1C" }}
+      style={{
+        background: "rgba(239,68,68,0.08)",
+        border: "1px solid rgba(239,68,68,0.20)",
+        color: "#B91C1C",
+      }}
     >
       <AlertTriangle size={14} /> {error}
     </div>
   );
 
-  // ── Render role-based ──
   if (isTecnico) {
-    if (!tecnicoData) return null;
+    if (!tecnicoData) {
+      return <>{errorBanner}</>;
+    }
+
     return (
       <>
         {errorBanner}
@@ -873,7 +983,10 @@ export default function DashboardPage() {
     );
   }
 
-  if (!adminStats) return null;
+  if (!adminStats) {
+    return <>{errorBanner}</>;
+  }
+
   return (
     <>
       {errorBanner}
