@@ -1,39 +1,100 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Package, TrendingUp, AlertTriangle, DollarSign, Activity, Eye, Edit, Trash2, Copy, X, Wrench, Battery, Monitor, Camera, Cpu, Speaker, Smartphone, ChevronDown, Building2, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Plus,
+  Search,
+  Package,
+  AlertTriangle,
+  DollarSign,
+  Activity,
+  Eye,
+  Edit,
+  Trash2,
+  Copy,
+  Wrench,
+  Battery,
+  Monitor,
+  Camera,
+  Cpu,
+  Speaker,
+  Smartphone,
+  Building2,
+} from 'lucide-react';
+
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
-import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ImageModal from '../../components/ui/ImageModal';
 import { useAuth } from '../../store/useAuth';
 import { useRepuestosStore } from '../../store/useRepuestosStore';
-import { useSuppliersStore } from '../../store/useSuppliers';
-import { formatMoney } from '../../lib/format';
-import type { Repuesto, RepuestoFormData } from '../../types/repuesto';
+import type { Repuesto } from '../../types/repuesto';
 import * as repuestoService from '../../services/repuestoService';
-import * as marcaLineaService from '../../services/marcaLineaService';
-import type { Marca, Linea } from '../../services/marcaLineaService';
 import { useToast } from '../../components/ui/Toast';
 import RepuestoForm from './RepuestoForm';
 import { canViewCosts } from '../../lib/permissions';
 import { UPLOADS_BASE_URL } from '../../services/config';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────────────────────
-const toNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+// ─── Helpers ──────────────────────────────────────────────────────────────────────────────────
+const toNum = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const fmtQ = (v: unknown): string => `Q ${toNum(v).toFixed(2)}`;
 
-function buildImageUrl(path: string): string {
-  if (!path) return '';
-  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
-  return `${UPLOADS_BASE_URL}${path}`;
+const REPUESTO_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect fill='%231e293b' width='44' height='44'/%3E%3Ctext fill='%2364748b' font-family='system-ui' font-size='8' x='50%25' y='57%25' dominant-baseline='middle' text-anchor='middle'%3ESin img%3C/text%3E%3C/svg%3E";
+
+function isBrokenLegacyImagePath(path?: string | null): boolean {
+  if (!path) return true;
+
+  const value = String(path).trim();
+
+  return (
+    value === "" ||
+    value.includes("/api/placeholder") ||
+    value.includes("api/placeholder") ||
+    value.includes("placeholder/400")
+  );
+}
+
+function buildImageUrl(path?: string | null): string {
+  if (isBrokenLegacyImagePath(path)) return REPUESTO_PLACEHOLDER;
+
+  const value = String(path).trim();
+
+  if (
+    value.startsWith("http") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+
+  const baseUrl = UPLOADS_BASE_URL.replace(/\/$/, "");
+
+  if (value.startsWith("/")) {
+    return `${baseUrl}${value}`;
+  }
+
+  return `${baseUrl}/${value}`;
+}
+
+function getFirstSafeImageUrl(images?: string[] | null): string {
+  const firstValidImage = (images || []).find((img) => !isBrokenLegacyImagePath(img));
+  return buildImageUrl(firstValidImage);
+}
+
+function getSafeImageUrls(images?: string[] | null): string[] {
+  return (images || [])
+    .filter((img) => !isBrokenLegacyImagePath(img))
+    .map((img) => buildImageUrl(img));
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = ['Pantalla', 'Batería', 'Cámara', 'Flex', 'Placa', 'Back Cover', 'Altavoz', 'Conector', 'Otro'];
-const CONDICIONES = ['Original', 'OEM', 'Genérico', 'Usado'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, gradient }: {
@@ -79,8 +140,6 @@ const getCondicionBadge = (condicion: string) => {
   return map[condicion] || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400';
 };
 
-const REPUESTO_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect fill='%231e293b' width='44' height='44'/%3E%3Ctext fill='%2364748b' font-family='system-ui' font-size='8' x='50%25' y='57%25' dominant-baseline='middle' text-anchor='middle'%3ESin img%3C/text%3E%3C/svg%3E";
-
 function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
   repuesto: Repuesto;
   onView: (r: Repuesto) => void;
@@ -96,7 +155,7 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
   const stockMin = toNum(repuesto.stockMinimo ?? 1);
   const lowStock = stock > 0 && stock <= stockMin;
   const noStock = stock === 0;
-  const img = repuesto.imagenes?.[0] ? buildImageUrl(repuesto.imagenes[0]) : REPUESTO_PLACEHOLDER;
+  const img = getFirstSafeImageUrl(repuesto.imagenes);
 
   return (
     <>
@@ -218,12 +277,10 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function RepuestosPage() {
-  const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
   const showCost = canViewCosts(user?.roles);
   const { repuestos, removeRepuesto, duplicateRepuesto, loadRepuestos, isLoading } = useRepuestosStore();
-  const { suppliers, loadSuppliers } = useSuppliersStore();
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -244,61 +301,7 @@ export function RepuestosPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // New repuesto form state
-  const [isSaving, setIsSaving] = useState(false);
-  const [marcas, setMarcas] = useState<Marca[]>([]);
-  const [lineas, setLineas] = useState<Linea[]>([]);
-  const [showSuppliersDropdown, setShowSuppliersDropdown] = useState(false);
-  const suppliersRef = useRef<HTMLDivElement>(null);
-  const [newCompatible, setNewCompatible] = useState('');
-
-  const emptyForm = (): RepuestoFormData => ({
-    nombre: '', tipo: 'Pantalla', marca: '', linea: '', modelo: '',
-    compatibilidad: [], condicion: 'Original', color: '', notas: '',
-    precio: 0, precioCosto: 0, proveedor: '', stock: 0, stockMinimo: 1,
-    imagenes: [], tags: [], activo: true
-  });
-  const [formData, setFormData] = useState<RepuestoFormData>(emptyForm());
-
   useEffect(() => { loadRepuestos(); }, [loadRepuestos]);
-
-  useEffect(() => {
-    if (showFormModal) {
-      const load = async () => {
-        try {
-          const data = await marcaLineaService.getAllMarcas(true);
-          setMarcas(data);
-        } catch { }
-      };
-      load();
-      loadSuppliers();
-    }
-  }, [showFormModal, loadSuppliers]);
-
-  useEffect(() => {
-    const load = async () => {
-      if (!formData.marca) { setLineas([]); return; }
-      const marca = marcas.find(m => m.nombre === formData.marca);
-      if (marca) {
-        try {
-          const data = await marcaLineaService.getLineasByMarca(marca.id, true);
-          setLineas(data);
-        } catch { setLineas([]); }
-      }
-    };
-    load();
-  }, [formData.marca, marcas]);
-
-  // Close supplier dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (suppliersRef.current && !suppliersRef.current.contains(e.target as Node)) {
-        setShowSuppliersDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // Image modal keyboard nav
   useEffect(() => {
@@ -376,54 +379,7 @@ export function RepuestosPage() {
 
   const openNewModal = () => { setFormEditId(null); setShowFormModal(true); };
 
-  const handleAddCompatible = () => {
-    if (newCompatible.trim() && !formData.compatibilidad?.includes(newCompatible.trim())) {
-      setFormData(p => ({ ...p, compatibilidad: [...(p.compatibilidad || []), newCompatible.trim()] }));
-      setNewCompatible('');
-    }
-  };
-
-  const handleSaveRepuesto = async () => {
-    if (!formData.nombre.trim() || !formData.tipo || !formData.marca) {
-      toast.add('Completa los campos requeridos: Nombre, Tipo y Marca', 'error');
-      return;
-    }
-    if (formData.precio > 0 && formData.precioCosto > 0 && formData.precio <= formData.precioCosto) {
-      toast.add('El precio público debe ser mayor al precio de costo', 'error');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await repuestoService.createRepuesto({
-        nombre: formData.nombre,
-        tipo: formData.tipo,
-        marca: formData.marca,
-        linea: formData.linea || undefined,
-        modelo: formData.modelo || undefined,
-        compatibilidad: formData.compatibilidad || [],
-        condicion: formData.condicion,
-        color: formData.color || undefined,
-        notas: formData.notas || undefined,
-        precio_publico: repuestoService.quetzalesACentavos(formData.precio),
-        precio_costo: repuestoService.quetzalesACentavos(formData.precioCosto),
-        proveedor: formData.proveedor || undefined,
-        stock: 0,
-        stock_minimo: formData.stockMinimo || 1,
-        imagenes: [],
-        tags: [],
-        activo: formData.activo,
-      });
-      toast.add('Repuesto creado exitosamente', 'success');
-      setShowFormModal(false);
-      setFormData(emptyForm());
-      await loadRepuestos();
-    } catch (error: any) {
-      toast.add(error.response?.data?.error || 'Error al crear el repuesto', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
+  const selectedRepuestoImageUrls = getSafeImageUrls(selectedRepuesto?.imagenes);
   return (
     <div className="space-y-5 max-w-screen-2xl">
 
@@ -549,33 +505,61 @@ export function RepuestosPage() {
           <div className="flex flex-col lg:flex-row gap-5">
             {/* Image */}
             <div className="lg:w-44 shrink-0">
-              {selectedRepuesto.imagenes && selectedRepuesto.imagenes.length > 0 ? (
-                <button
-                  onClick={() => { setSelectedImages(selectedRepuesto.imagenes!.map(buildImageUrl)); setCurrentImageIndex(0); setShowImageModal(true); }}
-                  className="w-full aspect-square rounded-2xl overflow-hidden bg-slate-100 block"
-                >
-                  <img src={buildImageUrl(selectedRepuesto.imagenes[0])} alt={selectedRepuesto.nombre} className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                </button>
-              ) : (
-                <div className="w-full aspect-square rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-400">
-                  {getTipoIcon(selectedRepuesto.tipo)}
-                  <p className="text-[10px] mt-1">Sin imagen</p>
-                </div>
-              )}
-              {selectedRepuesto.imagenes && selectedRepuesto.imagenes.length > 1 && (
-                <div className="flex gap-1 mt-2 flex-wrap">
-                  {selectedRepuesto.imagenes.slice(1, 5).map((img, i) => (
-                    <button key={i} onClick={() => { setSelectedImages(selectedRepuesto.imagenes!.map(buildImageUrl)); setCurrentImageIndex(i + 1); setShowImageModal(true); }}
-                      className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-300 transition-colors shrink-0"
-                    >
-                      <img src={buildImageUrl(img)} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                  {selectedRepuesto.imagenes.length > 5 && (
-                    <span className="text-[10px] text-slate-400 self-center">+{selectedRepuesto.imagenes.length - 5}</span>
-                  )}
-                </div>
-              )}
+{selectedRepuestoImageUrls.length > 0 ? (
+  <button
+    onClick={() => {
+      setSelectedImages(selectedRepuestoImageUrls);
+      setCurrentImageIndex(0);
+      setShowImageModal(true);
+    }}
+    className="w-full aspect-square rounded-2xl overflow-hidden bg-slate-100 block"
+  >
+    <img
+      src={selectedRepuestoImageUrls[0]}
+      alt={selectedRepuesto.nombre}
+      className="w-full h-full object-cover hover:scale-105 transition-transform"
+      onError={(e) => {
+        e.currentTarget.src = REPUESTO_PLACEHOLDER;
+      }}
+    />
+  </button>
+) : (
+  <div className="w-full aspect-square rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-400">
+    {getTipoIcon(selectedRepuesto.tipo)}
+    <p className="text-[10px] mt-1">Sin imagen</p>
+  </div>
+)}
+
+  {selectedRepuestoImageUrls.length > 1 && (
+    <div className="flex gap-1 mt-2 flex-wrap">
+      {selectedRepuestoImageUrls.slice(1, 5).map((img, i) => (
+        <button
+          key={i}
+          onClick={() => {
+            setSelectedImages(selectedRepuestoImageUrls);
+            setCurrentImageIndex(i + 1);
+            setShowImageModal(true);
+          }}
+          className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-300 transition-colors shrink-0"
+        >
+          <img
+            src={img}
+            alt={`Imagen ${i + 2}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = REPUESTO_PLACEHOLDER;
+            }}
+          />
+        </button>
+      ))}
+
+      {selectedRepuestoImageUrls.length > 5 && (
+        <span className="text-[10px] text-slate-400 self-center">
+          +{selectedRepuestoImageUrls.length - 5}
+        </span>
+      )}
+    </div>
+  )}
               <div className="mt-3 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Estado</span>
