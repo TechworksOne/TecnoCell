@@ -603,7 +603,7 @@ export default function ProductsPage() {
             placeholder="Buscar por nombre, SKU o categoría..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`pl-9 py-2 text-sm rounded-xl border bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:border-[#48B9E6] outline-none w-full transition-colors ${isSearching ? 'border-[#48B9E6] dark:border-[#48B9E6]' : 'border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)]'}`
+            className={`pl-9 py-2 text-sm rounded-xl border bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:border-[#48B9E6] outline-none w-full transition-colors ${isSearching ? 'border-[#48B9E6] dark:border-[#48B9E6]' : 'border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)]'}`}
           />
         </div>
         <Select
