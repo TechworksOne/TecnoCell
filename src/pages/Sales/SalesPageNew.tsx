@@ -71,6 +71,7 @@ export default function SalesPage() {
 
   // ── filters ──
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterMetodo, setFilterMetodo] = useState('');
   const [filterDate, setFilterDate] = useState('');          // preset: hoy/semana/mes
@@ -98,15 +99,21 @@ export default function SalesPage() {
 
   // ── Load ────────────────────────────────────────────────────────────────
 
+  // Debounce search input 400 ms so API is not called on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const loadVentas = useCallback(async () => {
     setLoading(true);
     try {
       const dateRange = filterDate ? getDateRange(filterDate) : null;
       const filters: ventaService.VentaFilters = {
-        ...(filterEstado && { estado: filterEstado }),
-        ...(filterMetodo && { metodo_pago: filterMetodo }),
-        ...(search        && { search }),
-        ...(dateRange     && { fecha_desde: dateRange.fecha_desde, fecha_hasta: dateRange.fecha_hasta }),
+        ...(filterEstado    && { estado: filterEstado }),
+        ...(filterMetodo    && { metodo_pago: filterMetodo }),
+        ...(debouncedSearch && { search: debouncedSearch }),
+        ...(dateRange       && { fecha_desde: dateRange.fecha_desde, fecha_hasta: dateRange.fecha_hasta }),
         ...(!filterDate && fechaDesde && { fecha_desde: fechaDesde }),
         ...(!filterDate && fechaHasta && { fecha_hasta: fechaHasta }),
       };
@@ -117,7 +124,7 @@ export default function SalesPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterEstado, filterMetodo, search, filterDate, fechaDesde, fechaHasta, toast]);
+  }, [filterEstado, filterMetodo, debouncedSearch, filterDate, fechaDesde, fechaHasta, toast]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -194,7 +201,7 @@ export default function SalesPage() {
   };
 
   const clearFilters = () => {
-    setSearch(''); setFilterEstado(''); setFilterMetodo('');
+    setSearch(''); setDebouncedSearch(''); setFilterEstado(''); setFilterMetodo('');
     setFilterDate(''); setFechaDesde(''); setFechaHasta('');
   };
 

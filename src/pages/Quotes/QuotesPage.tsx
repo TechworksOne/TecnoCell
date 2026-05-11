@@ -110,6 +110,8 @@ export default function QuotesPage() {
     const matchSearch = !searchTerm ||
       q.cliente.name.toLowerCase().includes(sl) ||
       (q.numero || '').toLowerCase().includes(sl) ||
+      (q.cliente.email || '').toLowerCase().includes(sl) ||
+      (q.cliente.nit || '').toLowerCase().includes(sl) ||
       q.cliente.phone.includes(searchTerm);
     return matchSearch && (tipoFilter === 'all' || q.tipo === tipoFilter) && (estadoFilter === 'all' || q.estado === estadoFilter);
   }), [quotes, searchTerm, tipoFilter, estadoFilter]);

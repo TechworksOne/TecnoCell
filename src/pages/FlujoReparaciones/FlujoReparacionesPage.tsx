@@ -36,6 +36,7 @@ function matchesSearch(rep: any, q: string): boolean {
   const lq = q.toLowerCase();
   return (
     rep.clienteNombre?.toLowerCase().includes(lq) ||
+    rep.clienteTelefono?.toLowerCase().includes(lq) ||
     rep.id?.toLowerCase().includes(lq) ||
     rep.recepcion?.marca?.toLowerCase().includes(lq) ||
     rep.recepcion?.modelo?.toLowerCase().includes(lq) ||

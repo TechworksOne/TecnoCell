@@ -562,6 +562,7 @@ export default function RepairsPage() {
     const q = searchQuery.toLowerCase();
     const okSearch = !q ||
       r.clienteNombre?.toLowerCase().includes(q) ||
+      r.clienteTelefono?.toLowerCase().includes(q) ||
       r.recepcion.marca?.toLowerCase().includes(q) ||
       r.recepcion.modelo?.toLowerCase().includes(q) ||
       r.recepcion.imei?.toLowerCase().includes(q) ||

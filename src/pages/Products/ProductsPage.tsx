@@ -181,6 +181,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showProductModal, setShowProductModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -216,11 +217,21 @@ export default function ProductsPage() {
     isEditing: false
   });
 
+  // Debounce search input (400 ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Cargar categorías y productos al montar el componente
   useEffect(() => {
     loadCategories();
-    loadProducts(1, 20);
-  }, [loadCategories, loadProducts]);
+  }, [loadCategories]);
+
+  // Re-fetch from server whenever search or category filter changes
+  useEffect(() => {
+    loadProducts(1, pagination.pageSize, debouncedSearch || undefined, categoryFilter || undefined);
+  }, [debouncedSearch, categoryFilter]);
 
   // Cargar datos completos de categorías cuando se abre el modal
   useEffect(() => {
@@ -239,18 +250,10 @@ export default function ProductsPage() {
     }
   }, [showAddCategoryModal]);
 
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = !searchTerm || 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.subcategory && p.subcategory.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCategory = !categoryFilter || p.category === categoryFilter;
-    const matchesSubcategory = !subcategoryFilter || p.subcategory === subcategoryFilter;
-    
-    return matchesSearch && matchesCategory && matchesSubcategory;
-  });
+  // Filtering is done server-side; only apply subcategory client-side (not sent to API)
+  const filteredProducts = subcategoryFilter
+    ? products.filter((p) => p.subcategory === subcategoryFilter)
+    : products;
 
   function handleEditProduct(product: Product) {
     setEditingProduct(product);
@@ -288,7 +291,7 @@ export default function ProductsPage() {
           : `Producto "${product.name}" desactivado exitosamente`,
         "success"
       );
-      await loadProducts(pagination.currentPage, pagination.pageSize);
+      await loadProducts(pagination.currentPage, pagination.pageSize, debouncedSearch || undefined, categoryFilter || undefined);
     } catch (error: any) {
       toast.add(error.message || "Error al cambiar el estado del producto", "error");
       console.error('Error:', error);
@@ -339,7 +342,7 @@ export default function ProductsPage() {
       setShowProductModal(false);
       setEditingProduct(null);
       resetProductForm();
-      await loadProducts(pagination.currentPage, pagination.pageSize);
+      await loadProducts(pagination.currentPage, pagination.pageSize, debouncedSearch || undefined, categoryFilter || undefined);
     } catch (error: any) {
       toast.add(error.message || "Error al guardar el producto", "error");
       console.error('Error:', error);
@@ -514,7 +517,7 @@ export default function ProductsPage() {
   }
 
   function handlePageChange(newPage: number) {
-    loadProducts(newPage, pagination.pageSize);
+    loadProducts(newPage, pagination.pageSize, debouncedSearch || undefined, categoryFilter || undefined);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -523,6 +526,7 @@ export default function ProductsPage() {
   const totalLowStock = products.filter(p => p.stock <= p.stockMin && p.stock > 0).length;
   const totalNoStock = products.filter(p => p.stock === 0).length;
   const hasFilters = !!(searchTerm || categoryFilter || subcategoryFilter);
+  const isSearching = searchTerm !== debouncedSearch;
 
   return (
     <div className="space-y-5 max-w-screen-2xl">
@@ -599,12 +603,12 @@ export default function ProductsPage() {
             placeholder="Buscar por nombre, SKU o categoría..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 py-2 text-sm rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:border-[#48B9E6] outline-none w-full"
+            className={`pl-9 py-2 text-sm rounded-xl border bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:border-[#48B9E6] outline-none w-full transition-colors ${isSearching ? 'border-[#48B9E6] dark:border-[#48B9E6]' : 'border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)]'}`
           />
         </div>
         <Select
           value={categoryFilter}
-          onChange={(e) => { setCategoryFilter(e.target.value); setSubcategoryFilter(""); }}
+          onChange={(e) => { setCategoryFilter(e.target.value); setSubcategoryFilter(""); setDebouncedSearch(searchTerm); }}
           className="text-sm rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] bg-[#F8FDFF] dark:bg-[#060B14] text-[#14324A] dark:text-[#F8FAFC] py-2 min-w-0 sm:w-44"
         >
           <option value="">Todas las categorías</option>
@@ -627,14 +631,14 @@ export default function ProductsPage() {
         {hasFilters && (
           <Button
             variant="ghost"
-            onClick={() => { setSearchTerm(""); setCategoryFilter(""); setSubcategoryFilter(""); }}
+            onClick={() => { setSearchTerm(""); setDebouncedSearch(""); setCategoryFilter(""); setSubcategoryFilter(""); }}
             className="text-sm text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 whitespace-nowrap"
           >
             Limpiar
           </Button>
         )}
         <span className="text-xs text-[#7F8A99] whitespace-nowrap self-center sm:ml-1">
-          {filteredProducts.length} productos
+          {isSearching ? '...' : `${pagination.total ?? filteredProducts.length} productos`}
         </span>
       </div>
 
