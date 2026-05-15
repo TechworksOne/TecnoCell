@@ -240,6 +240,14 @@ exports.confirmarMovimientoCajaChica = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Movimiento no encontrado' });
     }
 
+    // No se puede confirmar un movimiento ya confirmado
+    if (mov.estado === 'CONFIRMADO') {
+      return res.status(409).json({
+        success: false,
+        message: 'Este movimiento ya está confirmado'
+      });
+    }
+
     // No se puede confirmar un movimiento anulado
     if (mov.estado === 'ANULADO') {
       return res.status(409).json({
@@ -285,6 +293,14 @@ exports.confirmarMovimientoBancario = async (req, res) => {
     }
     
     const mov = movimiento[0];
+
+    // No se puede confirmar un movimiento ya confirmado
+    if (mov.estado === 'CONFIRMADO') {
+      return res.status(409).json({
+        success: false,
+        message: 'Este movimiento ya está confirmado'
+      });
+    }
 
     // No se puede confirmar un movimiento anulado
     if (mov.estado === 'ANULADO') {
@@ -435,7 +451,7 @@ exports.registrarMovimientoVenta = async (
       await dbConn.query(
         `INSERT INTO movimientos_bancarios 
         (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
-        VALUES (?, 'INGRESO', ?, ?, ?, ?, 'PENDIENTE', ?, ?)`,
+        VALUES (?, 'INGRESO', ?, ?, ?, ?, 'CONFIRMADO', ?, ?)`,
         [
           cuenta.id,
           montoQuetzales,
@@ -447,8 +463,14 @@ exports.registrarMovimientoVenta = async (
         ]
       );
 
+      // Actualizar saldo_actual de la cuenta bancaria
+      await dbConn.query(
+        'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
+        [montoQuetzales, cuenta.id]
+      );
+
       console.log(
-        `✅ Movimiento PENDIENTE registrado en BANCO (${cuenta.nombre || 'Cuenta bancaria'} id=${cuenta.id}): Q${montoQuetzales} - Venta ${ventaId}`
+        `✅ Movimiento CONFIRMADO registrado en BANCO (${cuenta.nombre || 'Cuenta bancaria'} id=${cuenta.id}): Q${montoQuetzales} - Venta ${ventaId}`
       );
 
       return true;
@@ -458,12 +480,12 @@ exports.registrarMovimientoVenta = async (
       await dbConn.query(
         `INSERT INTO caja_chica 
          (tipo_movimiento, monto, concepto, venta_id, categoria, estado, realizado_por)
-         VALUES ('INGRESO', ?, ?, ?, 'Venta', 'PENDIENTE', ?)`,
+         VALUES ('INGRESO', ?, ?, ?, 'Venta', 'CONFIRMADO', ?)`,
         [montoQuetzales, concepto, ventaId, usuarioNombre]
       );
 
       console.log(
-        `✅ Movimiento PENDIENTE registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId}`
+        `✅ Movimiento CONFIRMADO registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId}`
       );
     } else if (metodo === 'TARJETA') {
       /*
