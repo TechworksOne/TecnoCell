@@ -652,244 +652,166 @@ exports.registrarReversaMovimientoVenta = async (
     }
 
     const ventaIdOriginal = venta.id ?? venta.venta_id ?? null;
+    const ventaIdNumerico = Number.isInteger(Number(ventaIdOriginal)) ? Number(ventaIdOriginal) : null;
 
-    const ventaIdNumerico = Number.isInteger(Number(ventaIdOriginal))
-      ? Number(ventaIdOriginal)
-      : null;
-
-    const posiblesReferencias = [
-      venta.numero_venta,
-      venta.correlativo,
-      venta.codigo,
-      venta.codigo_venta,
-      venta.no_venta,
-      venta.serie,
-      ventaIdOriginal,
-    ]
-      .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
-      .map((value) => String(value).trim());
-
-    const referenciasUnicas = [...new Set(posiblesReferencias)];
-
-    const referenciaPrincipal =
-      referenciasUnicas.find((ref) => ref.toUpperCase().startsWith('V-')) ||
-      referenciasUnicas[0] ||
-      String(ventaIdOriginal || 'SIN_REFERENCIA');
-
-        const buildWhereBanco = () => {
-      const conditions = [];
-      const params = [];
-
-      if (ventaIdNumerico !== null) {
-        conditions.push('venta_id = ?');
-        params.push(ventaIdNumerico);
-      }
-
-      referenciasUnicas.forEach((ref) => {
-        conditions.push('concepto LIKE ?');
-        params.push(`%${ref}%`);
-
-        conditions.push('numero_referencia = ?');
-        params.push(ref);
-      });
-
-      if (conditions.length === 0) {
-        conditions.push('concepto LIKE ?');
-        params.push(`%${referenciaPrincipal}%`);
-      }
-
-      return {
-        where: `(${conditions.join(' OR ')})`,
-        params,
-      };
-    };
-
-    const buildWhereCaja = () => {
-      const conditions = [];
-      const params = [];
-
-      if (ventaIdNumerico !== null) {
-        conditions.push('venta_id = ?');
-        params.push(ventaIdNumerico);
-      }
-
-      referenciasUnicas.forEach((ref) => {
-        conditions.push('concepto LIKE ?');
-        params.push(`%${ref}%`);
-      });
-
-      if (conditions.length === 0) {
-        conditions.push('concepto LIKE ?');
-        params.push(`%${referenciaPrincipal}%`);
-      }
-
-      return {
-        where: `(${conditions.join(' OR ')})`,
-        params,
-      };
-    };
-
-    const bancoFiltro = buildWhereBanco();
-    const cajaFiltro = buildWhereCaja();
-
-    // Evitar reversas duplicadas en banco
-    const [reversasBancoExistentes] = await dbConn.query(
-      `SELECT id
-       FROM movimientos_bancarios
-       WHERE tipo_movimiento = 'EGRESO'
-       AND categoria = 'Anulacion Venta'
-       AND ${bancoFiltro.where}
-       LIMIT 1`,
-      bancoFiltro.params
-    );
-
-    // Evitar reversas duplicadas en caja
-    const [reversasCajaExistentes] = await dbConn.query(
-      `SELECT id
-       FROM caja_chica
-       WHERE tipo_movimiento = 'EGRESO'
-       AND categoria = 'Anulacion Venta'
-       AND ${cajaFiltro.where}
-       LIMIT 1`,
-      cajaFiltro.params
-    );
-
-    if (reversasBancoExistentes.length > 0 || reversasCajaExistentes.length > 0) {
-      console.warn(
-        `⚠️ La venta ${referenciaPrincipal} ya tiene reversa financiera registrada. No se duplicará.`
-      );
-
-      return {
-        success: true,
-        duplicated: true,
-        message: 'La reversa financiera ya existía',
-      };
+    if (ventaIdNumerico === null) {
+      console.warn(`⚠️ No se puede crear reversa financiera: venta sin ID numérico resolvible.`);
+      return { success: false, message: 'Venta sin ID numérico, no se crea reversa' };
     }
 
-    // Buscar ingresos bancarios originales de la venta
-    const [movimientosBancoOriginales] = await dbConn.query(
-      `SELECT *
-       FROM movimientos_bancarios
-       WHERE tipo_movimiento = 'INGRESO'
-       AND ${bancoFiltro.where}
-       ORDER BY id ASC`,
-      bancoFiltro.params
+    // Obtener numero_venta para el concepto legible
+    let referenciaVenta = String(ventaIdNumerico);
+    try {
+      const [filas] = await dbConn.query(
+        'SELECT numero_venta FROM ventas WHERE id = ? LIMIT 1',
+        [ventaIdNumerico]
+      );
+      if (filas.length > 0 && filas[0].numero_venta) {
+        referenciaVenta = filas[0].numero_venta;
+      }
+    } catch (lookupErr) {
+      console.warn(`⚠️ No se pudo obtener numero_venta para venta id=${ventaIdNumerico}:`, lookupErr.message);
+    }
+
+    const conceptoReversa = `Anulación venta ${referenciaVenta}`;
+
+    // ── CAJA CHICA ───────────────────────────────────────────────────────────────
+
+    // Anti-duplicado: no crear reversa si ya existe
+    const [reversaCajaExistente] = await dbConn.query(
+      `SELECT id FROM caja_chica
+       WHERE venta_id = ?
+         AND tipo_movimiento = 'EGRESO'
+         AND categoria = 'Anulacion Venta'
+         AND estado IN ('PENDIENTE', 'CONFIRMADO')
+       LIMIT 1`,
+      [ventaIdNumerico]
     );
 
-    // Buscar ingresos de caja chica originales de la venta
-    const [movimientosCajaOriginales] = await dbConn.query(
-      `SELECT *
-       FROM caja_chica
-       WHERE tipo_movimiento = 'INGRESO'
-       AND ${cajaFiltro.where}
-       ORDER BY id ASC`,
-      cajaFiltro.params
-    );
+    let reversasCajaCreadas = 0;
 
-    let reversasCreadas = 0;
-
-    // Reversar movimientos bancarios
-    for (const movimiento of movimientosBancoOriginales) {
-      const estadoReversa =
-        String(movimiento.estado || '').toUpperCase() === 'CONFIRMADO'
-          ? 'CONFIRMADO'
-          : 'PENDIENTE';
-
-      const conceptoReversa = `Anulación venta ${referenciaPrincipal}`;
-
+    if (reversaCajaExistente.length > 0) {
+      console.warn(`⚠️ Ya existe reversa de caja para venta_id=${ventaIdNumerico}. Se omite.`);
+    } else {
+      // A. Anular ingresos PENDIENTES directamente
       await dbConn.query(
-        `INSERT INTO movimientos_bancarios
-         (
-           cuenta_id,
-           tipo_movimiento,
-           monto,
-           concepto,
-           venta_id,
-           categoria,
-           estado,
-           numero_referencia,
-           realizado_por
-         )
-         VALUES (?, 'EGRESO', ?, ?, ?, 'Anulacion Venta', ?, ?, ?)`,
-        [
-          movimiento.cuenta_id,
-          movimiento.monto,
-          conceptoReversa,
-          ventaIdNumerico,
-          estadoReversa,
-          movimiento.numero_referencia || referenciaPrincipal,
-          usuarioNombre,
-        ]
+        `UPDATE caja_chica
+         SET estado = 'ANULADO',
+             observaciones = CONCAT(COALESCE(observaciones, ''), ' | ANULADO AUTOMATICAMENTE POR CANCELACION DE VENTA')
+         WHERE venta_id = ?
+           AND tipo_movimiento = 'INGRESO'
+           AND categoria = 'Venta'
+           AND estado = 'PENDIENTE'`,
+        [ventaIdNumerico]
       );
 
-      // Si el ingreso original ya estaba confirmado, la reversa también afecta saldo inmediatamente.
-      if (estadoReversa === 'CONFIRMADO') {
+      // B. Buscar ingresos CONFIRMADOS para reversar
+      const [ingresosConfirmadosCaja] = await dbConn.query(
+        `SELECT * FROM caja_chica
+         WHERE venta_id = ?
+           AND tipo_movimiento = 'INGRESO'
+           AND categoria = 'Venta'
+           AND estado = 'CONFIRMADO'
+         ORDER BY id ASC`,
+        [ventaIdNumerico]
+      );
+
+      // C. Crear una reversa CONFIRMADA por cada ingreso confirmado
+      for (const movimiento of ingresosConfirmadosCaja) {
+        await dbConn.query(
+          `INSERT INTO caja_chica
+           (tipo_movimiento, monto, concepto, venta_id, categoria, estado, realizado_por)
+           VALUES ('EGRESO', ?, ?, ?, 'Anulacion Venta', 'CONFIRMADO', ?)`,
+          [movimiento.monto, conceptoReversa, ventaIdNumerico, usuarioNombre]
+        );
+        reversasCajaCreadas++;
+        console.log(`✅ Reversa de caja registrada: Q${movimiento.monto} - ${conceptoReversa}`);
+      }
+    }
+
+    // ── BANCO ─────────────────────────────────────────────────────────────────────
+
+    // Anti-duplicado: no crear reversa si ya existe
+    const [reversaBancoExistente] = await dbConn.query(
+      `SELECT id FROM movimientos_bancarios
+       WHERE venta_id = ?
+         AND tipo_movimiento = 'EGRESO'
+         AND categoria = 'Anulacion Venta'
+         AND estado IN ('PENDIENTE', 'CONFIRMADO')
+       LIMIT 1`,
+      [ventaIdNumerico]
+    );
+
+    let reversasBancoCreadas = 0;
+
+    if (reversaBancoExistente.length > 0) {
+      console.warn(`⚠️ Ya existe reversa bancaria para venta_id=${ventaIdNumerico}. Se omite.`);
+    } else {
+      // A. Anular ingresos bancarios PENDIENTES directamente
+      await dbConn.query(
+        `UPDATE movimientos_bancarios
+         SET estado = 'ANULADO',
+             observaciones = CONCAT(COALESCE(observaciones, ''), ' | ANULADO AUTOMATICAMENTE POR CANCELACION DE VENTA')
+         WHERE venta_id = ?
+           AND tipo_movimiento = 'INGRESO'
+           AND categoria IN ('POS', 'Transferencia', 'Deposito')
+           AND estado = 'PENDIENTE'`,
+        [ventaIdNumerico]
+      );
+
+      // B. Buscar ingresos bancarios CONFIRMADOS para reversar
+      const [ingresosConfirmadosBanco] = await dbConn.query(
+        `SELECT * FROM movimientos_bancarios
+         WHERE venta_id = ?
+           AND tipo_movimiento = 'INGRESO'
+           AND categoria IN ('POS', 'Transferencia', 'Deposito')
+           AND estado = 'CONFIRMADO'
+         ORDER BY id ASC`,
+        [ventaIdNumerico]
+      );
+
+      // C. Crear una reversa CONFIRMADA por cada ingreso bancario confirmado
+      for (const movimiento of ingresosConfirmadosBanco) {
+        await dbConn.query(
+          `INSERT INTO movimientos_bancarios
+           (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
+           VALUES (?, 'EGRESO', ?, ?, ?, 'Anulacion Venta', 'CONFIRMADO', ?, ?)`,
+          [
+            movimiento.cuenta_id,
+            movimiento.monto,
+            conceptoReversa,
+            ventaIdNumerico,
+            movimiento.numero_referencia || null,
+            usuarioNombre,
+          ]
+        );
+
+        // D. Actualizar saldo_actual restando el monto reversado
         await dbConn.query(
           'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual - ? WHERE id = ?',
           [movimiento.monto, movimiento.cuenta_id]
         );
+
+        reversasBancoCreadas++;
+        console.log(`✅ Reversa bancaria registrada: Q${movimiento.monto} - ${conceptoReversa} - Cuenta ${movimiento.cuenta_id}`);
       }
-
-      reversasCreadas++;
-
-      console.log(
-        `✅ Reversa bancaria registrada: Q${movimiento.monto} - Anulación venta ${referenciaPrincipal} - Cuenta ${movimiento.cuenta_id}`
-      );
     }
 
-    // Reversar movimientos de caja chica
-    for (const movimiento of movimientosCajaOriginales) {
-      const estadoReversa =
-        String(movimiento.estado || '').toUpperCase() === 'CONFIRMADO'
-          ? 'CONFIRMADO'
-          : 'PENDIENTE';
-
-      const conceptoReversa = `Anulación venta ${referenciaPrincipal}`;
-
-      await dbConn.query(
-        `INSERT INTO caja_chica
-         (
-           tipo_movimiento,
-           monto,
-           concepto,
-           venta_id,
-           categoria,
-           estado,
-           realizado_por
-         )
-         VALUES ('EGRESO', ?, ?, ?, 'Anulacion Venta', ?, ?)`,
-        [
-          movimiento.monto,
-          conceptoReversa,
-          ventaIdNumerico,
-          estadoReversa,
-          usuarioNombre,
-        ]
-      );
-
-      reversasCreadas++;
-
-      console.log(
-        `✅ Reversa de caja registrada: Q${movimiento.monto} - Anulación venta ${referenciaPrincipal}`
-      );
-    }
+    const reversasCreadas = reversasCajaCreadas + reversasBancoCreadas;
 
     if (reversasCreadas === 0) {
-      console.warn(
-        `⚠️ No se encontró movimiento financiero original para la venta ${referenciaPrincipal}. No se creó reversa.`
-      );
-
+      console.warn(`⚠️ No había movimientos confirmados para reversar de venta id=${ventaIdNumerico} (${referenciaVenta}). Los pendientes fueron anulados directamente.`);
       return {
         success: true,
         reversasCreadas: 0,
-        message: 'No había movimientos financieros originales para reversar',
+        message: 'Movimientos pendientes anulados. No había confirmados para reversar.',
       };
     }
 
     return {
       success: true,
       reversasCreadas,
-      message: `Reversa financiera creada para venta ${referenciaPrincipal}`,
+      message: `Reversa financiera creada para venta ${referenciaVenta}`,
     };
   } catch (error) {
     console.error('Error registrando reversa financiera de venta:', error);
