@@ -361,19 +361,30 @@ exports.registrarMovimientoVenta = async (
   const dbConn = connection || db;
 
   try {
-  const concepto = `Venta ${ventaId}`;
-  const metodo = String(metodoPago || '').toUpperCase();
-  const montoQuetzales = Number(monto || 0) / 100;
+    const metodo = String(metodoPago || '').toUpperCase();
+    const montoQuetzales = Number(monto || 0) / 100;
+    const concepto = `Venta ${ventaId}`;
 
-  const ventaIdNumerico = Number.isInteger(Number(ventaId))
-    ? Number(ventaId)
-    : null;
+    // Resolver venta_id numérico. Si llega como correlativo (p.ej. "V-2026-0006"), buscar en la tabla.
+    let ventaIdNumerico = Number.isInteger(Number(ventaId)) ? Number(ventaId) : null;
 
-  if (ventaIdNumerico === null) {
-    console.warn(
-      `⚠️ venta_id recibido como correlativo (${ventaId}). Se registrará el movimiento bancario sin venta_id numérico.`
-    );
-  }
+    if (ventaIdNumerico === null) {
+      try {
+        const [filas] = await dbConn.query(
+          'SELECT id FROM ventas WHERE numero_venta = ? LIMIT 1',
+          [String(ventaId)]
+        );
+        if (filas.length > 0) {
+          ventaIdNumerico = filas[0].id;
+          console.log(`🔍 venta_id resuelto: "${ventaId}" → ${ventaIdNumerico}`);
+        } else {
+          console.warn(`⚠️ venta_id no resuelto: no se encontró venta con numero_venta="${ventaId}".`);
+        }
+      } catch (lookupErr) {
+        console.warn(`⚠️ Error al resolver venta_id numérico desde correlativo "${ventaId}":`, lookupErr.message);
+      }
+    }
+
     const buscarPrimeraCuentaActiva = async () => {
       const [cuentas] = await dbConn.query(
         'SELECT id, nombre FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1'
@@ -448,6 +459,18 @@ exports.registrarMovimientoVenta = async (
         return false;
       }
 
+      // Anti-duplicado: verificar si ya existe un movimiento activo para esta venta/cuenta/categoría
+      if (ventaIdNumerico !== null) {
+        const [dup] = await dbConn.query(
+          `SELECT id FROM movimientos_bancarios WHERE venta_id = ? AND cuenta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = ? AND estado <> 'ANULADO' LIMIT 1`,
+          [ventaIdNumerico, cuenta.id, categoria]
+        );
+        if (dup.length > 0) {
+          console.warn(`⚠️ Movimiento duplicado detectado en movimientos_bancarios para venta_id=${ventaIdNumerico}, cuenta_id=${cuenta.id}, categoria=${categoria}. Se omite inserción.`);
+          return false;
+        }
+      }
+
       await dbConn.query(
         `INSERT INTO movimientos_bancarios 
         (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
@@ -477,15 +500,27 @@ exports.registrarMovimientoVenta = async (
     };
 
     if (metodo === 'EFECTIVO') {
+      // Anti-duplicado: verificar si ya existe movimiento de ingreso por venta en caja_chica
+      if (ventaIdNumerico !== null) {
+        const [dup] = await dbConn.query(
+          `SELECT id FROM caja_chica WHERE venta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = 'Venta' AND estado <> 'ANULADO' LIMIT 1`,
+          [ventaIdNumerico]
+        );
+        if (dup.length > 0) {
+          console.warn(`⚠️ Movimiento duplicado detectado en caja_chica para venta_id=${ventaIdNumerico}. Se omite inserción.`);
+          return { success: true, skipped: true };
+        }
+      }
+
       await dbConn.query(
         `INSERT INTO caja_chica 
          (tipo_movimiento, monto, concepto, venta_id, categoria, estado, realizado_por)
          VALUES ('INGRESO', ?, ?, ?, 'Venta', 'CONFIRMADO', ?)`,
-        [montoQuetzales, concepto, ventaId, usuarioNombre]
+        [montoQuetzales, concepto, ventaIdNumerico, usuarioNombre]
       );
 
       console.log(
-        `✅ Movimiento CONFIRMADO registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId}`
+        `✅ Movimiento CONFIRMADO registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId} (id=${ventaIdNumerico})`
       );
     } else if (metodo === 'TARJETA') {
       /*

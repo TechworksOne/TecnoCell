@@ -2,6 +2,15 @@ import { create } from "zustand";
 import { KardexEntry, Product } from "../types/product";
 import * as categoryService from "../services/categoryService";
 import * as productService from "../services/productService";
+import { UPLOADS_BASE_URL } from "../services/config";
+
+// Construye la URL completa de un asset (imagen) a partir de una ruta relativa del backend.
+const buildAssetUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const base = UPLOADS_BASE_URL.replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? url : `/${url}`}`;
+};
 
 interface CategoryStructure {
   [key: string]: string[];
@@ -88,8 +97,8 @@ export const useCatalog = create<CatalogState>((set, get) => ({
           aplica_serie: p.aplica_serie === 1 || p.aplica_serie === true,
           active: p.activo === 1 || p.activo === true,
           description: p.descripcion || '',
-          images: p.imagenes?.map((img: any) => img.url) || [],
-          image: p.imagenes?.[0]?.url || ''
+          images: p.imagenes?.map((img: any) => buildAssetUrl(img.url)).filter(Boolean) || [],
+          image: buildAssetUrl(p.imagenes?.[0]?.url)
         }));
         set({ 
           products: mappedProducts,
