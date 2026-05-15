@@ -363,27 +363,44 @@ exports.registrarMovimientoVenta = async (
   try {
     const metodo = String(metodoPago || '').toUpperCase();
     const montoQuetzales = Number(monto || 0) / 100;
-    const concepto = `Venta ${ventaId}`;
 
-    // Resolver venta_id numérico. Si llega como correlativo (p.ej. "V-2026-0006"), buscar en la tabla.
+    // Resolver venta_id numérico y referencia legible (numero_venta) en un solo paso.
     let ventaIdNumerico = Number.isInteger(Number(ventaId)) ? Number(ventaId) : null;
+    let referenciaVenta = String(ventaId || '').trim();
 
-    if (ventaIdNumerico === null) {
-      try {
+    try {
+      if (ventaIdNumerico !== null) {
+        // Llegó como ID numérico: buscar numero_venta para usar en el concepto legible.
         const [filas] = await dbConn.query(
-          'SELECT id FROM ventas WHERE numero_venta = ? LIMIT 1',
-          [String(ventaId)]
+          'SELECT numero_venta FROM ventas WHERE id = ? LIMIT 1',
+          [ventaIdNumerico]
+        );
+        if (filas.length > 0 && filas[0].numero_venta) {
+          referenciaVenta = filas[0].numero_venta;
+        }
+      } else if (referenciaVenta) {
+        // Llegó como correlativo (p.ej. "V-2026-0008"): buscar id y numero_venta.
+        const [filas] = await dbConn.query(
+          'SELECT id, numero_venta FROM ventas WHERE numero_venta = ? LIMIT 1',
+          [referenciaVenta]
         );
         if (filas.length > 0) {
           ventaIdNumerico = filas[0].id;
+          referenciaVenta = filas[0].numero_venta || referenciaVenta;
           console.log(`🔍 venta_id resuelto: "${ventaId}" → ${ventaIdNumerico}`);
         } else {
           console.warn(`⚠️ venta_id no resuelto: no se encontró venta con numero_venta="${ventaId}".`);
         }
-      } catch (lookupErr) {
-        console.warn(`⚠️ Error al resolver venta_id numérico desde correlativo "${ventaId}":`, lookupErr.message);
       }
+    } catch (lookupErr) {
+      console.warn(`⚠️ Error al resolver venta_id numérico desde "${ventaId}":`, lookupErr.message);
     }
+
+    if (ventaIdNumerico === null) {
+      console.warn(`⚠️ venta_id queda sin relación numérica. Concepto será: "Venta ${referenciaVenta || ventaId || 'SIN_REFERENCIA'}".`);
+    }
+
+    const concepto = `Venta ${referenciaVenta || ventaId || 'SIN_REFERENCIA'}`;
 
     const buscarPrimeraCuentaActiva = async () => {
       const [cuentas] = await dbConn.query(
@@ -462,7 +479,7 @@ exports.registrarMovimientoVenta = async (
       // Anti-duplicado: verificar si ya existe un movimiento activo para esta venta/cuenta/categoría
       if (ventaIdNumerico !== null) {
         const [dup] = await dbConn.query(
-          `SELECT id FROM movimientos_bancarios WHERE venta_id = ? AND cuenta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = ? AND estado <> 'ANULADO' LIMIT 1`,
+          `SELECT id FROM movimientos_bancarios WHERE venta_id = ? AND cuenta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = ? AND estado IN ('PENDIENTE', 'CONFIRMADO') LIMIT 1`,
           [ventaIdNumerico, cuenta.id, categoria]
         );
         if (dup.length > 0) {
@@ -474,7 +491,7 @@ exports.registrarMovimientoVenta = async (
       await dbConn.query(
         `INSERT INTO movimientos_bancarios 
         (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado, numero_referencia, realizado_por)
-        VALUES (?, 'INGRESO', ?, ?, ?, ?, 'CONFIRMADO', ?, ?)`,
+        VALUES (?, 'INGRESO', ?, ?, ?, ?, 'PENDIENTE', ?, ?)`,
         [
           cuenta.id,
           montoQuetzales,
@@ -486,14 +503,8 @@ exports.registrarMovimientoVenta = async (
         ]
       );
 
-      // Actualizar saldo_actual de la cuenta bancaria
-      await dbConn.query(
-        'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
-        [montoQuetzales, cuenta.id]
-      );
-
       console.log(
-        `✅ Movimiento CONFIRMADO registrado en BANCO (${cuenta.nombre || 'Cuenta bancaria'} id=${cuenta.id}): Q${montoQuetzales} - Venta ${ventaId}`
+        `✅ Movimiento PENDIENTE registrado en BANCO (${cuenta.nombre || 'Cuenta bancaria'} id=${cuenta.id}): Q${montoQuetzales} - Venta ${referenciaVenta || ventaId}`
       );
 
       return true;
@@ -503,7 +514,7 @@ exports.registrarMovimientoVenta = async (
       // Anti-duplicado: verificar si ya existe movimiento de ingreso por venta en caja_chica
       if (ventaIdNumerico !== null) {
         const [dup] = await dbConn.query(
-          `SELECT id FROM caja_chica WHERE venta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = 'Venta' AND estado <> 'ANULADO' LIMIT 1`,
+          `SELECT id FROM caja_chica WHERE venta_id = ? AND tipo_movimiento = 'INGRESO' AND categoria = 'Venta' AND estado IN ('PENDIENTE', 'CONFIRMADO') LIMIT 1`,
           [ventaIdNumerico]
         );
         if (dup.length > 0) {
@@ -515,12 +526,12 @@ exports.registrarMovimientoVenta = async (
       await dbConn.query(
         `INSERT INTO caja_chica 
          (tipo_movimiento, monto, concepto, venta_id, categoria, estado, realizado_por)
-         VALUES ('INGRESO', ?, ?, ?, 'Venta', 'CONFIRMADO', ?)`,
+         VALUES ('INGRESO', ?, ?, ?, 'Venta', 'PENDIENTE', ?)`,
         [montoQuetzales, concepto, ventaIdNumerico, usuarioNombre]
       );
 
       console.log(
-        `✅ Movimiento CONFIRMADO registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${ventaId} (id=${ventaIdNumerico})`
+        `✅ Movimiento PENDIENTE registrado en CAJA CHICA: Q${montoQuetzales} - Venta ${referenciaVenta || ventaId} (id=${ventaIdNumerico})`
       );
     } else if (metodo === 'TARJETA') {
       /*

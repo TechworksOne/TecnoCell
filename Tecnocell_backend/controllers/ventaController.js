@@ -116,7 +116,7 @@ exports.createVenta = async (req, res) => {
         if (pagos && Array.isArray(pagos)) {
           for (const pago of pagos) {
             await cajaController.registrarMovimientoVenta(
-              venta.numero_venta || `V-${result.insertId}`,
+              result.insertId,
               pago.metodo,
               pago.monto, // Ya viene en centavos desde el frontend
               created_by || 'Sistema',
@@ -129,7 +129,7 @@ exports.createVenta = async (req, res) => {
         } else {
           // Pago único
           await cajaController.registrarMovimientoVenta(
-            venta.numero_venta || `V-${result.insertId}`,
+            result.insertId,
             metodo_pago,
             total,
             created_by || 'Sistema'
@@ -278,7 +278,7 @@ exports.createVentaFromQuote = async (req, res) => {
         if (pagos && Array.isArray(pagos)) {
           for (const pago of pagos) {
             await cajaController.registrarMovimientoVenta(
-              venta.numero_venta || `V-${result.insertId}`,
+              result.insertId,
               pago.metodo,
               pago.monto,
               created_by || 'Sistema',
@@ -291,7 +291,7 @@ exports.createVentaFromQuote = async (req, res) => {
         } else {
           // Pago único
           await cajaController.registrarMovimientoVenta(
-            venta.numero_venta || `V-${result.insertId}`,
+            result.insertId,
             metodo_pago,
             totalCentavos,
             created_by || 'Sistema'
@@ -480,7 +480,7 @@ exports.registrarPago = async (req, res) => {
     // Registrar en caja/bancos
     try {
       await cajaController.registrarMovimientoVenta(
-        ventaActual.numero_venta || `V-${id}`,
+        Number(id),
         metodo,
         montoCentavos,
         usuario_id || 'Sistema',
