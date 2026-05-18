@@ -138,10 +138,10 @@ export default function FlujoReparacionesPage() {
     const url = `${API_URL}/reparaciones/${repId}/estado`;
 
     // Debug: URL, método, presencia de token
-    console.debug('[FlujoReparaciones] PUT', url, { hasToken: !!token });
+    console.debug('[FlujoReparaciones] POST', url, { hasToken: !!token });
 
     try {
-      const response = await axios.put(
+      const response = await axios.post(
         url,
         { estado: newEstado },
         { headers: { Authorization: `Bearer ${token}` } }
