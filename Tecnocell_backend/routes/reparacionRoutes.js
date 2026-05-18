@@ -2,28 +2,30 @@
 const express = require('express');
 const router = express.Router();
 const reparacionController = require('../controllers/reparacionController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Rutas CRUD
 router.get('/', reparacionController.getAllReparaciones);
-router.get('/:id/historial-completo', reparacionController.getHistorialCompleto);
+router.get('/:id/historial-completo', verifyToken, reparacionController.getHistorialCompleto);
 router.get('/:id', reparacionController.getReparacionById);
-router.post('/', reparacionController.createReparacion);
+router.post('/', verifyToken, reparacionController.createReparacion);
 
-// Actualizar solo el estado (simple)
-router.put('/:id/estado', reparacionController.updateEstadoReparacion);
+// Actualizar solo el estado (simple) — PUT usa JSON plano desde el Kanban
+router.put('/:id/estado', verifyToken, reparacionController.updateEstadoReparacion);
 
 // Actualizar prioridad
-router.patch('/:id/prioridad', reparacionController.updatePrioridad);
+router.patch('/:id/prioridad', verifyToken, reparacionController.updatePrioridad);
 
 // Registrar pago de saldo pendiente
-router.post('/:id/pago', reparacionController.registrarPagoSaldo);
+router.post('/:id/pago', verifyToken, reparacionController.registrarPagoSaldo);
 
 // Cancelar reparación
-router.patch('/:id/cancelar', reparacionController.cancelarReparacion);
+router.patch('/:id/cancelar', verifyToken, reparacionController.cancelarReparacion);
 
-// Cambiar estado con imágenes
+// Cambiar estado con imágenes — POST usa FormData desde ModalActualizarEstado
 router.post(
   '/:id/estado',
+  verifyToken,
   reparacionController.uploadMiddleware,
   reparacionController.changeRepairState
 );

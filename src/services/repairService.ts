@@ -3,6 +3,39 @@ import axios from 'axios';
 import type { Repair, RepairFormData, RepairStatus, StateChangeRequest } from '../types/repair';
 import { API_BASE_URL as API_URL } from './config';
 
+// ─── Axios instance con token de autenticación ───────────────────────────────
+const api = axios.create({ baseURL: API_URL });
+
+api.interceptors.request.use(
+  (config) => {
+    // authService guarda en sessionStorage; también busca en localStorage por compatibilidad
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Debug: URL, método, presencia de token (NO imprime el token completo)
+    console.debug(
+      `[repairService] ${(config.method ?? 'GET').toUpperCase()} ${config.baseURL ?? ''}${config.url ?? ''}`,
+      { hasToken: !!token }
+    );
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      console.error(
+        `[repairService] Error HTTP ${error.response.status}:`,
+        error.response.data
+      );
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Helper: Convertir FormData para enviar
 const createFormData = (data: any, files?: File[]): FormData => {
   const formData = new FormData();
@@ -45,10 +78,8 @@ export const createReparacion = async (repairData: RepairFormData, fotosRecepcio
       uploadFormData.append('repairId', `REP${Date.now()}`);
       uploadFormData.append('imageTipo', 'recepcion');
       
-      const uploadResponse = await axios.post(`${API_URL}/reparaciones/upload`, uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
+      // No establecer Content-Type manualmente: axios/browser lo genera con el boundary correcto
+      const uploadResponse = await api.post('/reparaciones/upload', uploadFormData);
       fotosRecepcionUrls = uploadResponse.data.data;
     }
     
@@ -94,7 +125,7 @@ export const createReparacion = async (repairData: RepairFormData, fotosRecepcio
       fechaIngreso: repairData.recepcion.fechaRecepcion
     };
     
-    const response = await axios.post(`${API_URL}/reparaciones`, payload);
+    const response = await api.post('/reparaciones', payload);
     return response.data.data;
   } catch (error) {
     console.error('Error al crear reparación:', error);
@@ -110,7 +141,7 @@ export const getAllReparaciones = async (filters?: {
   limit?: number;
 }): Promise<Repair[]> => {
   try {
-    const response = await axios.get(`${API_URL}/reparaciones`, {
+    const response = await api.get('/reparaciones', {
       params: filters
     });
     
@@ -184,7 +215,7 @@ export const getAllReparaciones = async (filters?: {
 // ========== OBTENER UNA REPARACIÓN ==========
 export const getReparacionById = async (id: string): Promise<Repair> => {
   try {
-    const response = await axios.get(`${API_URL}/reparaciones/${id}`);
+    const response = await api.get(`/reparaciones/${id}`);
     return response.data.data;
   } catch (error) {
     console.error('Error al obtener reparación:', error);
@@ -224,11 +255,8 @@ export const changeRepairState = async (
       formData.append('diferenciaReparacion', String(stateChange.diferenciaReparacion));
     }
     
-    await axios.post(`${API_URL}/reparaciones/${id}/estado`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
+    // No establecer Content-Type manualmente: axios/browser lo genera con el boundary correcto
+    await api.post(`/reparaciones/${id}/estado`, formData);
   } catch (error) {
     console.error('Error al cambiar estado:', error);
     throw error;
@@ -251,12 +279,8 @@ export const uploadImages = async (
     formData.append('repairId', repairId);
     formData.append('imageTipo', tipo);
     
-    const response = await axios.post(`${API_URL}/reparaciones/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-    
+    // No establecer Content-Type manualmente: axios/browser lo genera con el boundary correcto
+    const response = await api.post('/reparaciones/upload', formData);
     return response.data.data;
   } catch (error) {
     console.error('Error al subir imágenes:', error);
@@ -282,7 +306,7 @@ export const getImageUrl = (urlPath: string): string => {
 // ========== ACTUALIZAR PRIORIDAD ==========
 export const updatePrioridad = async (id: string, prioridad: 'BAJA' | 'MEDIA' | 'ALTA'): Promise<void> => {
   try {
-    await axios.patch(`${API_URL}/reparaciones/${id}/prioridad`, { prioridad });
+    await api.patch(`/reparaciones/${id}/prioridad`, { prioridad });
   } catch (error) {
     console.error('Error al actualizar prioridad:', error);
     throw error;
@@ -296,7 +320,7 @@ export const registrarPagoSaldo = async (
   metodoPago: 'efectivo' | 'tarjeta'
 ): Promise<{ totalPagado: number; saldoRestante: number }> => {
   try {
-    const response = await axios.post(`${API_URL}/reparaciones/${id}/pago`, { monto, metodoPago });
+    const response = await api.post(`/reparaciones/${id}/pago`, { monto, metodoPago });
     return response.data.data;
   } catch (error) {
     console.error('Error al registrar pago de saldo:', error);
@@ -307,7 +331,7 @@ export const registrarPagoSaldo = async (
 // ========== CANCELAR REPARACIÓN ==========
 export const cancelarReparacion = async (id: string, motivo: string): Promise<void> => {
   try {
-    await axios.patch(`${API_URL}/reparaciones/${id}/cancelar`, { motivo });
+    await api.patch(`/reparaciones/${id}/cancelar`, { motivo });
   } catch (error) {
     console.error('Error al cancelar reparación:', error);
     throw error;

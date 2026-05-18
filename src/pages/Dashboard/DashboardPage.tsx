@@ -795,6 +795,13 @@ function normalizeRole(value: unknown): string {
 }
 
 function getStoredAuthToken(): string | null {
+  // authService saves to sessionStorage — check it first
+  const sessionToken = sessionStorage.getItem('token');
+  if (sessionToken && sessionToken !== 'null' && sessionToken !== 'undefined') {
+    return sessionToken;
+  }
+
+  // Fallback: legacy localStorage keys
   const directToken =
     localStorage.getItem("token") ||
     localStorage.getItem("authToken") ||

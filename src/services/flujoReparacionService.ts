@@ -8,13 +8,32 @@ const api = axios.create({
 // Interceptor para agregar token
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token');
+    // authService guarda en sessionStorage; también busca en localStorage por compatibilidad
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Debug: URL, método, presencia de token (NO imprime el token completo)
+    console.debug(
+      `[flujoReparacionService] ${(config.method ?? 'GET').toUpperCase()} ${config.baseURL ?? ''}${config.url ?? ''}`,
+      { hasToken: !!token }
+    );
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      console.error(
+        `[flujoReparacionService] Error HTTP ${error.response.status}:`,
+        error.response.data
+      );
+    }
+    return Promise.reject(error);
+  }
 );
 
 // ========== INGRESO DE EQUIPO (CHECKLIST) ==========
@@ -76,11 +95,8 @@ export const saveIngresoEquipo = async (reparacionId: string, data: ChecklistDat
     });
   }
   
-  const response = await api.post(`/flujo-reparaciones/${reparacionId}/ingreso-equipo`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
+  // No establecer Content-Type manualmente — el browser/axios lo genera con el boundary correcto
+  const response = await api.post(`/flujo-reparaciones/${reparacionId}/ingreso-equipo`, formData);
   return response.data;
 };
 

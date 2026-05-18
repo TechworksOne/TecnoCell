@@ -134,17 +134,34 @@ export default function FlujoReparacionesPage() {
     // Optimistic update
     setReparaciones(prev => prev.map(r => r.id === repId ? { ...r, estado: newEstado } : r));
 
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const url = `${API_URL}/reparaciones/${repId}/estado`;
+
+    // Debug: URL, método, presencia de token
+    console.debug('[FlujoReparaciones] PUT', url, { hasToken: !!token });
+
     try {
-      const token = sessionStorage.getItem('token');
-      await axios.put(
-        `${API_URL}/reparaciones/${repId}/estado`,
+      const response = await axios.put(
+        url,
         { estado: newEstado },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.debug('[FlujoReparaciones] Respuesta status:', response.status);
       showToast(`Estado actualizado a ${newEstado.replace(/_/g, ' ')}`);
-    } catch {
+    } catch (err: any) {
       setReparaciones(snapshot);
-      showToast('Error al cambiar estado. Intenta de nuevo.', 'error');
+      const status = err.response?.status;
+      const serverMsg = err.response?.data?.message;
+      console.error('[FlujoReparaciones] Error status:', status, 'body:', err.response?.data);
+
+      if (status === 403) {
+        const msg = serverMsg === 'Token no proporcionado'
+          ? 'Sesión no válida. Por favor inicia sesión nuevamente.'
+          : (serverMsg || 'No tienes permisos para esta acción');
+        showToast(msg, 'error');
+      } else {
+        showToast('Error al cambiar estado. Intenta de nuevo.', 'error');
+      }
     }
   }, [reparaciones]);
 

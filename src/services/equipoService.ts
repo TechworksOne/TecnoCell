@@ -1,15 +1,21 @@
 // Servicio para gestionar marcas y modelos de equipos
 import axios from 'axios';
 import type { EquipoMarca, EquipoModelo, CreateMarcaRequest, CreateModeloRequest, TipoEquipo } from '../types/equipo';
+import API_URL from './config';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const api = axios.create({ baseURL: API_URL });
+api.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 // ========== MARCAS ==========
 
 export const getAllMarcas = async (tipoEquipo?: TipoEquipo): Promise<EquipoMarca[]> => {
   try {
     const params = tipoEquipo ? { tipo_equipo: tipoEquipo } : {};
-    const response = await axios.get(`${API_URL}/equipos/marcas`, { params });
+    const response = await api.get('/equipos/marcas', { params });
     return response.data.data;
   } catch (error) {
     console.error('Error al obtener marcas:', error);
@@ -19,7 +25,7 @@ export const getAllMarcas = async (tipoEquipo?: TipoEquipo): Promise<EquipoMarca
 
 export const createMarca = async (marca: CreateMarcaRequest): Promise<EquipoMarca> => {
   try {
-    const response = await axios.post(`${API_URL}/equipos/marcas`, marca);
+    const response = await api.post('/equipos/marcas', marca);
     return response.data.data;
   } catch (error) {
     console.error('Error al crear marca:', error);
@@ -29,7 +35,7 @@ export const createMarca = async (marca: CreateMarcaRequest): Promise<EquipoMarc
 
 export const updateMarca = async (id: number, updates: Partial<EquipoMarca>): Promise<EquipoMarca> => {
   try {
-    const response = await axios.put(`${API_URL}/equipos/marcas/${id}`, updates);
+    const response = await api.put(`/equipos/marcas/${id}`, updates);
     return response.data.data;
   } catch (error) {
     console.error('Error al actualizar marca:', error);
@@ -39,7 +45,7 @@ export const updateMarca = async (id: number, updates: Partial<EquipoMarca>): Pr
 
 export const deleteMarca = async (id: number): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/equipos/marcas/${id}`);
+    await api.delete(`/equipos/marcas/${id}`);
   } catch (error) {
     console.error('Error al eliminar marca:', error);
     throw error;
@@ -50,7 +56,7 @@ export const deleteMarca = async (id: number): Promise<void> => {
 
 export const getAllModelos = async (): Promise<EquipoModelo[]> => {
   try {
-    const response = await axios.get(`${API_URL}/equipos/modelos`);
+    const response = await api.get('/equipos/modelos');
     return response.data.data;
   } catch (error) {
     console.error('Error al obtener modelos:', error);
@@ -60,7 +66,7 @@ export const getAllModelos = async (): Promise<EquipoModelo[]> => {
 
 export const getModelosByMarca = async (marcaId: number): Promise<EquipoModelo[]> => {
   try {
-    const response = await axios.get(`${API_URL}/equipos/marcas/${marcaId}/modelos`);
+    const response = await api.get(`/equipos/marcas/${marcaId}/modelos`);
     return response.data.data;
   } catch (error) {
     console.error('Error al obtener modelos de la marca:', error);
@@ -70,7 +76,7 @@ export const getModelosByMarca = async (marcaId: number): Promise<EquipoModelo[]
 
 export const createModelo = async (modelo: CreateModeloRequest): Promise<EquipoModelo> => {
   try {
-    const response = await axios.post(`${API_URL}/equipos/modelos`, modelo);
+    const response = await api.post('/equipos/modelos', modelo);
     return response.data.data;
   } catch (error) {
     console.error('Error al crear modelo:', error);
@@ -80,7 +86,7 @@ export const createModelo = async (modelo: CreateModeloRequest): Promise<EquipoM
 
 export const updateModelo = async (id: number, updates: Partial<EquipoModelo>): Promise<EquipoModelo> => {
   try {
-    const response = await axios.put(`${API_URL}/equipos/modelos/${id}`, updates);
+    const response = await api.put(`/equipos/modelos/${id}`, updates);
     return response.data.data;
   } catch (error) {
     console.error('Error al actualizar modelo:', error);
@@ -90,7 +96,7 @@ export const updateModelo = async (id: number, updates: Partial<EquipoModelo>): 
 
 export const deleteModelo = async (id: number): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/equipos/modelos/${id}`);
+    await api.delete(`/equipos/modelos/${id}`);
   } catch (error) {
     console.error('Error al eliminar modelo:', error);
     throw error;

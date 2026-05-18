@@ -89,9 +89,7 @@ export const adminUsuarioService = {
     if (payload.direccion) form.append('direccion', payload.direccion);
     payload.roles.forEach(r => form.append('roles', r));
     if (payload.foto) form.append('foto_perfil', payload.foto);
-    const { data } = await api.post('/admin/usuarios', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const { data } = await api.post('/admin/usuarios', form);
     return data.data;
   },
 
@@ -107,9 +105,7 @@ export const adminUsuarioService = {
     if (payload.active !== undefined) form.append('active', String(payload.active));
     if (payload.roles) payload.roles.forEach(r => form.append('roles', r));
     if (payload.foto) form.append('foto_perfil', payload.foto);
-    await api.put(`/admin/usuarios/${id}`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    await api.put(`/admin/usuarios/${id}`, form);
   },
 
   async toggleEstado(id: number): Promise<{ active: boolean }> {

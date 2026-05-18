@@ -103,8 +103,8 @@ export default function CajaBancosPage() {
     } catch (err: any) {
       console.error('Error loading data:', err);
       if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
       } else {
         setError('Error al cargar los datos. Intenta actualizar la página.');
@@ -125,8 +125,8 @@ export default function CajaBancosPage() {
     } catch (error: any) {
       console.error('Error confirmando movimiento:', error);
       if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
@@ -143,8 +143,8 @@ export default function CajaBancosPage() {
     } catch (error: any) {
       console.error('Error confirmando movimiento:', error);
       if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
@@ -239,8 +239,8 @@ export default function CajaBancosPage() {
     } catch (error: any) {
       console.error('Error registrando movimiento:', error);
       if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
       } else if (error.response?.data?.message) {
         alert(error.response.data.message);

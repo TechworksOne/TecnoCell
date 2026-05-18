@@ -173,7 +173,6 @@ function ModalEditar({
       await axios.put(`${API_URL}/auth/me/perfil`, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
       });
       onSaved();

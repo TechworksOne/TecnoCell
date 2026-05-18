@@ -126,7 +126,12 @@ export default function ModalActualizarEstado({
 
     setSaving(true);
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const url = `${API_URL}/reparaciones/${reparacion.id}/estado`;
+
+      // Debug: URL, método, presencia de token
+      console.debug('[ModalActualizarEstado] POST', url, { hasToken: !!token });
+
       const formData = new FormData();
 
       // Datos básicos
@@ -156,16 +161,14 @@ export default function ModalActualizarEstado({
         formData.append('fotos', imagen);
       });
 
-      const response = await axios.post(
-        `${API_URL}/reparaciones/${reparacion.id}/estado`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
+      // No establecer Content-Type manualmente — el browser lo genera con el boundary correcto
+      const response = await axios.post(url, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         }
-      );
+      });
+
+      console.debug('[ModalActualizarEstado] Respuesta status:', response.status);
 
       if (response.data.success) {
         alert('Estado actualizado exitosamente');
@@ -175,8 +178,18 @@ export default function ModalActualizarEstado({
         throw new Error(response.data.message || 'Error al actualizar');
       }
     } catch (error: any) {
-      console.error('Error:', error);
-      const mensaje = error.response?.data?.message || error.message || 'Error al actualizar estado';
+      const status = error.response?.status;
+      const serverMsg = error.response?.data?.message;
+      console.error('[ModalActualizarEstado] Error status:', status, 'body:', error.response?.data);
+
+      let mensaje: string;
+      if (status === 403) {
+        mensaje = serverMsg === 'Token no proporcionado'
+          ? 'Sesión no válida. Por favor inicia sesión nuevamente.'
+          : (serverMsg || 'No tienes permisos para esta acción');
+      } else {
+        mensaje = serverMsg || error.message || 'Error al actualizar estado';
+      }
       alert(`Error: ${mensaje}`);
     } finally {
       setSaving(false);
