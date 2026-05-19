@@ -12,6 +12,21 @@ router.get('/stock-bajo', repuestoController.getStockBajo);
 // GET /api/repuestos/estadisticas - Debe ir antes de /:id
 router.get('/estadisticas', repuestoController.getEstadisticas);
 
+// ── Catálogos jerárquicos ─────────────────────────────────────────────────
+// GET  /api/repuestos/tipos
+router.get('/tipos', repuestoController.getTiposRepuesto);
+// POST /api/repuestos/tipos
+router.post('/tipos', repuestoController.createTipoRepuesto);
+// GET  /api/repuestos/marcas?tipo_id=ID
+router.get('/marcas', repuestoController.getMarcasRepuesto);
+// POST /api/repuestos/marcas
+router.post('/marcas', repuestoController.createMarcaRepuesto);
+// GET  /api/repuestos/lineas?tipo_id=ID&marca_id=ID
+router.get('/lineas', repuestoController.getLineasRepuesto);
+// POST /api/repuestos/lineas
+router.post('/lineas', repuestoController.createLineaRepuesto);
+// ─────────────────────────────────────────────────────────────────────────
+
 // GET /api/repuestos - Obtener todos los repuestos (con filtros)
 router.get('/', repuestoController.getAllRepuestos);
 

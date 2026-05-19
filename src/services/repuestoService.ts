@@ -29,8 +29,8 @@ export interface RepuestoData {
   sku?: string;
   codigo?: string;
   nombre: string;
-  tipo: 'Pantalla' | 'Batería' | 'Cámara' | 'Flex' | 'Placa' | 'Back Cover' | 'Altavoz' | 'Conector' | 'Otro';
-  marca: 'Apple' | 'Samsung' | 'Xiaomi' | 'Motorola' | 'Huawei' | 'Otra';
+  tipo: string;
+  marca: string;
   linea?: string;
   modelo?: string;
   compatibilidad?: string[];

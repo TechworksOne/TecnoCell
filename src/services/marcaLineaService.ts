@@ -178,3 +178,77 @@ export const deleteLinea = async (id: number): Promise<{ message: string }> => {
   const response = await api.delete(`/lineas/${id}`);
   return response.data;
 };
+
+// ============================================
+// CATÁLOGOS JERÁRQUICOS DE REPUESTOS
+// GET/POST /api/repuestos/tipos
+// GET/POST /api/repuestos/marcas
+// GET/POST /api/repuestos/lineas
+// ============================================
+
+export interface RepuestoTipo {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepuestoMarca {
+  id: number;
+  tipo_id: number;
+  nombre: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepuestoLinea {
+  id: number;
+  tipo_id: number;
+  marca_id: number;
+  nombre: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getRepuestoTipos = async (): Promise<RepuestoTipo[]> => {
+  const response = await api.get('/repuestos/tipos');
+  return response.data;
+};
+
+export const createRepuestoTipo = async (data: { nombre: string }): Promise<RepuestoTipo> => {
+  const response = await api.post('/repuestos/tipos', data);
+  return response.data;
+};
+
+export const getRepuestoMarcas = async (tipo_id: number): Promise<RepuestoMarca[]> => {
+  const response = await api.get('/repuestos/marcas', { params: { tipo_id } });
+  return response.data;
+};
+
+export const createRepuestoMarca = async (data: {
+  tipo_id: number;
+  nombre: string;
+}): Promise<RepuestoMarca> => {
+  const response = await api.post('/repuestos/marcas', data);
+  return response.data;
+};
+
+export const getRepuestoLineas = async (
+  tipo_id: number,
+  marca_id: number,
+): Promise<RepuestoLinea[]> => {
+  const response = await api.get('/repuestos/lineas', { params: { tipo_id, marca_id } });
+  return response.data;
+};
+
+export const createRepuestoLinea = async (data: {
+  tipo_id: number;
+  marca_id: number;
+  nombre: string;
+}): Promise<RepuestoLinea> => {
+  const response = await api.post('/repuestos/lineas', data);
+  return response.data;
+};

@@ -653,6 +653,153 @@ exports.registrarMovimiento = async (req, res) => {
   }
 };
 
+// ============================================================================
+// CATÁLOGOS JERÁRQUICOS DE REPUESTOS
+// Tablas: repuesto_tipos → repuesto_marcas → repuesto_lineas
+// ============================================================================
+
+/**
+ * GET /api/repuestos/tipos
+ */
+exports.getTiposRepuesto = async (_req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM repuesto_tipos WHERE activo = 1 ORDER BY nombre ASC',
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener tipos de repuesto:', error);
+    res.status(500).json({ error: 'Error al obtener tipos de repuesto' });
+  }
+};
+
+/**
+ * POST /api/repuestos/tipos
+ */
+exports.createTipoRepuesto = async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre || !nombre.toString().trim()) {
+    return res.status(400).json({ error: 'El nombre es requerido' });
+  }
+  try {
+    const [result] = await db.query(
+      'INSERT INTO repuesto_tipos (nombre) VALUES (?)',
+      [nombre.toString().trim()],
+    );
+    const [rows] = await db.query('SELECT * FROM repuesto_tipos WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Ya existe un tipo con ese nombre' });
+    }
+    console.error('Error al crear tipo de repuesto:', error);
+    res.status(500).json({ error: 'Error al crear tipo de repuesto' });
+  }
+};
+
+/**
+ * GET /api/repuestos/marcas?tipo_id=ID
+ */
+exports.getMarcasRepuesto = async (req, res) => {
+  const { tipo_id } = req.query;
+  if (!tipo_id) {
+    return res.status(400).json({ error: 'tipo_id es requerido' });
+  }
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM repuesto_marcas WHERE tipo_id = ? AND activo = 1 ORDER BY nombre ASC',
+      [tipo_id],
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener marcas de repuesto:', error);
+    res.status(500).json({ error: 'Error al obtener marcas de repuesto' });
+  }
+};
+
+/**
+ * POST /api/repuestos/marcas
+ */
+exports.createMarcaRepuesto = async (req, res) => {
+  const { tipo_id, nombre } = req.body;
+  if (!tipo_id || !nombre || !nombre.toString().trim()) {
+    return res.status(400).json({ error: 'tipo_id y nombre son requeridos' });
+  }
+  // Validar que el tipo existe
+  const [tipos] = await db.query('SELECT id FROM repuesto_tipos WHERE id = ?', [tipo_id]);
+  if (!tipos.length) {
+    return res.status(404).json({ error: 'Tipo no encontrado' });
+  }
+  try {
+    const [result] = await db.query(
+      'INSERT INTO repuesto_marcas (tipo_id, nombre) VALUES (?, ?)',
+      [tipo_id, nombre.toString().trim()],
+    );
+    const [rows] = await db.query('SELECT * FROM repuesto_marcas WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Ya existe esa marca para este tipo' });
+    }
+    console.error('Error al crear marca de repuesto:', error);
+    res.status(500).json({ error: 'Error al crear marca de repuesto' });
+  }
+};
+
+/**
+ * GET /api/repuestos/lineas?tipo_id=ID&marca_id=ID
+ */
+exports.getLineasRepuesto = async (req, res) => {
+  const { tipo_id, marca_id } = req.query;
+  if (!tipo_id || !marca_id) {
+    return res.status(400).json({ error: 'tipo_id y marca_id son requeridos' });
+  }
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM repuesto_lineas WHERE tipo_id = ? AND marca_id = ? AND activo = 1 ORDER BY nombre ASC',
+      [tipo_id, marca_id],
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener líneas de repuesto:', error);
+    res.status(500).json({ error: 'Error al obtener líneas de repuesto' });
+  }
+};
+
+/**
+ * POST /api/repuestos/lineas
+ */
+exports.createLineaRepuesto = async (req, res) => {
+  const { tipo_id, marca_id, nombre } = req.body;
+  if (!tipo_id || !marca_id || !nombre || !nombre.toString().trim()) {
+    return res.status(400).json({ error: 'tipo_id, marca_id y nombre son requeridos' });
+  }
+  // Validar que la marca pertenece al tipo
+  const [marcas] = await db.query(
+    'SELECT id FROM repuesto_marcas WHERE id = ? AND tipo_id = ?',
+    [marca_id, tipo_id],
+  );
+  if (!marcas.length) {
+    return res.status(400).json({ error: 'La marca no pertenece al tipo seleccionado' });
+  }
+  try {
+    const [result] = await db.query(
+      'INSERT INTO repuesto_lineas (tipo_id, marca_id, nombre) VALUES (?, ?, ?)',
+      [tipo_id, marca_id, nombre.toString().trim()],
+    );
+    const [rows] = await db.query('SELECT * FROM repuesto_lineas WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Ya existe esa línea para este tipo y marca' });
+    }
+    console.error('Error al crear línea de repuesto:', error);
+    res.status(500).json({ error: 'Error al crear línea de repuesto' });
+  }
+};
+
+// ============================================================================
+
 /**
  * Helper: Parsear campos JSON de un repuesto
  */

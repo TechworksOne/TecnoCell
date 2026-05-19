@@ -3,8 +3,8 @@ export interface Repuesto {
   sku?: string;                  // SKU generado automáticamente
   codigo?: string;               // Código opcional manual
   nombre: string;                // p.ej. "Pantalla iPhone 12 Pro Max Original"
-  tipo: 'Pantalla' | 'Batería' | 'Cámara' | 'Flex' | 'Placa' | 'Back Cover' | 'Altavoz' | 'Conector' | 'Otro';
-  marca: 'Apple' | 'Samsung' | 'Xiaomi' | 'Motorola' | 'Huawei' | 'Otra';
+  tipo: string;
+  marca: string;
   linea?: string;                // iPhone 12 / Galaxy S23 / etc.
   modelo?: string;               // A2407 / SM-S911B / etc. (opcional)
   compatibilidad?: string[];     // lista de modelos compatibles
