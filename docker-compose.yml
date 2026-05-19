@@ -65,6 +65,8 @@ services:
       # El named volume preserva node_modules del contenedor
       # (sin esto, el bind mount sobrescribiría node_modules con los del host)
       - backend_node_modules:/app/node_modules
+      # Uploads reales del servidor (sobreescribe /app/uploads del bind mount anterior)
+      - /var/www/Tecnocell_storage/uploads:/app/uploads
 #     ports:
 #       - "3000:3000"
     depends_on:
