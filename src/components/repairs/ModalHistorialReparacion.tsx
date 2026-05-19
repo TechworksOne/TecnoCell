@@ -4,7 +4,8 @@ import {
   AlertCircle, User, Banknote, CheckSquare, Wrench, Package
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import API_URL, { UPLOADS_BASE_URL } from '../../services/config';
+import API_URL from '../../services/config';
+import { getImageUrl } from '../../utils/getImageUrl';
 import axios from 'axios';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -301,10 +302,10 @@ export default function ModalHistorialReparacion({
                                 {ev.imagenes.map((img, i) => (
                                   <img
                                     key={i}
-                                    src={`${UPLOADS_BASE_URL}${img}`}
+                                    src={getImageUrl(img)}
                                     alt={`Evidencia ${i + 1}`}
                                     className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
-                                    onClick={() => setImagenAmpliada(`${UPLOADS_BASE_URL}${img}`)}
+                                    onClick={() => setImagenAmpliada(getImageUrl(img))}
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 ))}

@@ -2,7 +2,7 @@ import { toBackendEstado } from "../utils/estadoReparacion";
 // Servicio para gestionar reparaciones con imágenes
 import axios from 'axios';
 import type { Repair, RepairFormData, RepairStatus, StateChangeRequest } from '../types/repair';
-import { API_BASE_URL as API_URL } from './config';
+import API_URL from './config';
 
 // ─── Axios instance con token de autenticación ───────────────────────────────
 const api = axios.create({ baseURL: API_URL });

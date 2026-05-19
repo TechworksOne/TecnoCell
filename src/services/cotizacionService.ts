@@ -1,5 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
-import { API_BASE_URL } from './config';
+import API_URL from './config';
 
 /**
  * SERVICIO DE COTIZACIONES
@@ -7,7 +7,7 @@ import { API_BASE_URL } from './config';
  */
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_URL,
 });
 
 // Interceptor para agregar el token

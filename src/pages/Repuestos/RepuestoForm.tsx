@@ -16,7 +16,7 @@ import { RepuestoFormData, MARCAS_LINEAS } from "../../types/repuesto";
 import * as repuestoService from "../../services/repuestoService";
 import * as marcaLineaService from "../../services/marcaLineaService";
 import type { Marca, Linea } from "../../services/marcaLineaService";
-import { UPLOADS_BASE_URL } from "../../services/config";
+import { getImageUrl } from "../../utils/getImageUrl";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const TIPOS_REPUESTO = [
@@ -35,7 +35,7 @@ interface ImageItem {
 function resolveImgSrc(url: string): string {
   if (!url) return "";
   if (url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("http")) return url;
-  return `${UPLOADS_BASE_URL}${url}`;
+  return getImageUrl(url);
 }
 
 // ─── Section header sub-component ────────────────────────────────────────────

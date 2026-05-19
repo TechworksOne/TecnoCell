@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { API_BASE_URL } from './config';
+import API_URL from './config';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-  baseURL: API_BASE_URL
+  baseURL: API_URL
 });
 
 // Interceptor para agregar el token JWT
@@ -108,7 +108,7 @@ function buildRepuestoFormData(data: Record<string, unknown>): FormData {
 export const createRepuesto = async (data: Omit<RepuestoData, 'id'>): Promise<RepuestoData> => {
   const token = sessionStorage.getItem('token');
   const formData = buildRepuestoFormData(data as Record<string, unknown>);
-  const response = await fetch(`${API_BASE_URL}/repuestos`, {
+  const response = await fetch(`${API_URL}/repuestos`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token ?? ''}` },
     body: formData,
@@ -142,7 +142,7 @@ export const getRepuestoById = async (id: number): Promise<RepuestoData> => {
 export const updateRepuesto = async (id: number, data: Partial<RepuestoData>): Promise<RepuestoData> => {
   const token = sessionStorage.getItem('token');
   const formData = buildRepuestoFormData(data as Record<string, unknown>);
-  const response = await fetch(`${API_BASE_URL}/repuestos/${id}`, {
+  const response = await fetch(`${API_URL}/repuestos/${id}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token ?? ''}` },
     body: formData,

@@ -8,6 +8,7 @@ import RepuestoCard from "./RepuestoCard";
 import { useRepuestosStore } from "../../store/useRepuestosStore";
 import { Repuesto, RepuestoSeleccionado, MARCAS_LINEAS } from "../../types/repuesto";
 import { formatMoney } from "../../lib/format";
+import { getImageUrl } from "../../utils/getImageUrl";
 
 interface RepuestoPickerProps {
   isOpen: boolean;
@@ -160,7 +161,9 @@ export default function RepuestoPicker({ isOpen, onClose, onConfirm }: RepuestoP
                   <div key={repuesto.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                       {repuesto.imagenes[0] ? (
-                        <img src={repuesto.imagenes[0]} alt={repuesto.nombre} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(repuesto.imagenes[0])} alt={repuesto.nombre} className="w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
                       ) : (
                         <div className="text-gray-400">📱</div>
                       )}

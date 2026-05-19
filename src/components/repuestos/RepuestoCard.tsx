@@ -6,6 +6,7 @@ import Card from "../ui/Card";
 import ImageModal from "../ui/ImageModal";
 import { Repuesto } from "../../types/repuesto";
 import { formatMoney } from "../../lib/format";
+import { getImageUrl } from "../../utils/getImageUrl";
 
 interface RepuestoCardProps {
   repuesto: Repuesto;
@@ -51,6 +52,7 @@ export default function RepuestoCard({
   const stockBajo = repuesto.stockMinimo && repuesto.stock <= repuesto.stockMinimo;
   const sinStock = repuesto.stock === 0;
   
+  const imagenes = Array.isArray(repuesto.imagenes) ? repuesto.imagenes : [];
   const compatibilidadCorta = repuesto.compatibilidad?.slice(0, 2).join(' / ') || '';
   const masCompatibilidad = repuesto.compatibilidad && repuesto.compatibilidad.length > 2;
 
@@ -58,12 +60,13 @@ export default function RepuestoCard({
     <Card className="group hover:shadow-lg transition-all duration-200 overflow-hidden">
       {/* Imagen mejorada */}
       <div className="relative h-48 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-        {repuesto.imagenes.length > 0 ? (
+        {imagenes.length > 0 ? (
           <div className="relative w-full h-full">
             <img
-              src={repuesto.imagenes[0]}
+              src={getImageUrl(imagenes[0])}
               alt={repuesto.nombre}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
             
             {/* Overlay hover para zoom */}
@@ -83,11 +86,11 @@ export default function RepuestoCard({
             </div>
 
             {/* Indicador de múltiples imágenes */}
-            {repuesto.imagenes.length > 1 && (
+            {imagenes.length > 1 && (
               <div className="absolute bottom-2 right-2">
                 <span className="bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
                   <Camera size={12} />
-                  {repuesto.imagenes.length}
+                  {imagenes.length}
                 </span>
               </div>
             )}
@@ -260,7 +263,7 @@ export default function RepuestoCard({
       <ImageModal
         isOpen={showImageModal}
         onClose={() => setShowImageModal(false)}
-        images={repuesto.imagenes}
+        images={imagenes.map(getImageUrl)}
         title={repuesto.nombre}
       />
     </Card>

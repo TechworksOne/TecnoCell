@@ -7,7 +7,8 @@ import {
 import { useAuth } from '../../store/useAuth';
 import { useToast } from '../../components/ui/Toast';
 import { canViewCosts, isAdmin } from '../../lib/permissions';
-import API_URL, { UPLOADS_BASE_URL } from '../../services/config';
+import API_URL from '../../services/config';
+import { getImageUrl } from '../../utils/getImageUrl';
 import axios from 'axios';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ function formatDate(dt: string | null): string {
 
 function buildAvatarUrl(foto: string | null | undefined): string | null {
   if (!foto) return null;
-  return foto.startsWith('http') ? foto : `${UPLOADS_BASE_URL}${foto}`;
+  return getImageUrl(foto) || null;
 }
 
 function getInitials(name: string): string {

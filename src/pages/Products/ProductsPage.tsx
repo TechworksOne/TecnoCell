@@ -13,6 +13,7 @@ import * as categoryService from "../../services/categoryService";
 import { StockAlertsWidget } from "../../components/common/StockAlertsWidget";
 import { useAuth } from "../../store/useAuth";
 import { canViewCosts } from "../../lib/permissions";
+import { getImageUrl } from "../../utils/getImageUrl";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, icon: Icon, gradient }: {
@@ -505,7 +506,7 @@ export default function ProductsPage() {
   }
 
   function getProductImage(product: Product) {
-    return product.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='system-ui, sans-serif' font-size='18' font-weight='600' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle'%3ESin Imagen%3C/text%3E%3C/svg%3E";
+    return getImageUrl(product.image) || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='system-ui, sans-serif' font-size='18' font-weight='600' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle'%3ESin Imagen%3C/text%3E%3C/svg%3E";
   }
 
   function capitalizeText(text: string): string {

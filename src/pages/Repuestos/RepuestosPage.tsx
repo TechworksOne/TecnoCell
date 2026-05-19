@@ -33,7 +33,7 @@ import * as repuestoService from '../../services/repuestoService';
 import { useToast } from '../../components/ui/Toast';
 import RepuestoForm from './RepuestoForm';
 import { canViewCosts } from '../../lib/permissions';
-import { UPLOADS_BASE_URL } from '../../services/config';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────────────────────
 // ─── Helpers ──────────────────────────────────────────────────────────────────────────────────
@@ -62,24 +62,7 @@ function isBrokenLegacyImagePath(path?: string | null): boolean {
 
 function buildImageUrl(path?: string | null): string {
   if (isBrokenLegacyImagePath(path)) return REPUESTO_PLACEHOLDER;
-
-  const value = String(path).trim();
-
-  if (
-    value.startsWith("http") ||
-    value.startsWith("blob:") ||
-    value.startsWith("data:")
-  ) {
-    return value;
-  }
-
-  const baseUrl = UPLOADS_BASE_URL.replace(/\/$/, "");
-
-  if (value.startsWith("/")) {
-    return `${baseUrl}${value}`;
-  }
-
-  return `${baseUrl}/${value}`;
+  return getImageUrl(path) || REPUESTO_PLACEHOLDER;
 }
 
 function getFirstSafeImageUrl(images?: string[] | null): string {
