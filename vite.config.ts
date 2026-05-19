@@ -6,11 +6,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: "0.0.0.0",
-    hmr: {
-      clientPort: 5173,
-    },
-    // File system polling: necesario en Windows+Docker (NTFS
-    // no propaga inotify events al contenedor sin polling)
+    strictPort: true,
+    allowedHosts: [
+      "tecnocell.techworksone.com",
+      "localhost",
+      "127.0.0.1",
+    ],
+    hmr: false,
     watch: {
       usePolling: true,
       interval: 500,

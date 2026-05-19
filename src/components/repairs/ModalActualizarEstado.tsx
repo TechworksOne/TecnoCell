@@ -1,3 +1,4 @@
+import { toBackendEstado } from "../../utils/estadoReparacion";
 import { X, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import API_URL from '../../services/config';
@@ -135,14 +136,15 @@ export default function ModalActualizarEstado({
       const formData = new FormData();
 
       // Datos básicos
-      formData.append('estado', estado);
+      const estadoBackend = toBackendEstado(estado);
+      formData.append('estado', estadoBackend);
       formData.append('nota', nota);
       // Tipo de imagen según estado: COMPLETADA/ENTREGADA → 'final', resto → 'historial'
-      const tipoImg = (estado === 'COMPLETADA' || estado === 'ENTREGADA') ? 'final' : 'historial';
+      const tipoImg = (estadoBackend === 'COMPLETADA' || estadoBackend === 'ENTREGADA') ? 'final' : 'historial';
       formData.append('imageTipo', tipoImg);
 
       // Campos específicos según estado
-      if (estado === 'ESPERANDO_PIEZA' && piezaNecesaria) {
+      if (estadoBackend === 'ESPERANDO_PIEZA' && piezaNecesaria) {
         formData.append('piezaNecesaria', piezaNecesaria);
         if (proveedor) formData.append('proveedor', proveedor);
         if (costoRepuesto) formData.append('costoRepuesto', costoRepuesto);

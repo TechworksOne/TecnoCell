@@ -1,3 +1,4 @@
+import { toBackendEstado } from "../utils/estadoReparacion";
 // Servicio para gestionar reparaciones con imágenes
 import axios from 'axios';
 import type { Repair, RepairFormData, RepairStatus, StateChangeRequest } from '../types/repair';
@@ -240,7 +241,7 @@ export const changeRepairState = async (
     }
     
     // Agregar datos del cambio de estado
-    formData.append('estado', stateChange.estado);
+    formData.append('estado', toBackendEstado(stateChange.estado));
     if (stateChange.subEtapa) formData.append('subEtapa', stateChange.subEtapa);
     formData.append('nota', stateChange.nota);
     

@@ -1,3 +1,4 @@
+import { toBackendEstado } from "../utils/estadoReparacion";
 import API_URL from './config';
 import axios from 'axios';
 
@@ -115,7 +116,7 @@ export const cambiarEstado = async (
   userName?: string
 ) => {
   const response = await api.put(`/flujo-reparaciones/${reparacionId}/estado`, {
-    nuevoEstado,
+    nuevoEstado: toBackendEstado(nuevoEstado),
     nota,
     userId,
     userName

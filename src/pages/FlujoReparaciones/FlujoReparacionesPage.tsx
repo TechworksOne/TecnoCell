@@ -1,3 +1,4 @@
+import { toBackendEstado } from "../../utils/estadoReparacion";
 import {
   GitBranch, Search, CheckCircle, ClipboardList, Wrench,
   RefreshCw, X, AlertCircle, PackageCheck,
@@ -136,6 +137,7 @@ export default function FlujoReparacionesPage() {
 
     const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     const url = `${API_URL}/reparaciones/${repId}/estado`;
+    const estadoBackend = toBackendEstado(newEstado);
 
     // Debug: URL, método, presencia de token
     console.debug('[FlujoReparaciones] PUT', url, { hasToken: !!token });
@@ -143,7 +145,7 @@ export default function FlujoReparacionesPage() {
     try {
       const response = await axios.put(
         url,
-        { estado: newEstado },
+        { estado: estadoBackend },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.debug('[FlujoReparaciones] Respuesta status:', response.status);
