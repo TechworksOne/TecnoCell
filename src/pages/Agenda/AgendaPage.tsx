@@ -131,13 +131,13 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
   if (!entrega) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
-        className="w-full max-w-md rounded-2xl shadow-2xl"
+        className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
         style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <Calendar size={18} style={{ color: '#48B9E6' }} />
             <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -150,8 +150,8 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4">
-          {/* Info reparación */}
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
+          {/* Info reparación */}}
           <div className="rounded-xl p-3 text-sm space-y-1" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
             <p className="font-semibold" style={{ color: 'var(--color-text)' }}>{entrega.id}</p>
             <p style={{ color: 'var(--color-text-sec)' }}>{entrega.cliente_nombre}</p>
@@ -209,7 +209,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-5 border-t gap-2" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center justify-between p-5 border-t gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           {entrega.fecha_entrega_programada && (
             <button
               onClick={handleRemove}
@@ -293,13 +293,13 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
-        className="w-full max-w-md rounded-2xl shadow-2xl"
+        className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
         style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <Calendar size={18} style={{ color: '#48B9E6' }} />
             <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -312,7 +312,7 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
           {/* Buscador de reparación */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>
@@ -320,24 +320,28 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
             </label>
             {repSeleccionada ? (
               <div
-                className="flex items-center justify-between rounded-xl px-3 py-2 text-sm"
+                className="rounded-xl px-3 py-2.5"
                 style={{ background: 'rgba(72,185,230,0.1)', border: '1.5px solid #48B9E6' }}
               >
-                <div>
-                  <span className="font-bold" style={{ color: '#48B9E6' }}>{repSeleccionada.id}</span>
-                  <span className="ml-2" style={{ color: 'var(--color-text)' }}>{repSeleccionada.cliente_nombre}</span>
-                  {(repSeleccionada.marca || repSeleccionada.modelo) && (
-                    <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {[repSeleccionada.tipo_equipo, repSeleccionada.marca, repSeleccionada.modelo].filter(Boolean).join(' ')}
-                    </span>
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold" style={{ color: '#48B9E6' }}>{repSeleccionada.id}</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{repSeleccionada.cliente_nombre}</span>
+                    </div>
+                    {(repSeleccionada.tipo_equipo || repSeleccionada.marca || repSeleccionada.modelo) && (
+                      <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-text-muted)' }}>
+                        {[repSeleccionada.tipo_equipo, repSeleccionada.marca, repSeleccionada.modelo].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setRepSeleccionada(null); setBusqueda(''); }}
+                    className="text-gray-400 hover:text-red-400 shrink-0 p-1 rounded-lg transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => { setRepSeleccionada(null); setBusqueda(''); }}
-                  className="text-gray-400 hover:text-gray-600 ml-2"
-                >
-                  <X size={14} />
-                </button>
               </div>
             ) : (
               <>
@@ -354,8 +358,8 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
                   />
                 </div>
                 <div
-                  className="mt-1 rounded-xl overflow-hidden border"
-                  style={{ borderColor: 'var(--color-border)', maxHeight: 200, overflowY: 'auto' }}
+                  className="mt-2 rounded-xl overflow-hidden border overflow-y-auto max-h-64 custom-scrollbar"
+                  style={{ borderColor: 'var(--color-border)' }}
                 >
                   {loadingReps ? (
                     <div className="flex items-center justify-center py-4 gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
@@ -370,19 +374,24 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
                       <button
                         key={r.id}
                         onClick={() => setRepSeleccionada(r)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b last:border-0"
+                        className="w-full text-left px-3 py-2.5 transition-colors border-b last:border-0 hover:bg-[rgba(72,185,230,0.07)]"
                         style={{ borderColor: 'var(--color-border)' }}
                       >
-                        <span className="font-bold mr-2" style={{ color: '#48B9E6' }}>{r.id}</span>
-                        <span style={{ color: 'var(--color-text)' }}>{r.cliente_nombre}</span>
-                        {(r.marca || r.modelo) && (
-                          <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {[r.tipo_equipo, r.marca, r.modelo].filter(Boolean).join(' ')}
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <span className="text-xs font-bold" style={{ color: '#48B9E6' }}>{r.id}</span>
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                            style={{ background: 'rgba(72,185,230,0.12)', color: '#48B9E6' }}
+                          >
+                            {r.estado.replace(/_/g, ' ')}
                           </span>
+                        </div>
+                        <p className="text-sm font-medium leading-tight" style={{ color: 'var(--color-text)' }}>{r.cliente_nombre}</p>
+                        {(r.tipo_equipo || r.marca || r.modelo) && (
+                          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-text-muted)' }}>
+                            {[r.tipo_equipo, r.marca, r.modelo].filter(Boolean).join(' · ')}
+                          </p>
                         )}
-                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-bg)', color: 'var(--color-text-muted)' }}>
-                          {r.estado}
-                        </span>
                       </button>
                     ))
                   )}
@@ -442,7 +451,7 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end p-5 border-t gap-2" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center justify-end p-5 border-t gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-xl border"

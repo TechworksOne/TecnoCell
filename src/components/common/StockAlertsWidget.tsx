@@ -114,7 +114,7 @@ export const StockAlertsWidget: React.FC = () => {
             </div>
 
             {/* Table - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-[#060B14]">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 dark:bg-[#060B14]">
               <div className="bg-white dark:bg-[#0D1526] rounded-xl shadow-sm dark:shadow-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
