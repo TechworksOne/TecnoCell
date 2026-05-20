@@ -1008,7 +1008,7 @@ exports.cancelarReparacion = async (req, res) => {
       return res.status(409).json({ success: false, message: 'No se puede cancelar una reparación ya entregada' });
     }
 
-    const montoAnticipo = Number(rep.monto_anticipo) || 0;
+    const montoAnticipo = centavosAQuetzales(Number(rep.monto_anticipo) || 0);
 
     // ── Validaciones de devolución ───────────────────────────────────────
     if (devolver && montoDev > montoAnticipo) {
