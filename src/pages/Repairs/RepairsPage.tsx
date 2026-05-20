@@ -46,6 +46,17 @@ const STATUS_LABEL: Record<string, string> = {
   STAND_BY: 'Stand By', COMPLETADA: 'Completada', ENTREGADA: 'Entregada', CANCELADA: 'Cancelada',
 };
 
+// ── Grupos de filtro rápido ───────────────────────────────────────────────
+type GrupoFiltro = 'proceso' | 'entregadas' | 'canceladas' | 'historial';
+const GRUPO_ESTADOS: Record<GrupoFiltro, string[]> = {
+  proceso:    ['RECIBIDA','EN_DIAGNOSTICO','ESPERANDO_AUTORIZACION','AUTORIZADA',
+               'EN_REPARACION','ESPERANDO_PIEZA','COMPLETADA','STAND_BY',
+               'EN_PROCESO','ANTICIPO_REGISTRADO'],
+  entregadas: ['ENTREGADA'],
+  canceladas: ['CANCELADA'],
+  historial:  ['ENTREGADA','CANCELADA'],
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function safeDate(v?: string | null): string {
   if (!v) return 'No registrada';
@@ -641,6 +652,7 @@ export default function RepairsPage() {
   const [showDetailPin, setShowDetailPin]   = useState(false);
   const [backendRepairs, setBackendRepairs] = useState<Repair[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [grupoFiltro, setGrupoFiltro]       = useState<GrupoFiltro>('proceso');
 
   useEffect(() => { loadRepairs(); }, []);
 
@@ -698,7 +710,18 @@ export default function RepairsPage() {
   };
 
   // ── Filters ───────────────────────────────────────────────────────────
+  const totalProceso    = backendRepairs.filter(r => GRUPO_ESTADOS.proceso.includes(r.estado)).length;
+  const totalEntregadas = backendRepairs.filter(r => GRUPO_ESTADOS.entregadas.includes(r.estado)).length;
+  const totalCanceladas = backendRepairs.filter(r => GRUPO_ESTADOS.canceladas.includes(r.estado)).length;
+  const totalHistorial  = backendRepairs.filter(r => GRUPO_ESTADOS.historial.includes(r.estado)).length;
+
+  const handleGrupoChange = (g: GrupoFiltro) => {
+    setGrupoFiltro(g);
+    setStatusFilter(''); // limpiar filtro de estado al cambiar grupo
+  };
+
   const filteredRepairs = backendRepairs.filter(r => {
+    if (!GRUPO_ESTADOS[grupoFiltro].includes(r.estado)) return false;
     const q = searchQuery.toLowerCase();
     const okSearch = !q ||
       r.clienteNombre?.toLowerCase().includes(q) ||
@@ -755,6 +778,43 @@ export default function RepairsPage() {
         >
           <Plus size={16} /> Nueva Reparación
         </button>
+      </div>
+
+      {/* Pestañas de grupo */}
+      <div className="flex gap-2 overflow-x-auto pb-0.5">
+        {([
+          { key: 'proceso'    as GrupoFiltro, label: 'En Proceso',  count: totalProceso,
+            active: 'bg-blue-600  border-blue-600  text-white',
+            badge:  'bg-blue-500/30 text-white' },
+          { key: 'entregadas' as GrupoFiltro, label: 'Entregadas',  count: totalEntregadas,
+            active: 'bg-emerald-600 border-emerald-600 text-white',
+            badge:  'bg-emerald-500/30 text-white' },
+          { key: 'canceladas' as GrupoFiltro, label: 'Canceladas',  count: totalCanceladas,
+            active: 'bg-red-600  border-red-600  text-white',
+            badge:  'bg-red-500/30 text-white' },
+          { key: 'historial'  as GrupoFiltro, label: 'Historial',   count: totalHistorial,
+            active: 'bg-slate-700 border-slate-700 text-white dark:bg-slate-600 dark:border-slate-600',
+            badge:  'bg-white/20 text-white' },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => handleGrupoChange(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all whitespace-nowrap ${
+              grupoFiltro === tab.key
+                ? tab.active
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            {tab.label}
+            <span className={`inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full text-xs font-bold ${
+              grupoFiltro === tab.key
+                ? tab.badge
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Toolbar */}
