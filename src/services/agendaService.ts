@@ -41,3 +41,29 @@ export const patchFechaEntrega = async (
 export const deleteFechaEntrega = async (reparacionId: string): Promise<void> => {
   await api.delete(`/reparaciones/${reparacionId}/fecha-entrega`);
 };
+
+// ─── Reparaciones pendientes (selector en modal Programar nueva entrega) ──────
+export interface ReparacionPendiente {
+  id: string;
+  cliente_nombre: string;
+  tipo_equipo?: string;
+  marca?: string;
+  modelo?: string;
+  estado: string;
+}
+
+export const searchReparacionesPendientes = async (search?: string): Promise<ReparacionPendiente[]> => {
+  const response = await api.get('/reparaciones', {
+    params: { search: search || undefined, limit: 20 },
+  });
+  return (response.data.data as any[])
+    .filter((r) => r.estado !== 'ENTREGADA' && r.estado !== 'CANCELADA')
+    .map((r) => ({
+      id: r.id,
+      cliente_nombre: r.cliente_nombre,
+      tipo_equipo: r.tipo_equipo ?? undefined,
+      marca: r.marca ?? undefined,
+      modelo: r.modelo ?? undefined,
+      estado: r.estado,
+    }));
+};

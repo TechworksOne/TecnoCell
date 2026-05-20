@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar, ChevronLeft, ChevronRight, RefreshCw,
   Wrench, Phone, User, Smartphone, Eye, X, Clock,
-  CheckCircle2, AlertCircle, Ban, List,
+  CheckCircle2, AlertCircle, Ban, List, Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getEntregas, patchFechaEntrega, deleteFechaEntrega } from '../../services/agendaService';
+import { getEntregas, patchFechaEntrega, deleteFechaEntrega, searchReparacionesPendientes, type ReparacionPendiente } from '../../services/agendaService';
 import type { EntregaAgenda, FiltroAgenda } from '../../types/agenda';
 import PageHeader from '../../components/common/PageHeader';
 
@@ -242,6 +242,228 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
   );
 }
 
+// ─── Modal Programar Nueva Entrega (clic en día vacío del calendario) ──────────
+interface ModalProgramarNuevaProps {
+  fechaInicial: string; // YYYY-MM-DD
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarNuevaProps) {
+  const [fecha, setFecha] = useState(fechaInicial);
+  const [hora, setHora] = useState('');
+  const [nota, setNota] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [reparaciones, setReparaciones] = useState<ReparacionPendiente[]>([]);
+  const [repSeleccionada, setRepSeleccionada] = useState<ReparacionPendiente | null>(null);
+  const [loadingReps, setLoadingReps] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Carga inicial y búsqueda debounced
+  useEffect(() => {
+    setLoadingReps(true);
+    const timer = setTimeout(() => {
+      searchReparacionesPendientes(busqueda || undefined)
+        .then(setReparaciones)
+        .catch(() => setError('Error al cargar reparaciones.'))
+        .finally(() => setLoadingReps(false));
+    }, busqueda ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [busqueda]);
+
+  const handleSave = async () => {
+    if (!repSeleccionada) { setError('Selecciona una reparación'); return; }
+    if (!fecha) { setError('La fecha es obligatoria'); return; }
+    setError('');
+    setSaving(true);
+    try {
+      const datetime = hora ? `${fecha}T${hora}:00` : `${fecha}T00:00:00`;
+      await patchFechaEntrega(repSeleccionada.id, {
+        fecha_entrega_programada: datetime,
+        nota_entrega_programada: nota || undefined,
+      });
+      onSaved();
+      onClose();
+    } catch {
+      setError('Error al guardar. Intenta de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div
+        className="w-full max-w-md rounded-2xl shadow-2xl"
+        style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <Calendar size={18} style={{ color: '#48B9E6' }} />
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+              Programar entrega
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Buscador de reparación */}
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>
+              Reparación pendiente *
+            </label>
+            {repSeleccionada ? (
+              <div
+                className="flex items-center justify-between rounded-xl px-3 py-2 text-sm"
+                style={{ background: 'rgba(72,185,230,0.1)', border: '1.5px solid #48B9E6' }}
+              >
+                <div>
+                  <span className="font-bold" style={{ color: '#48B9E6' }}>{repSeleccionada.id}</span>
+                  <span className="ml-2" style={{ color: 'var(--color-text)' }}>{repSeleccionada.cliente_nombre}</span>
+                  {(repSeleccionada.marca || repSeleccionada.modelo) && (
+                    <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      {[repSeleccionada.tipo_equipo, repSeleccionada.marca, repSeleccionada.modelo].filter(Boolean).join(' ')}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setRepSeleccionada(null); setBusqueda(''); }}
+                  className="text-gray-400 hover:text-gray-600 ml-2"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
+                  <input
+                    type="text"
+                    value={busqueda}
+                    onChange={e => setBusqueda(e.target.value)}
+                    placeholder="Buscar por ID, cliente, equipo..."
+                    autoFocus
+                    className="w-full rounded-xl pl-8 pr-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+                    style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                  />
+                </div>
+                <div
+                  className="mt-1 rounded-xl overflow-hidden border"
+                  style={{ borderColor: 'var(--color-border)', maxHeight: 200, overflowY: 'auto' }}
+                >
+                  {loadingReps ? (
+                    <div className="flex items-center justify-center py-4 gap-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                      <RefreshCw size={14} className="animate-spin" /> Cargando...
+                    </div>
+                  ) : reparaciones.length === 0 ? (
+                    <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-muted)' }}>
+                      {busqueda ? 'Sin resultados.' : 'No hay reparaciones pendientes.'}
+                    </p>
+                  ) : (
+                    reparaciones.map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => setRepSeleccionada(r)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b last:border-0"
+                        style={{ borderColor: 'var(--color-border)' }}
+                      >
+                        <span className="font-bold mr-2" style={{ color: '#48B9E6' }}>{r.id}</span>
+                        <span style={{ color: 'var(--color-text)' }}>{r.cliente_nombre}</span>
+                        {(r.marca || r.modelo) && (
+                          <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            {[r.tipo_equipo, r.marca, r.modelo].filter(Boolean).join(' ')}
+                          </span>
+                        )}
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-bg)', color: 'var(--color-text-muted)' }}>
+                          {r.estado}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Fecha */}
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>
+              Fecha de entrega *
+            </label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={e => setFecha(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+              style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            />
+          </div>
+
+          {/* Hora */}
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>
+              Hora (opcional)
+            </label>
+            <input
+              type="time"
+              value={hora}
+              onChange={e => setHora(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+              style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            />
+          </div>
+
+          {/* Nota */}
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>
+              Nota (opcional)
+            </label>
+            <textarea
+              value={nota}
+              onChange={e => setNota(e.target.value)}
+              rows={3}
+              placeholder="Ej: El cliente viene por la tarde, llamar antes..."
+              className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+              style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500 flex items-center gap-1">
+              <AlertCircle size={14} /> {error}
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end p-5 border-t gap-2" style={{ borderColor: 'var(--color-border)' }}>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-xl border"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-sec)' }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !repSeleccionada || !fecha}
+            className="px-4 py-2 text-sm rounded-xl font-medium text-white disabled:opacity-50"
+            style={{ background: '#48B9E6' }}
+          >
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tarjeta de entrega (para lista y calendario) ─────────────────────────────
 interface TarjetaEntregaProps {
   entrega: EntregaAgenda;
@@ -425,9 +647,10 @@ interface VistaMensualProps {
   entregas: EntregaAgenda[];
   onVerReparacion: (id: string) => void;
   onEditar: (e: EntregaAgenda) => void;
+  onDayClick?: (dateStr: string) => void;
 }
 
-function VistaMensual({ year, month, entregas, onVerReparacion, onEditar }: VistaMensualProps) {
+function VistaMensual({ year, month, entregas, onVerReparacion, onEditar, onDayClick }: VistaMensualProps) {
   // Construir mapa día → entregas
   const mapa: Record<number, EntregaAgenda[]> = {};
   for (const e of entregas) {
@@ -476,11 +699,12 @@ function VistaMensual({ year, month, entregas, onVerReparacion, onEditar }: Vist
           return (
             <div
               key={day}
-              className="rounded-xl min-h-[80px] p-1.5"
+              className="rounded-xl min-h-[80px] p-1.5 cursor-pointer hover:ring-2 hover:ring-sky-300/50 transition-all"
               style={{
                 background: isToday ? 'rgba(72,185,230,0.08)' : 'var(--color-bg-card)',
                 border: isToday ? '1.5px solid #48B9E6' : '1px solid var(--color-border)',
               }}
+              onClick={() => onDayClick?.(toLocalDateStr(new Date(year, month, day)))}
             >
               {/* Número del día */}
               <div
@@ -501,7 +725,7 @@ function VistaMensual({ year, month, entregas, onVerReparacion, onEditar }: Vist
                   return (
                     <button
                       key={e.id}
-                      onClick={() => onEditar(e)}
+                      onClick={(ev) => { ev.stopPropagation(); onEditar(e); }}
                       className="w-full text-left text-xs px-1.5 py-0.5 rounded truncate leading-tight"
                       style={{ background: `${color}22`, color, fontWeight: 600, fontSize: '10px' }}
                       title={`${e.id} — ${e.cliente_nombre}`}
@@ -536,6 +760,7 @@ export default function AgendaPage() {
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [modalEntrega, setModalEntrega] = useState<EntregaAgenda | null>(null);
+  const [modalNueva, setModalNueva] = useState<string | null>(null); // YYYY-MM-DD del día clickeado
 
   // ─── Calcular rango de fechas según filtro ──────────────────────────────────
   const getRango = useCallback((): { inicio: string; fin: string } => {
@@ -719,6 +944,7 @@ export default function AgendaPage() {
             entregas={entregas}
             onVerReparacion={id => navigate(`/flujo-reparaciones/${id}`)}
             onEditar={setModalEntrega}
+            onDayClick={setModalNueva}
           />
         ) : (
           <VistaLista
@@ -752,6 +978,13 @@ export default function AgendaPage() {
         <ModalProgramar
           entrega={modalEntrega}
           onClose={() => setModalEntrega(null)}
+          onSaved={cargar}
+        />
+      )}
+      {modalNueva && (
+        <ModalProgramarNueva
+          fechaInicial={modalNueva}
+          onClose={() => setModalNueva(null)}
           onSaved={cargar}
         />
       )}
