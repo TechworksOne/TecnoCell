@@ -27,6 +27,7 @@ import StickersGarantiaPage from "./pages/StickersGarantia/StickersGarantiaPage"
 import AdminUsuariosPage from "./pages/AdminUsuarios/AdminUsuariosPage";
 import CajaBancosPage from "./pages/CajaBancos/CajaBancosPage";
 import DeudoresPage from "./pages/Deudores/DeudoresPage";
+import OrdenesTrabajoPage from "./pages/OrdenesTrabajo/OrdenesTrabajoPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import { ROLES } from "./lib/permissions";
 
@@ -53,6 +54,7 @@ const routes = [
   { path: "/reparaciones/:id/editar", element: <RepairFormSimple /> },
   { path: "/flujo-reparaciones", element: <FlujoReparacionesPage /> },
   { path: "/flujo-reparaciones/:id", element: <FlujoReparacionDetailPage /> },
+  { path: "/ordenes-trabajo", element: <OrdenesTrabajoPage /> },
   { path: "/agenda", element: <AgendaPage /> },
   { path: "/pago-tarjeta", element: <CardPaymentPage /> },
   { path: "/clientes", element: <CustomersPage /> },

@@ -3,7 +3,7 @@ import {
   Plus, Search, Eye, EyeOff, Clock, History, Printer, FileSearch,
   User, Smartphone, CalendarDays, Tag, Wrench,
   ChevronDown, DollarSign, X, AlertTriangle, CheckCircle2,
-  Ban,
+  Ban, UserCheck, AlertCircle, RefreshCw, Check,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRepairs } from '../../store/useRepairs';
@@ -19,6 +19,10 @@ import {
   registrarPagoSaldo,
   cancelarReparacion,
 } from '../../services/repairService';
+import { getTecnicos, asignarTecnico } from '../../services/otService';
+import type { Tecnico } from '../../types/ot';
+import { isAdmin } from '../../lib/permissions';
+import { useAuth } from '../../store/useAuth';
 
 // ── Style maps ────────────────────────────────────────────────────────────
 const STATUS_PILL: Record<string, string> = {
@@ -476,6 +480,61 @@ function ModalCancelar({
   );
 }
 
+// ── Modal Asignar Técnico (inline en RepairsPage) ─────────────────────────
+function ModalAsignarTecnicoRepairs({
+  repair, tecnicos, currentUserId, onClose, onSuccess,
+}: { repair: Repair; tecnicos: Tecnico[]; currentUserId: number; onClose: () => void; onSuccess: () => void; }) {
+  const [selectedId, setSelectedId] = useState<number | ''>(repair.tecnicoAsignadoId ?? '');
+  const [saving, setSaving]         = useState(false);
+  const [error,  setError]          = useState('');
+  const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40';
+
+  const handleSave = async () => {
+    if (!selectedId) { setError('Selecciona un t\u00e9cnico'); return; }
+    try {
+      setSaving(true); setError('');
+      await asignarTecnico(repair.id, { tecnico_id: selectedId as number });
+      onSuccess(); onClose();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Error al asignar t\u00e9cnico');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Asignar T\u00e9cnico \u2014 ${repair.id}`}>
+      <div className="space-y-4 text-sm">
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 space-y-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Cliente: <span className="font-semibold text-slate-800 dark:text-slate-200">{repair.clienteNombre}</span></p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Equipo: <span className="text-slate-700 dark:text-slate-300">{[repair.recepcion.marca, repair.recepcion.modelo].filter(Boolean).join(' ')}</span></p>
+        </div>
+        <div>
+          <label className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">T\u00e9cnico a asignar</label>
+          <select className={inputCls} value={selectedId} onChange={e => { setSelectedId(e.target.value ? Number(e.target.value) : ''); setError(''); }}>
+            <option value="">\u2014 Seleccionar t\u00e9cnico \u2014</option>
+            {tecnicos.map(t => (
+              <option key={t.id} value={t.id}>
+                {(t.nombre_completo?.trim() && t.nombre_completo !== ' ') ? t.nombre_completo : t.username}{t.id === currentUserId ? ' (yo)' : ''} \u2014 {t.roles.join(', ')}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+            <AlertCircle size={12} /> {error}
+          </div>
+        )}
+        <div className="flex gap-2 justify-end pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancelar</button>
+          <button onClick={handleSave} disabled={saving || !selectedId} className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+            {saving ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+            {saving ? 'Asignando\u2026' : 'Asignar'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── RepairCard ────────────────────────────────────────────────────────────
 function RepairCard({
   repair,
@@ -486,6 +545,8 @@ function RepairCard({
   onEditPriority,
   onPayBalance,
   onCancel,
+  onAssignTech,
+  userIsAdmin,
 }: {
   repair: Repair;
   onViewDetail: (r: Repair) => void;
@@ -495,6 +556,8 @@ function RepairCard({
   onEditPriority: (r: Repair) => void;
   onPayBalance: (r: Repair) => void;
   onCancel: (r: Repair) => void;
+  onAssignTech: (r: Repair) => void;
+  userIsAdmin: boolean;
 }) {
   const isCancelled = repair.estado === 'CANCELADA';
   const saldo = calcSaldo(repair);
@@ -599,6 +662,16 @@ function RepairCard({
                 Entrega: {safeDate(repair.fechaEntregaProgramada)}
               </p>
             )}
+            {/* OT: técnico asignado chip */}
+            {repair.tecnicoAsignadoId ? (
+              <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                <UserCheck size={9} /> T\u00e9cnico: {repair.tecnicoNombre?.trim() && repair.tecnicoNombre !== ' ' ? repair.tecnicoNombre : repair.tecnicoUsername}
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
+                <UserCheck size={9} /> Sin asignar
+              </p>
+            )}
           </div>
         </div>
 
@@ -633,6 +706,11 @@ function RepairCard({
               <Ban size={12} /> Cancelar
             </button>
           )}
+          {userIsAdmin && !isCancelled && (
+            <button onClick={() => onAssignTech(repair)} className="flex-1 lg:flex-none h-9 flex items-center justify-center gap-1.5 px-2.5 rounded-xl text-xs font-semibold border transition-colors bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
+              <UserCheck size={12} /> {repair.tecnicoAsignadoId ? 'T\u00e9cnico' : 'Asignar'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -643,6 +721,8 @@ function RepairCard({
 export default function RepairsPage() {
   const navigate = useNavigate();
   const { repairs, deleteRepair, changeRepairState, updateRepair, searchRepairs, isLoading, validateStickerUniqueness } = useRepairs();
+  const { user } = useAuth();
+  const userIsAdmin = isAdmin(user?.roles);
 
   const [searchQuery,    setSearchQuery]    = useState('');
   const [statusFilter,   setStatusFilter]   = useState('');
@@ -653,14 +733,22 @@ export default function RepairsPage() {
   const [showPriorityModal, setShowPriorityModal] = useState<Repair | null>(null);
   const [showPayModal,      setShowPayModal]      = useState<Repair | null>(null);
   const [showCancelModal,   setShowCancelModal]   = useState<Repair | null>(null);
+  const [showAssignModal,   setShowAssignModal]   = useState<Repair | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [loadingRepairs, setLoadingRepairs] = useState(true);
   const [showDetailPin, setShowDetailPin]   = useState(false);
   const [backendRepairs, setBackendRepairs] = useState<Repair[]>([]);
+  const [tecnicos,       setTecnicos]       = useState<Tecnico[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [grupoFiltro, setGrupoFiltro]       = useState<GrupoFiltro>('proceso');
 
   useEffect(() => { loadRepairs(); }, []);
+
+  useEffect(() => {
+    if (userIsAdmin) {
+      getTecnicos().then(setTecnicos).catch(() => {});
+    }
+  }, [userIsAdmin]);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -891,6 +979,8 @@ export default function RepairsPage() {
             onEditPriority={rep => setShowPriorityModal(rep)}
             onPayBalance={rep => setShowPayModal(rep)}
             onCancel={rep => setShowCancelModal(rep)}
+            onAssignTech={rep => setShowAssignModal(rep)}
+            userIsAdmin={userIsAdmin}
           />
         ))}
       </div>
@@ -930,6 +1020,17 @@ export default function RepairsPage() {
           repair={showCancelModal}
           onClose={() => setShowCancelModal(null)}
           onSuccess={handleCancelSuccess}
+        />
+      )}
+
+      {/* Asignar técnico */}
+      {showAssignModal && (
+        <ModalAsignarTecnicoRepairs
+          repair={showAssignModal}
+          tecnicos={tecnicos}
+          currentUserId={user?.id ?? 0}
+          onClose={() => setShowAssignModal(null)}
+          onSuccess={() => { showToast('Técnico asignado correctamente'); loadRepairs(); setShowAssignModal(null); }}
         />
       )}
 

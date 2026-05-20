@@ -22,6 +22,11 @@ router.post('/:id/pago', verifyToken, reparacionController.registrarPagoSaldo);
 // Cancelar reparación
 router.patch('/:id/cancelar', verifyToken, reparacionController.cancelarReparacion);
 
+// Asignación técnica (OT)
+const otController = require('../controllers/otController');
+router.patch('/:id/asignar-tecnico', verifyToken, otController.asignarTecnico);
+router.delete('/:id/asignar-tecnico', verifyToken, otController.quitarAsignacion);
+
 // Fecha de entrega programada (Agenda)
 const agendaController = require('../controllers/agendaController');
 router.patch('/:id/fecha-entrega', verifyToken, agendaController.patchFechaEntrega);

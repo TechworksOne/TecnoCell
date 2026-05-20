@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Camera, Save, CalendarDays, Clock } from 'lucide-react';
+import { ArrowLeft, Check, X, Camera, Save, CalendarDays, Clock, UserCheck, UserX, RefreshCw, AlertCircle } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { getAllReparaciones } from '../../services/repairService';
 import { patchFechaEntrega, deleteFechaEntrega } from '../../services/agendaService';
+import { getTecnicos, asignarTecnico } from '../../services/otService';
+import type { Tecnico } from '../../types/ot';
+import { useAuth } from '../../store/useAuth';
+import { isAdmin } from '../../lib/permissions';
 import API_URL from '../../services/config';
 import axios from 'axios';
 
@@ -36,6 +40,15 @@ export default function FlujoReparacionDetailPage() {
   const [reparacion, setReparacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const userIsAdmin = isAdmin(user?.roles);
+
+  // OT: técnico asignado
+  const [tecnicos,       setTecnicos]       = useState<Tecnico[]>([]);
+  const [showOTModal,    setShowOTModal]     = useState(false);
+  const [otSelectedId,   setOtSelectedId]   = useState<number | ''>('');
+  const [otSaving,       setOtSaving]        = useState(false);
+  const [otError,        setOtError]         = useState('');
 
   // ─── Entrega programada ─────────────────────────────────────────────────
   const [showEntregaModal, setShowEntregaModal] = useState(false);
@@ -191,6 +204,12 @@ export default function FlujoReparacionDetailPage() {
   useEffect(() => {
     loadReparacion();
   }, [id]);
+
+  useEffect(() => {
+    if (userIsAdmin) {
+      getTecnicos().then(setTecnicos).catch(() => {});
+    }
+  }, [userIsAdmin]);
 
   // Cargar cuentas bancarias para selector de transferencia
   useEffect(() => {
@@ -519,6 +538,115 @@ export default function FlujoReparacionDetailPage() {
           <p className="text-sm text-slate-400 italic">Sin fecha de entrega programada</p>
         )}
       </Card>
+
+      {/* ── Orden de Trabajo ── */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <UserCheck size={18} className="text-blue-500" />
+            <h3 className="text-base font-semibold">Orden de Trabajo</h3>
+          </div>
+          {userIsAdmin && reparacion.estado !== 'CANCELADA' && (
+            <button
+              onClick={() => { setOtSelectedId(reparacion.tecnicoAsignadoId ?? ''); setOtError(''); setShowOTModal(true); }}
+              className="text-sm px-3 py-1.5 rounded-xl font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              {reparacion.tecnicoAsignadoId ? 'Cambiar técnico' : 'Asignar técnico'}
+            </button>
+          )}
+        </div>
+        {reparacion.tecnicoAsignadoId ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Técnico asignado</p>
+              <p className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                <UserCheck size={14} />
+                {reparacion.tecnicoNombre?.trim() && reparacion.tecnicoNombre !== ' '
+                  ? reparacion.tecnicoNombre
+                  : reparacion.tecnicoUsername}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Asignado por</p>
+              <p className="font-medium text-slate-700 dark:text-slate-300">
+                {reparacion.asignadoPorNombre?.trim() && reparacion.asignadoPorNombre !== ' '
+                  ? reparacion.asignadoPorNombre
+                  : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Fecha asignación</p>
+              <p className="font-medium text-slate-700 dark:text-slate-300">
+                {reparacion.asignadoEn
+                  ? new Date(reparacion.asignadoEn).toLocaleString('es-GT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : '—'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+            <UserX size={15} />
+            <span>Sin técnico asignado</span>
+          </div>
+        )}
+      </Card>
+
+      {/* Modal asignar técnico (OT) */}
+      {showOTModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl bg-white dark:bg-slate-900">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <p className="font-semibold flex items-center gap-2"><UserCheck size={16} className="text-blue-500" /> Asignar Técnico</p>
+              <button onClick={() => setShowOTModal(false)}><X size={16} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <select
+                value={otSelectedId}
+                onChange={e => { setOtSelectedId(e.target.value ? Number(e.target.value) : ''); setOtError(''); }}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+              >
+                <option value="">— Seleccionar técnico —</option>
+                {tecnicos.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {(t.nombre_completo?.trim() && t.nombre_completo !== ' ') ? t.nombre_completo : t.username}
+                    {t.id === user?.id ? ' (yo)' : ''} — {t.roles.join(', ')}
+                  </option>
+                ))}
+              </select>
+              {otError && (
+                <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+                  <AlertCircle size={12} /> {otError}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 p-4 border-t border-slate-200 dark:border-slate-700 justify-end">
+              <button
+                onClick={() => setShowOTModal(false)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >Cancelar</button>
+              <button
+                disabled={otSaving || !otSelectedId}
+                onClick={async () => {
+                  if (!otSelectedId) { setOtError('Selecciona un técnico'); return; }
+                  try {
+                    setOtSaving(true); setOtError('');
+                    await asignarTecnico(reparacion.id, { tecnico_id: otSelectedId as number });
+                    const updated = (await getAllReparaciones()).find((r: any) => r.id === reparacion.id);
+                    if (updated) setReparacion(updated);
+                    setShowOTModal(false);
+                  } catch (e: any) {
+                    setOtError(e?.response?.data?.message || 'Error al asignar técnico');
+                  } finally { setOtSaving(false); }
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+              >
+                {otSaving ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+                {otSaving ? 'Asignando…' : 'Asignar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal programar entrega */}
       {showEntregaModal && (

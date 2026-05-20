@@ -1,7 +1,7 @@
 import {
   Box, ChevronLeft, ChevronRight, FileText, Home, User, Users,
   CreditCard, Wrench, Settings, ShoppingBag, Building2, GitBranch,
-  Tag, Shield, Wallet, BarChart3, Receipt, CalendarDays,
+  Tag, Shield, Wallet, BarChart3, Receipt, CalendarDays, ClipboardList,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
@@ -29,10 +29,11 @@ const GROUPS = [
   {
     label: "Servicio técnico",
     items: [
-      { to: "/reparaciones",        label: "Reparaciones",      icon: <Wrench size={17} />,    adminOnly: false },
-      { to: "/flujo-reparaciones",  label: "Flujo Rep.",        icon: <GitBranch size={17} />,    adminOnly: false },
-      { to: "/agenda",              label: "Agenda entregas",   icon: <CalendarDays size={17} />, adminOnly: false },
-      { to: "/stickers-garantia",   label: "Stickers garantía", icon: <Tag size={17} />,          adminOnly: true  },
+      { to: "/reparaciones",        label: "Reparaciones",      icon: <Wrench size={17} />,         adminOnly: false },
+      { to: "/flujo-reparaciones",  label: "Flujo Rep.",        icon: <GitBranch size={17} />,      adminOnly: false },
+      { to: "/ordenes-trabajo",     label: "Órdenes de Trabajo",icon: <ClipboardList size={17} />,   adminOnly: false },
+      { to: "/agenda",              label: "Agenda entregas",   icon: <CalendarDays size={17} />,    adminOnly: false },
+      { to: "/stickers-garantia",   label: "Stickers garantía", icon: <Tag size={17} />,             adminOnly: true  },
     ],
   },
   {

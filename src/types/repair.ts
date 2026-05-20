@@ -120,6 +120,14 @@ export interface Repair {
   fechaEntregaProgramada?: string;
   notaEntregaProgramada?: string;
 
+  // Orden de Trabajo — asignación técnica
+  tecnicoAsignadoId?: number | null;
+  asignadoPor?: number | null;
+  asignadoEn?: string | null;
+  tecnicoNombre?: string | null;
+  tecnicoUsername?: string | null;
+  asignadoPorNombre?: string | null;
+
   // Auditoría
   createdAt: string;
   createdBy?: string;

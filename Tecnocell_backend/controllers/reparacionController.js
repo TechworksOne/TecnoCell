@@ -235,11 +235,18 @@ exports.getAllReparaciones = async (req, res) => {
     const { estado, prioridad, search, limit = 100 } = req.query;
     
     let query = `
-      SELECT 
+      SELECT
         r.*,
         (SELECT COUNT(*) FROM reparaciones_imagenes WHERE reparacion_id = r.id) as total_imagenes,
-        (SELECT COUNT(*) FROM reparaciones_historial WHERE reparacion_id = r.id) as total_cambios
+        (SELECT COUNT(*) FROM reparaciones_historial WHERE reparacion_id = r.id) as total_cambios,
+        CONCAT(COALESCE(pt.nombres,''), ' ', COALESCE(pt.apellidos,'')) AS tecnico_nombre,
+        ut.username AS tecnico_username,
+        CONCAT(COALESCE(pa.nombres,''), ' ', COALESCE(pa.apellidos,'')) AS asignado_por_nombre
       FROM reparaciones r
+      LEFT JOIN users ut ON ut.id = r.tecnico_asignado_id
+      LEFT JOIN user_profiles pt ON pt.user_id = r.tecnico_asignado_id
+      LEFT JOIN users ua ON ua.id = r.asignado_por
+      LEFT JOIN user_profiles pa ON pa.user_id = r.asignado_por
       WHERE 1=1
     `;
     const params = [];

@@ -206,6 +206,13 @@ export const getAllReparaciones = async (filters?: {
       notaEntregaProgramada: rep.nota_entrega_programada ?? undefined,
       fechaCancelacion: rep.fecha_cancelacion || undefined,
       motivoCancelacion: rep.motivo_cancelacion || undefined,
+      // OT – asignación técnica
+      tecnicoAsignadoId: rep.tecnico_asignado_id ?? null,
+      asignadoPor: rep.asignado_por ?? null,
+      asignadoEn: rep.asignado_en ?? null,
+      tecnicoNombre: rep.tecnico_nombre ?? null,
+      tecnicoUsername: rep.tecnico_username ?? null,
+      asignadoPorNombre: rep.asignado_por_nombre ?? null,
       historialEstados: [],
       totalCambiosEstado: rep.total_cambios || 0,
       createdAt: rep.created_at,
