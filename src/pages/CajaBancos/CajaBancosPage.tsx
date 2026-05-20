@@ -82,6 +82,15 @@ export default function CajaBancosPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<{ id: number; tipo: 'caja' | 'banco'; mov: Movimiento } | null>(null);
 
+  // Modal "Depositar a banco" (roles autorizados)
+  const [showDepositarBancoModal, setShowDepositarBancoModal] = useState(false);
+  const [depositarBancoId, setDepositarBancoId] = useState('');
+  const [depositarMonto, setDepositarMonto] = useState('');
+  const [depositarFecha, setDepositarFecha] = useState('');
+  const [depositarReferencia, setDepositarReferencia] = useState('');
+  const [depositarObservacion, setDepositarObservacion] = useState('');
+  const [depositarLoading, setDepositarLoading] = useState(false);
+
   // Auth – definir antes de loadData para que el closure lo capture
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.rol === 'admin' ||
@@ -111,10 +120,11 @@ export default function CajaBancosPage() {
       const cajaMovs = await axios.get(`${API_URL}/caja/caja-chica/movimientos`, config);
       setMovimientosCaja(cajaMovs.data.data);
 
-      if (isAdmin) {
-        const bancos = await axios.get(`${API_URL}/caja/bancos`, config);
-        setCuentasBancarias(bancos.data.data);
+      // Cargar cuentas bancarias para todos los usuarios (no admin recibe datos sin saldo)
+      const bancos = await axios.get(`${API_URL}/caja/bancos`, config);
+      setCuentasBancarias(bancos.data.data);
 
+      if (isAdmin) {
         const bancosMovs = await axios.get(`${API_URL}/caja/bancos/movimientos`, config);
         setMovimientosBancos(bancosMovs.data.data);
       }
@@ -230,6 +240,45 @@ export default function CajaBancosPage() {
       confirmarMovimientoCaja(movimientoAConfirmar.id);
     } else {
       confirmarMovimientoBanco(movimientoAConfirmar.id);
+    }
+  };
+
+  const abrirDepositarBancoModal = () => {
+    setDepositarBancoId('');
+    setDepositarMonto('');
+    setDepositarFecha(new Date().toISOString().slice(0, 10));
+    setDepositarReferencia('');
+    setDepositarObservacion('');
+    setShowDepositarBancoModal(true);
+  };
+
+  const handleDepositarCajaABanco = async () => {
+    if (!depositarBancoId) { alert('Selecciona un banco destino'); return; }
+    const montoNum = parseFloat(depositarMonto);
+    if (!montoNum || montoNum <= 0) { alert('Ingresa un monto válido mayor a 0'); return; }
+    try {
+      setDepositarLoading(true);
+      const token = sessionStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.post(`${API_URL}/caja/transferir-caja-a-banco`, {
+        banco_id: parseInt(depositarBancoId),
+        monto: montoNum,
+        fecha: depositarFecha || new Date().toISOString().slice(0, 10),
+        referencia: depositarReferencia.trim() || null,
+        observacion: depositarObservacion.trim() || null,
+      }, config);
+      setShowDepositarBancoModal(false);
+      loadData();
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        window.location.href = '/login';
+      } else {
+        alert(err.response?.data?.message || 'Error al registrar el depósito');
+      }
+    } finally {
+      setDepositarLoading(false);
     }
   };
 
@@ -473,6 +522,14 @@ export default function CajaBancosPage() {
                 <span className="text-center leading-tight">{label}</span>
               </button>
             ))}
+            {/* Botón "Depositar a banco" visible para todos los roles autorizados */}
+            <button
+              onClick={abrirDepositarBancoModal}
+              className="flex flex-col items-center gap-1.5 p-3 h-20 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 text-xs font-medium transition-all hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 dark:hover:bg-indigo-950/40 dark:hover:border-indigo-800 dark:hover:text-indigo-300 active:scale-95"
+            >
+              <Landmark size={18} />
+              <span className="text-center leading-tight">Depositar a banco</span>
+            </button>
           </div>
         </div>
 
@@ -934,6 +991,84 @@ export default function CajaBancosPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ── MODAL DEPOSITAR CAJA CHICA A BANCO ─────────────────────────────── */}
+      <Modal
+        isOpen={showDepositarBancoModal}
+        onClose={() => setShowDepositarBancoModal(false)}
+        title="Depositar caja chica a banco"
+      >
+        <div className="space-y-4">
+          <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2 text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+            Saldo disponible en caja chica: <span className="font-bold">Q{Number(saldoCajaChica.saldo || 0).toFixed(2)}</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Banco destino <span className="text-red-500">*</span></label>
+            <Select value={depositarBancoId} onChange={e => setDepositarBancoId(e.target.value)} className="w-full">
+              <option value="">Seleccione un banco...</option>
+              {cuentasBancarias.filter(c => c.activa).map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                  {c.pos_asociado ? ` (${c.pos_asociado})` : ''}
+                  {isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto (Q) <span className="text-red-500">*</span></label>
+            <Input type="number" step="0.01" min="0.01" value={depositarMonto} onChange={e => setDepositarMonto(e.target.value)} placeholder="0.00" className="w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha <span className="text-red-500">*</span></label>
+            <Input type="date" value={depositarFecha} onChange={e => setDepositarFecha(e.target.value)} className="w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Referencia / No. boleta <span className="text-xs text-slate-400">(opcional)</span></label>
+            <Input type="text" value={depositarReferencia} onChange={e => setDepositarReferencia(e.target.value)} placeholder="Ej: 0012345" className="w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Observación <span className="text-xs text-slate-400">(opcional)</span></label>
+            <textarea
+              value={depositarObservacion}
+              onChange={e => setDepositarObservacion(e.target.value)}
+              placeholder="Notas adicionales..."
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/40 outline-none text-sm"
+              rows={2}
+            />
+          </div>
+          {depositarMonto && parseFloat(depositarMonto) > 0 && (
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-xl p-3 border border-slate-200 dark:border-slate-800 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Tipo</span>
+                <span className="font-medium text-slate-800 dark:text-slate-200">Transferencia interna (no es gasto)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Efecto en caja chica</span>
+                <span className="font-medium text-red-600 dark:text-red-400">Egreso CONFIRMADO</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Efecto en banco</span>
+                <span className="font-medium text-amber-600 dark:text-amber-400">Ingreso PENDIENTE (admin confirma)</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-700 pt-1 mt-1">
+                <span className="text-slate-500 dark:text-slate-400">Monto</span>
+                <span className="font-bold text-lg text-slate-900 dark:text-slate-100">Q{parseFloat(depositarMonto).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowDepositarBancoModal(false)} className="flex-1">Cancelar</Button>
+            <Button
+              onClick={handleDepositarCajaABanco}
+              disabled={depositarLoading}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            >
+              {depositarLoading ? 'Registrando...' : 'Registrar depósito'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

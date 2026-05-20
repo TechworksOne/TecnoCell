@@ -1135,4 +1135,100 @@ exports.desactivarCuentaBancaria = async (req, res) => {
   }
 };
 
+// ========== TRANSFERENCIA CAJA CHICA → BANCO (roles autorizados) ==========
+// El egreso de caja queda CONFIRMADO (el dinero sale físicamente de caja).
+// El ingreso bancario queda PENDIENTE; el admin lo confirma después.
+exports.transferirCajaABanco = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { banco_id, monto, fecha, referencia, observacion } = req.body;
+
+    if (!banco_id) {
+      return res.status(400).json({ success: false, message: 'banco_id es obligatorio' });
+    }
+    const montoNum = parseFloat(monto);
+    if (!montoNum || montoNum <= 0) {
+      return res.status(400).json({ success: false, message: 'El monto debe ser mayor a 0' });
+    }
+
+    // Verificar banco activo
+    const [[banco]] = await conn.query(
+      'SELECT id, nombre FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [banco_id]
+    );
+    if (!banco) {
+      return res.status(404).json({ success: false, message: 'Banco no encontrado o inactivo' });
+    }
+
+    // Validar saldo disponible en caja chica (solo movimientos CONFIRMADOS)
+    const [[saldoRow]] = await conn.query(
+      `SELECT COALESCE(SUM(CASE WHEN tipo_movimiento = 'INGRESO' THEN monto ELSE -monto END), 0) AS saldo
+       FROM caja_chica WHERE estado = 'CONFIRMADO'`
+    );
+    const saldoCaja = parseFloat(saldoRow.saldo);
+    if (montoNum > saldoCaja) {
+      return res.status(409).json({
+        success: false,
+        message: `Saldo insuficiente en caja chica. Disponible: Q${saldoCaja.toFixed(2)}`
+      });
+    }
+
+    const userId = req.user?.id ?? req.user?.userId ?? req.user?.usuario_id ?? null;
+    const userName = req.user?.name ?? req.user?.nombre ?? req.user?.username ?? 'Usuario';
+    const fechaMov = fecha
+      ? fecha.length === 10 ? `${fecha} 00:00:00` : fecha
+      : new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await conn.beginTransaction();
+
+    // 1. Egreso en caja_chica → CONFIRMADO (el dinero sale físicamente de caja)
+    await conn.query(
+      `INSERT INTO caja_chica
+         (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones,
+          fecha_movimiento, confirmado_en, confirmado_por, referencia_tipo, referencia_id)
+       VALUES ('EGRESO', ?, ?, 'Traslado a Banco', 'CONFIRMADO', ?, ?,
+               ?, NOW(), ?, 'TRASLADO_BANCO', ?)`,
+      [
+        montoNum,
+        `Depósito a banco - ${banco.nombre}`,
+        userName,
+        observacion || null,
+        fechaMov,
+        userId,
+        String(banco_id)
+      ]
+    );
+
+    // 2. Ingreso en movimientos_bancarios → PENDIENTE (el admin lo confirma después)
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+         (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado,
+          numero_referencia, realizado_por, observaciones, fecha_movimiento, referencia_tipo)
+       VALUES (?, 'INGRESO', ?, 'Depósito desde caja chica', 'Traslado Caja', 'PENDIENTE',
+               ?, ?, ?, ?, 'TRASLADO_CAJA')`,
+      [
+        banco_id,
+        montoNum,
+        referencia || null,
+        userName,
+        observacion || null,
+        fechaMov
+      ]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    res.status(201).json({
+      success: true,
+      message: `Depósito de Q${montoNum.toFixed(2)} registrado. El ingreso bancario queda pendiente de confirmación por el administrador.`
+    });
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error en transferirCajaABanco:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = exports;
