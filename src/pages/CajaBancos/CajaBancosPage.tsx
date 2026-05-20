@@ -4,7 +4,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   RefreshCw, AlertCircle, TrendingUp, TrendingDown,
   CreditCard, Banknote, Search, Filter, ChevronDown,
-  ShieldCheck, Landmark, FileText, Pencil, Trash2, EyeOff
+  ShieldCheck, Landmark, FileText, Pencil, Trash2
 } from 'lucide-react';
 import API_URL from '../../services/config';
 import { useAuth } from '../../store/useAuth';
@@ -80,6 +80,12 @@ export default function CajaBancosPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<{ id: number; tipo: 'caja' | 'banco'; mov: Movimiento } | null>(null);
 
+  // Auth – definir antes de loadData para que el closure lo capture
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.rol === 'admin' ||
+    user?.role === 'ADMIN' || user?.rol === 'ADMIN' ||
+    (Array.isArray((user as any)?.roles) && ((user as any).roles.includes('ADMINISTRADOR') || (user as any).roles.includes('admin') || (user as any).roles.includes('ADMIN')));
+
   useEffect(() => {
     loadData();
   }, []);
@@ -103,11 +109,13 @@ export default function CajaBancosPage() {
       const cajaMovs = await axios.get(`${API_URL}/caja/caja-chica/movimientos`, config);
       setMovimientosCaja(cajaMovs.data.data);
 
-      const bancos = await axios.get(`${API_URL}/caja/bancos`, config);
-      setCuentasBancarias(bancos.data.data);
+      if (isAdmin) {
+        const bancos = await axios.get(`${API_URL}/caja/bancos`, config);
+        setCuentasBancarias(bancos.data.data);
 
-      const bancosMovs = await axios.get(`${API_URL}/caja/bancos/movimientos`, config);
-      setMovimientosBancos(bancosMovs.data.data);
+        const bancosMovs = await axios.get(`${API_URL}/caja/bancos/movimientos`, config);
+        setMovimientosBancos(bancosMovs.data.data);
+      }
 
     } catch (err: any) {
       console.error('Error loading data:', err);
@@ -122,9 +130,6 @@ export default function CajaBancosPage() {
       setLoading(false);
     }
   };
-
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || (Array.isArray(user?.roles) && user.roles.includes('ADMINISTRADOR'));
 
   const abrirModalBanco = (cuenta?: CuentaBancaria) => {
     if (cuenta) {
@@ -385,7 +390,7 @@ export default function CajaBancosPage() {
         </div>
 
         {/* ── TARJETAS RESUMEN ───────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className={`grid gap-3 md:gap-4 ${isAdmin ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}`}>
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
@@ -414,34 +419,35 @@ export default function CajaBancosPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Bancos</p>
-                {isAdmin
-                  ? <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">Q{totalBancos.toFixed(2)}</p>
-                  : <p className="text-sm font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-1"><EyeOff size={14} /> Saldo oculto</p>
-                }
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{cuentasBancarias.length} cuenta{cuentasBancarias.length !== 1 ? 's' : ''}</p>
+          {isAdmin && (
+            <>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Bancos</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">Q{totalBancos.toFixed(2)}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{cuentasBancarias.length} cuenta{cuentasBancarias.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded-xl">
+                    <Landmark size={20} className="text-blue-600" />
+                  </div>
+                </div>
               </div>
-              <div className="bg-blue-50 p-2 rounded-xl">
-                <Landmark size={20} className="text-blue-600" />
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pendientes Bancos</p>
-                <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{pendientesBancos}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Por confirmar</p>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pendientes Bancos</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{pendientesBancos}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Por confirmar</p>
+                  </div>
+                  <div className="bg-violet-50 p-2 rounded-xl">
+                    <Clock size={20} className="text-violet-500" />
+                  </div>
+                </div>
               </div>
-              <div className="bg-violet-50 p-2 rounded-xl">
-                <Clock size={20} className="text-violet-500" />
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* ── ACCIONES RÁPIDAS ──────────────────────────────────────────── */}
@@ -455,7 +461,7 @@ export default function CajaBancosPage() {
               { label: 'Depósito a banco', icon: <ArrowUpCircle size={18} />, color: 'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 dark:hover:bg-blue-950/40 dark:hover:border-blue-800 dark:hover:text-blue-300', tipo: 'DEPOSITO' as const },
               { label: 'Transferencia', icon: <ArrowRightLeft size={18} />, color: 'hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 dark:hover:bg-violet-950/40 dark:hover:border-violet-800 dark:hover:text-violet-300', tipo: 'TRANSFERENCIA' as const },
               { label: 'Ingreso manual', icon: <Banknote size={18} />, color: 'hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:border-emerald-800 dark:hover:text-emerald-300', tipo: 'INGRESO_MANUAL' as const },
-            ].filter(item => item.tipo !== 'TRANSFERENCIA' || isAdmin).map(({ label, icon, color, tipo }) => (
+            ].filter(item => !['RETIRO_BANCO', 'DEPOSITO', 'TRANSFERENCIA'].includes(item.tipo) || isAdmin).map(({ label, icon, color, tipo }) => (
               <button
                 key={tipo}
                 onClick={() => abrirModal(tipo)}
@@ -474,7 +480,7 @@ export default function CajaBancosPage() {
           <div className="flex border-b border-slate-200 dark:border-slate-800">
             {[
               { key: 'caja', label: 'Caja Chica', icon: <Wallet size={16} />, badge: pendientesCaja },
-              { key: 'bancos', label: 'Bancos', icon: <Landmark size={16} />, badge: pendientesBancos },
+              ...(isAdmin ? [{ key: 'bancos', label: 'Bancos', icon: <Landmark size={16} />, badge: pendientesBancos }] : []),
             ].map(({ key, label, icon, badge }) => (
               <button
                 key={key}
@@ -639,23 +645,15 @@ export default function CajaBancosPage() {
                         )}
                         <div className="border-t border-blue-200 dark:border-blue-900/50 pt-2 mt-2">
                           <p className="text-xs text-slate-500 dark:text-slate-400">Saldo confirmado</p>
-                          {isAdmin ? (
-                            <>
-                              <p className="text-lg font-bold text-blue-700 dark:text-blue-400">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</p>
-                              {(() => {
-                                const pendMonto = movimientosBancos
-                                  .filter(m => m.cuenta_id === cuenta.id && m.estado === 'PENDIENTE' && m.tipo_movimiento === 'INGRESO')
-                                  .reduce((sum, m) => sum + Number(m.monto || 0), 0);
-                                return pendMonto > 0 ? (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">+ Q{pendMonto.toFixed(2)} pendiente por confirmar</p>
-                                ) : null;
-                              })()}
-                            </>
-                          ) : (
-                            <p className="text-sm font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
-                              <EyeOff size={13} /> Saldo oculto
-                            </p>
-                          )}
+                          <p className="text-lg font-bold text-blue-700 dark:text-blue-400">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</p>
+                          {(() => {
+                            const pendMonto = movimientosBancos
+                              .filter(m => m.cuenta_id === cuenta.id && m.estado === 'PENDIENTE' && m.tipo_movimiento === 'INGRESO')
+                              .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+                            return pendMonto > 0 ? (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">+ Q{pendMonto.toFixed(2)} pendiente por confirmar</p>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -720,12 +718,12 @@ export default function CajaBancosPage() {
                   <option value="">Seleccione una cuenta...</option>
                   {cuentasBancarias.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}
+                      {c.nombre}{c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}
                     </option>
                   ))}
                 </Select>
               </div>
-              {cuentaOrigen && isAdmin && (() => {
+              {cuentaOrigen && (() => {
                 const cuenta = cuentasBancarias.find(c => c.id === parseInt(cuentaOrigen));
                 return cuenta?.saldo_actual != null ? (
                   <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl px-3 py-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
@@ -751,7 +749,7 @@ export default function CajaBancosPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cuenta de origen</label>
                 <Select value={cuentaOrigen} onChange={e => setCuentaOrigen(e.target.value)} className="w-full">
                   <option value="">Seleccione cuenta origen...</option>
-                  {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
+                  {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre}{c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
                 </Select>
               </div>
               <div className="flex items-center justify-center text-slate-400"><ArrowRightLeft size={20} /></div>
@@ -759,7 +757,7 @@ export default function CajaBancosPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cuenta de destino</label>
                 <Select value={cuentaDestino} onChange={e => setCuentaDestino(e.target.value)} className="w-full">
                   <option value="">Seleccione cuenta destino...</option>
-                  {cuentasBancarias.filter(c => c.id.toString() !== cuentaOrigen).map(c => <option key={c.id} value={c.id}>{c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
+                  {cuentasBancarias.filter(c => c.id.toString() !== cuentaOrigen).map(c => <option key={c.id} value={c.id}>{c.nombre}{c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
                 </Select>
               </div>
             </>
