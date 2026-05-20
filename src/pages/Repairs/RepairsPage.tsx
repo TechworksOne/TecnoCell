@@ -11,6 +11,7 @@ import { Repair, RepairPriority } from '../../types/repair';
 import Modal from '../../components/ui/Modal';
 import ModalHistorialReparacion from '../../components/repairs/ModalHistorialReparacion';
 import NuevaReparacionModal from '../../components/repairs/NuevaReparacionModal';
+import PatternPreview from '../../components/repairs/PatternPreview';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import {
   getAllReparaciones,
@@ -773,14 +774,19 @@ export default function RepairsPage() {
                   {r.recepcion.imei && <div><p className="text-[10px] text-slate-500 dark:text-slate-400">IMEI / Serie</p><p className="text-slate-800 dark:text-slate-200 font-mono text-xs">{r.recepcion.imei}</p></div>}
                   {/* Acceso — se muestra sólo en detalle, nunca en tabla general */}
                   {(() => {
-                    const tipo = r.recepcion.accesoTipo;
+                    const tipo  = r.recepcion.accesoTipo;
                     const valor = r.recepcion.accesoValor;
                     const legacy = r.recepcion.contraseña;
+
                     if (tipo === 'patron' && valor) {
                       return (
-                        <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Patrón</p><p className="text-slate-800 dark:text-slate-200 font-mono text-xs">{valor}</p></div>
+                        <div className="col-span-2">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-1.5">Patrón de desbloqueo</p>
+                          <PatternPreview value={valor} size={88} />
+                        </div>
                       );
                     }
+
                     if (tipo === 'pin' && valor) {
                       return (
                         <div>
@@ -796,6 +802,17 @@ export default function RepairsPage() {
                         </div>
                       );
                     }
+
+                    if (tipo === 'ninguno') {
+                      return (
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">Acceso</p>
+                          <p className="text-slate-400 dark:text-slate-500 text-xs italic">Sin acceso registrado</p>
+                        </div>
+                      );
+                    }
+
+                    // Legacy: registro anterior sin acceso_tipo
                     if (legacy) {
                       return <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Acceso</p><p className="text-slate-800 dark:text-slate-200">{legacy}</p></div>;
                     }
