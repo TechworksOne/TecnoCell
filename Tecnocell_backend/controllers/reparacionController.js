@@ -958,13 +958,24 @@ exports.cancelarReparacion = async (req, res) => {
   try {
     await connection.beginTransaction();
     const { id } = req.params;
-    const {
-      motivo,
-      devolucion       = false,   // ¿se devuelve dinero al cliente?
-      montoDevolucion  = 0,       // cuánto se devuelve
-      motivoRetencion  = '',      // requerido si monto_retenido > 0
-    } = req.body;
+    const b = req.body;
     const usuario = req.user?.username || req.user?.name || req.user?.nombre || 'Usuario';
+
+    // Aceptar camelCase y snake_case para compatibilidad
+    const motivo          = b.motivo ?? b.motivo_cancelacion ?? '';
+    const devolverDinero  = Boolean(b.devolver_dinero ?? b.devolucion ?? false);
+    const montoDevolucion = Number(
+      b.devolucion_monto ??
+      b.devolucionMonto  ??
+      b.monto_devolucion ??
+      b.montoDevolucion  ??
+      b.monto_a_devolver ??
+      b.montoADevolver   ??
+      0
+    );
+    const motivoRetencion = String(
+      b.motivo_retencion ?? b.motivoRetencion ?? ''
+    ).trim();
 
     // ── Validaciones básicas ─────────────────────────────────────────────
     const motivoLimpio = String(motivo || '').trim();
@@ -973,9 +984,9 @@ exports.cancelarReparacion = async (req, res) => {
       return res.status(400).json({ success: false, message: 'El motivo de cancelación es requerido' });
     }
 
-    const devolver         = Boolean(devolucion);
-    const montoDev         = devolver ? Math.max(0, Number(montoDevolucion) || 0) : 0;
-    const motivoRetLimpio  = String(motivoRetencion || '').trim();
+    const devolver        = devolverDinero;
+    const montoDev        = devolver ? Math.max(0, montoDevolucion) : 0;
+    const motivoRetLimpio = motivoRetencion;
 
     // ── Cargar reparación ────────────────────────────────────────────────
     const [[rep]] = await connection.query(

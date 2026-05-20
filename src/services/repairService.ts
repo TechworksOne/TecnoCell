@@ -335,10 +335,11 @@ export const registrarPagoSaldo = async (
 
 // ========== CANCELAR REPARACIÓN ==========
 export interface CancelarReparacionPayload {
-  motivo: string;
-  devolucion: boolean;
-  montoDevolucion: number;
-  motivoRetencion?: string;
+  motivo_cancelacion: string;
+  devolver_dinero: boolean;
+  devolucion_monto: number;
+  monto_retenido: number;
+  motivo_retencion: string | null;
 }
 
 export const cancelarReparacion = async (

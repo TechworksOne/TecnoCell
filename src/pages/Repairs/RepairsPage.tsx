@@ -288,11 +288,14 @@ function ModalCancelar({
     }
     try {
       setSaving(true);
+      const montoDev = tieneAnticipo && devolucion ? Number(montoDevolucion) : 0;
+      const retenido = tieneAnticipo ? parseFloat(Math.max(0, montoAnticipo - montoDev).toFixed(2)) : 0;
       await cancelarReparacion(repair.id, {
-        motivo:          motivo.trim(),
-        devolucion:      tieneAnticipo ? (devolucion ?? false) : false,
-        montoDevolucion: tieneAnticipo && devolucion ? montoDevolucion : 0,
-        motivoRetencion: motivoRetencion.trim() || undefined,
+        motivo_cancelacion: motivo.trim(),
+        devolver_dinero:    tieneAnticipo ? (devolucion ?? false) : false,
+        devolucion_monto:   montoDev,
+        monto_retenido:     retenido,
+        motivo_retencion:   retenido > 0.01 ? (motivoRetencion.trim() || null) : null,
       });
       onSuccess(repair.id);
       onClose();
