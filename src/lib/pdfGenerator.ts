@@ -140,8 +140,10 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   }
 
   // ── Pre-compute diagnostico lines (font size must match rendering) ─────
+  // Inner text width = contentWidth minus 3mm left + 3mm right padding
+  const innerWidth = contentWidth - 6;
   doc.setFontSize(10);
-  const diagLines = doc.splitTextToSize(data.equipo.diagnostico || '', contentWidth - 16);
+  const diagLines = doc.splitTextToSize(data.equipo.diagnostico || '', innerWidth);
 
   // ── Calculate blue box height (all content that goes inside it) ────────
   function calcBlueBoxHeight(): number {
@@ -197,7 +199,7 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.setFillColor(173, 216, 230);
   doc.setDrawColor(0, 100, 150);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, blueBoxY, contentWidth - 50, blueBoxHeight, 3, 3, 'FD');
+  doc.roundedRect(margin, blueBoxY, contentWidth, blueBoxHeight, 3, 3, 'FD');
 
   yPos += 6;
   doc.setTextColor(0, 0, 0);
@@ -266,7 +268,7 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   yPos += 5;
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  doc.text(diagLines, margin + 3, yPos, { maxWidth: contentWidth - 16, align: 'justify' });
+  doc.text(diagLines, margin + 3, yPos, { maxWidth: innerWidth, align: 'justify' });
 
   // Jump to just after the blue box
   yPos = blueBoxY + blueBoxHeight + 8;
@@ -400,16 +402,10 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   renderFooter();
 
   // ══════════════════════════════════════════════════════════════════════
-  // PÁGINA 2  — sin bloque cliente/equipo
+  // PÁGINA 2  — sin logo, sin encabezado visual, solo contenido
   // ══════════════════════════════════════════════════════════════════════
   doc.addPage();
-  yPos = margin + 5;
-
-  renderHeader();
-
-  doc.setLineWidth(0.3);
-  doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 8;
+  yPos = margin;
 
   // CONDICIONES DE DEVOLUCIÓN
   doc.setFont('times', 'bold');
