@@ -41,6 +41,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
 const deudoresRoutes = require('./routes/deudoresRoutes');
+const agendaRoutes = require('./routes/agendaRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -63,6 +64,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/deudores', deudoresRoutes);
+app.use('/api/agenda', agendaRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', marcaLineaRoutes);
 

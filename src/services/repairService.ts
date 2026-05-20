@@ -202,6 +202,8 @@ export const getAllReparaciones = async (filters?: {
       fechaIngreso: rep.fecha_ingreso,
       fechaEstimadaEntrega: rep.fecha_estimada_entrega,
       fechaEntrega: rep.fecha_entrega,
+      fechaEntregaProgramada: rep.fecha_entrega_programada ?? undefined,
+      notaEntregaProgramada: rep.nota_entrega_programada ?? undefined,
       fechaCancelacion: rep.fecha_cancelacion || undefined,
       motivoCancelacion: rep.motivo_cancelacion || undefined,
       historialEstados: [],

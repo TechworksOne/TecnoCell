@@ -22,6 +22,11 @@ router.post('/:id/pago', verifyToken, reparacionController.registrarPagoSaldo);
 // Cancelar reparación
 router.patch('/:id/cancelar', verifyToken, reparacionController.cancelarReparacion);
 
+// Fecha de entrega programada (Agenda)
+const agendaController = require('../controllers/agendaController');
+router.patch('/:id/fecha-entrega', verifyToken, agendaController.patchFechaEntrega);
+router.delete('/:id/fecha-entrega', verifyToken, agendaController.deleteFechaEntrega);
+
 // Cambiar estado con imágenes — POST usa FormData desde ModalActualizarEstado
 router.post(
   '/:id/estado',

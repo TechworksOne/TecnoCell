@@ -20,6 +20,7 @@ import RepairsPage from "./pages/Repairs/RepairsPage";
 import RepairFormSimple from "./pages/Repairs/RepairFormSimple";
 import FlujoReparacionesPage from "./pages/FlujoReparaciones/FlujoReparacionesPage";
 import FlujoReparacionDetailPage from "./pages/FlujoReparaciones/FlujoReparacionDetailPage";
+import AgendaPage from "./pages/Agenda/AgendaPage";
 import { RepuestosPage } from "./pages/Repuestos/RepuestosPage";
 import RepuestoForm from "./pages/Repuestos/RepuestoForm";
 import StickersGarantiaPage from "./pages/StickersGarantia/StickersGarantiaPage";
@@ -52,6 +53,7 @@ const routes = [
   { path: "/reparaciones/:id/editar", element: <RepairFormSimple /> },
   { path: "/flujo-reparaciones", element: <FlujoReparacionesPage /> },
   { path: "/flujo-reparaciones/:id", element: <FlujoReparacionDetailPage /> },
+  { path: "/agenda", element: <AgendaPage /> },
   { path: "/pago-tarjeta", element: <CardPaymentPage /> },
   { path: "/clientes", element: <CustomersPage /> },
   { path: "/proveedores", element: <ProtectedRoute roles={ADMIN}><SuppliersPage /></ProtectedRoute> },

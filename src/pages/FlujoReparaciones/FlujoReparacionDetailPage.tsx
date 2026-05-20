@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Camera, Save } from 'lucide-react';
+import { ArrowLeft, Check, X, Camera, Save, CalendarDays, Clock } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { getAllReparaciones } from '../../services/repairService';
+import { patchFechaEntrega, deleteFechaEntrega } from '../../services/agendaService';
 import API_URL from '../../services/config';
 import axios from 'axios';
 
@@ -35,6 +36,57 @@ export default function FlujoReparacionDetailPage() {
   const [reparacion, setReparacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // ─── Entrega programada ─────────────────────────────────────────────────
+  const [showEntregaModal, setShowEntregaModal] = useState(false);
+  const [entregaFecha, setEntregaFecha] = useState('');
+  const [entregaHora, setEntregaHora] = useState('');
+  const [entregaNota, setEntregaNota] = useState('');
+  const [savingEntrega, setSavingEntrega] = useState(false);
+
+  const abrirEntregaModal = () => {
+    if (reparacion?.fechaEntregaProgramada) {
+      const d = new Date(String(reparacion.fechaEntregaProgramada).replace(' ', 'T'));
+      setEntregaFecha(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+      setEntregaHora(`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`);
+    } else {
+      setEntregaFecha('');
+      setEntregaHora('');
+    }
+    setEntregaNota(reparacion?.notaEntregaProgramada ?? '');
+    setShowEntregaModal(true);
+  };
+
+  const guardarEntrega = async () => {
+    if (!reparacion || !entregaFecha) return;
+    setSavingEntrega(true);
+    try {
+      const datetime = entregaHora ? `${entregaFecha}T${entregaHora}:00` : `${entregaFecha}T00:00:00`;
+      await patchFechaEntrega(reparacion.id, {
+        fecha_entrega_programada: datetime,
+        nota_entrega_programada: entregaNota || undefined,
+      });
+      // Refrescar datos
+      const updated = (await getAllReparaciones()).find((r: any) => r.id === reparacion.id);
+      if (updated) setReparacion(updated);
+      setShowEntregaModal(false);
+    } catch (e) {
+      alert('Error al guardar fecha de entrega');
+    } finally {
+      setSavingEntrega(false);
+    }
+  };
+
+  const quitarEntrega = async () => {
+    if (!reparacion || !window.confirm('¿Eliminar la fecha de entrega programada?')) return;
+    setSavingEntrega(true);
+    try {
+      await deleteFechaEntrega(reparacion.id);
+      const updated = (await getAllReparaciones()).find((r: any) => r.id === reparacion.id);
+      if (updated) setReparacion(updated);
+      setShowEntregaModal(false);
+    } catch { alert('Error al eliminar'); } finally { setSavingEntrega(false); }
+  };
   
   // Checks generales
   const [checksGenerales, setChecksGenerales] = useState<ChecksGenerales>({
@@ -425,6 +477,96 @@ export default function FlujoReparacionDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* ── Entrega programada ── */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={18} className="text-sky-400" />
+            <h3 className="text-base font-semibold">Entrega programada</h3>
+          </div>
+          <button
+            onClick={abrirEntregaModal}
+            className="text-sm px-3 py-1.5 rounded-xl font-medium text-white"
+            style={{ background: '#48B9E6' }}
+          >
+            {reparacion.fechaEntregaProgramada ? 'Editar fecha' : 'Programar entrega'}
+          </button>
+        </div>
+        {reparacion.fechaEntregaProgramada ? (
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5">
+              <CalendarDays size={14} className="text-slate-400" />
+              <span className="font-semibold">
+                {new Date(String(reparacion.fechaEntregaProgramada).replace(' ','T')).toLocaleDateString('es-GT',{day:'2-digit',month:'long',year:'numeric'})}
+              </span>
+            </div>
+            {(() => {
+              const d = new Date(String(reparacion.fechaEntregaProgramada).replace(' ','T'));
+              const h = d.getHours(), m = d.getMinutes();
+              return (h !== 0 || m !== 0) ? (
+                <div className="flex items-center gap-1.5">
+                  <Clock size={14} className="text-slate-400" />
+                  <span>{d.toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',hour12:true})}</span>
+                </div>
+              ) : null;
+            })()}
+            {reparacion.notaEntregaProgramada && (
+              <p className="text-slate-500 italic">{reparacion.notaEntregaProgramada}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">Sin fecha de entrega programada</p>
+        )}
+      </Card>
+
+      {/* Modal programar entrega */}
+      {showEntregaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl bg-white dark:bg-slate-900">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <p className="font-semibold flex items-center gap-2"><CalendarDays size={16} className="text-sky-400" /> Programar entrega</p>
+              <button onClick={() => setShowEntregaModal(false)}><X size={16} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-slate-600">Fecha *</label>
+                <input type="date" value={entregaFecha} onChange={e => setEntregaFecha(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-slate-600">Hora (opcional)</label>
+                <input type="time" value={entregaHora} onChange={e => setEntregaHora(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-slate-600">Nota (opcional)</label>
+                <textarea value={entregaNota} onChange={e => setEntregaNota(e.target.value)} rows={2}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 resize-none" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-700 gap-2">
+              {reparacion.fechaEntregaProgramada && (
+                <button onClick={quitarEntrega} disabled={savingEntrega}
+                  className="text-sm text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                  Quitar
+                </button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button onClick={() => setShowEntregaModal(false)}
+                  className="px-3 py-1.5 text-sm rounded-xl border border-slate-300 text-slate-600">
+                  Cancelar
+                </button>
+                <button onClick={guardarEntrega} disabled={savingEntrega || !entregaFecha}
+                  className="px-4 py-1.5 text-sm rounded-xl font-medium text-white disabled:opacity-50"
+                  style={{ background: '#48B9E6' }}>
+                  {savingEntrega ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checks Generales */}
       <Card className="mb-6">

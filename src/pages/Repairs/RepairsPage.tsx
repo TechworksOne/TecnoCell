@@ -593,6 +593,12 @@ function RepairCard({
                 Cancelado: {repair.motivoCancelacion}
               </p>
             )}
+            {repair.fechaEntregaProgramada && (
+              <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium mt-1 flex items-center gap-1">
+                <CalendarDays size={9} />
+                Entrega: {safeDate(repair.fechaEntregaProgramada)}
+              </p>
+            )}
           </div>
         </div>
 

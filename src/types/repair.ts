@@ -116,6 +116,10 @@ export interface Repair {
   montoRetenido?: number;
   motivoRetencion?: string;
 
+  // Entrega programada (Agenda)
+  fechaEntregaProgramada?: string;
+  notaEntregaProgramada?: string;
+
   // Auditoría
   createdAt: string;
   createdBy?: string;
