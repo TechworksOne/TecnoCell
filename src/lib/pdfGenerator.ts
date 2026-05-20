@@ -100,37 +100,6 @@ function sanitizeFileName(name: string): string {
     .replace(/\s+/g, '_');
 }
 
-/**
- * Formats a date string (ISO, yyyy-mm-dd, or dd/mm/yyyy) to dd/mm/yyyy.
- */
-function formatFechaPDF(fecha: string): string {
-  if (!fecha) return '';
-  if (fecha.includes('T') || fecha.includes('Z')) {
-    const d = new Date(fecha);
-    if (!isNaN(d.getTime())) {
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const year = d.getUTCFullYear();
-      return `${day}/${month}/${year}`;
-    }
-  }
-  if (fecha.includes('/')) return fecha;
-  const parts = fecha.split('-');
-  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  return fecha;
-}
-
-/**
- * Sanitizes a string to be safe for use in a file name.
- */
-function sanitizeFileName(name: string): string {
-  return name
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9\s_-]/g, '')
-    .trim()
-    .replace(/\s+/g, '_');
-}
-
 export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean = false) => {
   const doc = new jsPDF({
     orientation: 'portrait',
