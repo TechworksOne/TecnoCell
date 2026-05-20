@@ -41,6 +41,8 @@ interface Movimiento {
   cuenta_nombre?: string;
   venta_id?: string;
   numero_referencia?: string;
+  confirmado_en?: string;
+  confirmado_por_nombre?: string;
 }
 
 export default function CajaBancosPage() {
@@ -947,6 +949,7 @@ interface MovimientosPanelProps {
 
 function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco }: MovimientosPanelProps) {
   const fmtFecha = (fecha: string) => new Date(fecha).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmtFechaHora = (fecha: string) => new Date(fecha).toLocaleString('es-GT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   if (movimientos.length === 0) {
     return (
@@ -979,6 +982,7 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
               <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Monto</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Estado</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Realizado por</th>
+              {estadoFiltro === 'CONFIRMADO' && <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Confirmado</th>}
               {estadoFiltro === 'PENDIENTE' && <th className="px-4 py-3" />}
             </tr>
           </thead>
@@ -1022,6 +1026,13 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{mov.realizado_por || '—'}</td>
+                {estadoFiltro === 'CONFIRMADO' && (
+                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                    {mov.confirmado_en
+                      ? <><div className="whitespace-nowrap">{fmtFechaHora(mov.confirmado_en)}</div>{mov.confirmado_por_nombre && <div className="text-slate-400 dark:text-slate-500">por {mov.confirmado_por_nombre}</div>}</>
+                      : '—'}
+                  </td>
+                )}
                 {estadoFiltro === 'PENDIENTE' && (
                   <td className="px-4 py-3">
                     <button
@@ -1075,6 +1086,11 @@ function MovimientosPanel({ movimientos, estadoFiltro, onConfirmar, mostrarBanco
                 <span className="text-[10px] text-slate-400 dark:text-slate-500">{mov.realizado_por}</span>
               )}
             </div>
+            {estadoFiltro === 'CONFIRMADO' && mov.confirmado_en && (
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Confirmado: {fmtFechaHora(mov.confirmado_en)}{mov.confirmado_por_nombre ? ` por ${mov.confirmado_por_nombre}` : ''}
+              </p>
+            )}
             {estadoFiltro === 'PENDIENTE' && (
               <button
                 onClick={() => onConfirmar(mov)}

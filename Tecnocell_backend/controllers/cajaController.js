@@ -39,27 +39,31 @@ exports.getMovimientosCajaChica = async (req, res) => {
   try {
     const { fecha_inicio, fecha_fin, tipo, estado } = req.query;
     
-    let query = 'SELECT * FROM caja_chica WHERE 1=1';
+    let query = `
+      SELECT cc.*, u.name AS confirmado_por_nombre
+      FROM caja_chica cc
+      LEFT JOIN users u ON u.id = cc.confirmado_por
+      WHERE 1=1`;
     const params = [];
     
     if (fecha_inicio) {
-      query += ' AND fecha_movimiento >= ?';
+      query += ' AND cc.fecha_movimiento >= ?';
       params.push(fecha_inicio);
     }
     if (fecha_fin) {
-      query += ' AND fecha_movimiento <= ?';
+      query += ' AND cc.fecha_movimiento <= ?';
       params.push(fecha_fin);
     }
     if (tipo) {
-      query += ' AND tipo_movimiento = ?';
+      query += ' AND cc.tipo_movimiento = ?';
       params.push(tipo);
     }
     if (estado) {
-      query += ' AND estado = ?';
+      query += ' AND cc.estado = ?';
       params.push(estado);
     }
     
-    query += ' ORDER BY fecha_movimiento DESC';
+    query += ' ORDER BY cc.fecha_movimiento DESC';
     
     const [movimientos] = await db.query(query, params);
     
@@ -157,9 +161,10 @@ exports.getMovimientosBancarios = async (req, res) => {
     const { cuenta_id, fecha_inicio, fecha_fin, tipo } = req.query;
     
     let query = `
-      SELECT mb.*, cb.nombre as cuenta_nombre 
+      SELECT mb.*, cb.nombre AS cuenta_nombre, u.name AS confirmado_por_nombre
       FROM movimientos_bancarios mb
       JOIN cuentas_bancarias cb ON mb.cuenta_id = cb.id
+      LEFT JOIN users u ON u.id = mb.confirmado_por
       WHERE 1=1
     `;
     const params = [];
@@ -272,7 +277,13 @@ exports.confirmarMovimientoCajaChica = async (req, res) => {
       }
     }
 
-    await db.query("UPDATE caja_chica SET estado = 'CONFIRMADO' WHERE id = ?", [id]);
+    await db.query(
+      "UPDATE caja_chica SET estado = 'CONFIRMADO', confirmado_en = NOW(), confirmado_por = ? WHERE id = ?",
+      [
+        req.user?.id ?? req.user?.userId ?? req.user?.usuario_id ?? null,
+        id
+      ]
+    );
     res.json({ success: true, message: 'Movimiento confirmado exitosamente' });
   } catch (error) {
     console.error('Error confirmando movimiento caja chica:', error);
@@ -326,10 +337,13 @@ exports.confirmarMovimientoBancario = async (req, res) => {
       }
     }
 
-    // Actualizar estado a CONFIRMADO
+    // Actualizar estado a CONFIRMADO con trazabilidad
     await db.query(
-      "UPDATE movimientos_bancarios SET estado = 'CONFIRMADO' WHERE id = ?",
-      [id]
+      "UPDATE movimientos_bancarios SET estado = 'CONFIRMADO', confirmado_en = NOW(), confirmado_por = ? WHERE id = ?",
+      [
+        req.user?.id ?? req.user?.userId ?? req.user?.usuario_id ?? null,
+        id
+      ]
     );
     
     // Actualizar saldo de la cuenta bancaria
