@@ -267,17 +267,22 @@ function ModalCancelar({
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState('');
 
-  const montoRetenido = tieneAnticipo && devolucion ? Math.max(0, montoAnticipo - montoDevolucion) : montoAnticipo;
+  const montoRetenido = parseFloat(
+    tieneAnticipo && devolucion
+      ? Math.max(0, montoAnticipo - (Number(montoDevolucion) || 0)).toFixed(2)
+      : montoAnticipo.toFixed(2)
+  );
+  const requiereMotRet = montoRetenido > 0.01;
 
   const handleCancelar = async () => {
     setError('');
     if (!motivo.trim()) { setError('El motivo de cancelación es requerido'); return; }
     if (tieneAnticipo && devolucion === null) { setError('Indica si se devuelve dinero al cliente'); return; }
-    if (tieneAnticipo && devolucion && montoDevolucion > montoAnticipo) {
+    if (tieneAnticipo && devolucion && (Number(montoDevolucion) || 0) > montoAnticipo) {
       setError(`No se puede devolver más del anticipo recibido (Q${montoAnticipo.toFixed(2)})`);
       return;
     }
-    if (montoRetenido > 0 && !motivoRetencion.trim()) {
+    if (requiereMotRet && !motivoRetencion.trim()) {
       setError('El motivo de retención es requerido cuando se retiene parte del anticipo');
       return;
     }
@@ -348,14 +353,14 @@ function ModalCancelar({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setDevolucion(true); setMontoDevolucion(montoAnticipo); setMotivoRetencion(''); }}
+                  onClick={() => { setDevolucion(true); setMontoDevolucion(montoAnticipo); setMotivoRetencion(''); setError(''); }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${devolucion === true ? 'bg-green-600 text-white border-green-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                 >
                   Sí, devolver
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setDevolucion(false); setMontoDevolucion(0); }}
+                  onClick={() => { setDevolucion(false); setMontoDevolucion(0); setError(''); }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${devolucion === false ? 'bg-red-600 text-white border-red-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                 >
                   No devolver
@@ -398,7 +403,7 @@ function ModalCancelar({
             )}
 
             {/* Motivo retención */}
-            {montoRetenido > 0 && (
+            {requiereMotRet && (
               <div>
                 <label className={labelCls}>Motivo de retención * (Q{montoRetenido.toFixed(2)} retenidos)</label>
                 <textarea

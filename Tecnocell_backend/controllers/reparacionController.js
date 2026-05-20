@@ -1008,7 +1008,7 @@ exports.cancelarReparacion = async (req, res) => {
       });
     }
     const montoRetenido = montoAnticipo - montoDev;
-    if (montoRetenido > 0 && !motivoRetLimpio) {
+    if (montoRetenido > 0.01 && !motivoRetLimpio) {
       await connection.rollback();
       return res.status(400).json({
         success: false,
