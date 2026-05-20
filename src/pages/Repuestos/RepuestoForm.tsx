@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Modal from "../../components/ui/Modal";
 import {
   ArrowLeft, Save, Upload, X, Plus, Tag, Monitor, Smartphone,
-  DollarSign, Camera, Package2, ChevronDown, Building2, Wrench
+  DollarSign, Camera, Package2, ChevronDown, Building2, Wrench, type LucideIcon
 } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -15,7 +15,7 @@ import { useSuppliersStore } from "../../store/useSuppliers";
 import { RepuestoFormData, MARCAS_LINEAS } from "../../types/repuesto";
 import * as repuestoService from "../../services/repuestoService";
 import * as marcaLineaService from "../../services/marcaLineaService";
-import type { RepuestoTipo, RepuestoMarca, RepuestoLinea } from "../../services/marcaLineaService";
+import type { RepuestoTipo, RepuestoMarca, RepuestoModelo } from "../../services/marcaLineaService";
 import { getImageUrl } from "../../utils/getImageUrl";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ function SectionHeader({
   title,
   iconColor = "text-[#48B9E6]",
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   title: string;
   iconColor?: string;
 }) {
@@ -113,14 +113,14 @@ export default function RepuestoForm({
   const [showProveedoresDropdown, setShowProveedoresDropdown] = useState(false);
 
   const [marcas, setMarcas] = useState<RepuestoMarca[]>([]);
-  const [lineas, setLineas] = useState<RepuestoLinea[]>([]);
+  const [modelos, setModelos] = useState<RepuestoModelo[]>([]);
   const [tipos, setTipos] = useState<RepuestoTipo[]>([]);
   const [showNewTipoDialog, setShowNewTipoDialog] = useState(false);
   const [newTipoNombre, setNewTipoNombre] = useState("");
   const [showNewMarcaDialog, setShowNewMarcaDialog] = useState(false);
-  const [showNewLineaDialog, setShowNewLineaDialog] = useState(false);
+  const [showNewModeloDialog, setShowNewModeloDialog] = useState(false);
   const [newMarcaNombre, setNewMarcaNombre] = useState("");
-  const [newLineaNombre, setNewLineaNombre] = useState("");
+  const [newModeloNombre, setNewModeloNombre] = useState("");
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -158,12 +158,12 @@ export default function RepuestoForm({
       .catch(() => toast.add("Error al cargar marcas", "error"));
   }, [selectedTipoId, toast]);
 
-  // ── Load lineas when marca changes ─────────────────────────────────────
+  // ── Load modelos when marca changes ────────────────────────────────────
   useEffect(() => {
-    if (!selectedTipoId || !selectedMarcaId) { setLineas([]); return; }
-    marcaLineaService.getRepuestoLineas(selectedTipoId, selectedMarcaId)
-      .then(setLineas)
-      .catch(() => {/* silently ignore - linea is optional */});
+    if (!selectedTipoId || !selectedMarcaId) { setModelos([]); return; }
+    marcaLineaService.getRepuestoModelos(selectedTipoId, selectedMarcaId)
+      .then(setModelos)
+      .catch(() => {/* silently ignore - modelo is optional */});
   }, [selectedTipoId, selectedMarcaId]);
 
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function RepuestoForm({
     } else if (formData.nombre.trim().length > 120) {
       errors.push("El nombre no puede exceder 120 caracteres");
     }
-    if (!formData.tipo) errors.push("El tipo de repuesto es requerido");
+    if (!formData.tipo) errors.push("El tipo de equipo es requerido");
     if (!formData.marca) errors.push("La marca es requerida");
     if (formData.precio < 0) errors.push("El precio público debe ser mayor o igual a cero");
     if (formData.precioCosto < 0) errors.push("El precio de costo debe ser mayor o igual a cero");
@@ -341,13 +341,13 @@ export default function RepuestoForm({
     }
   };
 
-  const handleCreateLinea = async () => {
-    if (!newLineaNombre.trim()) {
-      toast.add("El nombre de la línea es requerido", "error");
+  const handleCreateModelo = async () => {
+    if (!newModeloNombre.trim()) {
+      toast.add("El nombre del modelo es requerido", "error");
       return;
     }
     if (!selectedTipoId) {
-      toast.add("Selecciona un tipo primero", "error");
+      toast.add("Selecciona un tipo de equipo primero", "error");
       return;
     }
     if (!selectedMarcaId) {
@@ -355,18 +355,18 @@ export default function RepuestoForm({
       return;
     }
     try {
-      const nuevaLinea = await marcaLineaService.createRepuestoLinea({
+      const nuevoModelo = await marcaLineaService.createRepuestoModelo({
         tipo_id: selectedTipoId,
         marca_id: selectedMarcaId,
-        nombre: newLineaNombre.trim(),
+        nombre: newModeloNombre.trim(),
       });
-      setLineas((prev) => [...prev, nuevaLinea]);
-      setFormData((prev) => ({ ...prev, linea: nuevaLinea.nombre }));
-      setNewLineaNombre("");
-      setShowNewLineaDialog(false);
-      toast.add("Línea creada exitosamente", "success");
+      setModelos((prev) => [...prev, nuevoModelo]);
+      setFormData((prev) => ({ ...prev, linea: nuevoModelo.nombre }));
+      setNewModeloNombre("");
+      setShowNewModeloDialog(false);
+      toast.add("Modelo creado exitosamente", "success");
     } catch (error: any) {
-      toast.add(error.response?.data?.error || "Error al crear línea", "error");
+      toast.add(error.response?.data?.error || "Error al crear modelo", "error");
     }
   };
 
@@ -511,8 +511,8 @@ export default function RepuestoForm({
                 <code className="text-[11px] font-mono text-[#48B9E6]">
                   {formData.tipo.substring(0, 3).toUpperCase()}_
                   {formData.marca.substring(0, 4).toUpperCase()}_
-                  {formData.modelo
-                    ? formData.modelo.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, "")
+                  {formData.linea
+                    ? formData.linea.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, "")
                     : "GEN"}
                   _######
                 </code>
@@ -523,9 +523,132 @@ export default function RepuestoForm({
             </div>
           )}
 
-          {/* ═══ Sección 1: Información básica ═══════════════════════════ */}
+          {/* ═══ Sección 1: Tipo de equipo ═══════════════════════════════ */}
           <Card className="p-5 rounded-2xl">
-            <SectionHeader icon={Monitor} title="Información básica" />
+            <SectionHeader icon={Smartphone} title="Tipo de equipo" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              {/* ── Tipo de equipo ── */}
+              <div>
+                <FieldLabel required>Tipo de equipo</FieldLabel>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.tipo}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        tipo: e.target.value,
+                        marca: "",
+                        linea: "",
+                      }))
+                    }
+                    className="flex-1 rounded-2xl text-sm"
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    {tipos.map((t) => (
+                      <option key={t.id} value={t.nombre}>
+                        {t.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewTipoDialog(true)}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors"
+                    title="Agregar nuevo tipo de equipo"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Marca ── */}
+              <div>
+                <FieldLabel required>Marca</FieldLabel>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.marca}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        marca: e.target.value,
+                        linea: "",
+                      }))
+                    }
+                    className="flex-1 rounded-2xl text-sm"
+                    disabled={!selectedTipoId}
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.nombre}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewMarcaDialog(true)}
+                    disabled={!selectedTipoId}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Agregar nueva marca"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Modelo ── */}
+              <div>
+                <FieldLabel>Modelo</FieldLabel>
+                <div className="flex gap-2">
+                  {modelos.length > 0 ? (
+                    <Select
+                      value={formData.linea}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
+                      }
+                      className="flex-1 rounded-2xl text-sm"
+                      disabled={!selectedMarcaId}
+                    >
+                      <option value="">Seleccionar...</option>
+                      {modelos.map((m) => (
+                        <option key={m.id} value={m.nombre}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input
+                      type="text"
+                      value={formData.linea}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
+                      }
+                      placeholder="iPhone 13, Galaxy A52..."
+                      className="flex-1 rounded-2xl"
+                      disabled={!selectedMarcaId}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowNewModeloDialog(true)}
+                    disabled={!selectedMarcaId}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Agregar nuevo modelo"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* ═══ Sección 2: Información del repuesto ═════════════════════ */}
+          <Card className="p-5 rounded-2xl">
+            <SectionHeader icon={Monitor} title="Información del repuesto" />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Nombre */}
@@ -537,9 +660,21 @@ export default function RepuestoForm({
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setFormData((prev) => ({ ...prev, nombre: e.target.value }))
                   }
-                  placeholder="Pantalla iPhone 12 Pro Max Original"
+                  placeholder="Pantalla, Batería, Teclado, Flex, Puerto de carga..."
                   className="w-full rounded-2xl"
                   required
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="sm:col-span-2">
+                <FieldLabel>Descripción</FieldLabel>
+                <textarea
+                  value={formData.notas}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, notas: e.target.value }))}
+                  placeholder="Descripción o notas adicionales del repuesto..."
+                  rows={3}
+                  className="w-full p-3 text-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-input-bg)] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:border-[#48B9E6] transition-colors resize-none"
                 />
               </div>
 
@@ -596,143 +731,6 @@ export default function RepuestoForm({
                 >
                   Repuesto activo
                 </label>
-              </div>
-            </div>
-          </Card>
-
-          {/* ═══ Sección 2: Tipo → Marca → Línea → Modelo ════════════════ */}
-          <Card className="p-5 rounded-2xl">
-            <SectionHeader icon={Smartphone} title="Clasificación del repuesto" />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-
-              {/* ── Tipo ── */}
-              <div>
-                <FieldLabel required>Tipo</FieldLabel>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.tipo}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        tipo: e.target.value,
-                        marca: "",
-                        linea: "",
-                      }))
-                    }
-                    className="flex-1 rounded-2xl text-sm"
-                    required
-                  >
-                    <option value="">Seleccionar...</option>
-                    {tipos.map((t) => (
-                      <option key={t.id} value={t.nombre}>
-                        {t.nombre}
-                      </option>
-                    ))}
-                  </Select>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewTipoDialog(true)}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors"
-                    title="Agregar nuevo tipo"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Marca ── */}
-              <div>
-                <FieldLabel required>Marca</FieldLabel>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.marca}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        marca: e.target.value,
-                        linea: "",
-                      }))
-                    }
-                    className="flex-1 rounded-2xl text-sm"
-                    disabled={!selectedTipoId}
-                    required
-                  >
-                    <option value="">Seleccionar...</option>
-                    {marcas.map((m) => (
-                      <option key={m.id} value={m.nombre}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </Select>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewMarcaDialog(true)}
-                    disabled={!selectedTipoId}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Agregar nueva marca"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Línea ── */}
-              <div>
-                <FieldLabel>Línea</FieldLabel>
-                <div className="flex gap-2">
-                  {lineas.length > 0 ? (
-                    <Select
-                      value={formData.linea}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
-                      }
-                      className="flex-1 rounded-2xl text-sm"
-                      disabled={!selectedMarcaId}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {lineas.map((l) => (
-                        <option key={l.id} value={l.nombre}>
-                          {l.nombre}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : (
-                    <Input
-                      type="text"
-                      value={formData.linea}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setFormData((prev) => ({ ...prev, linea: e.target.value }))
-                      }
-                      placeholder="iPhone, Galaxy S..."
-                      className="flex-1 rounded-2xl"
-                      disabled={!selectedMarcaId}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShowNewLineaDialog(true)}
-                    disabled={!selectedMarcaId}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[var(--color-border)] hover:border-[#48B9E6] hover:bg-[rgba(72,185,230,0.06)] text-[#5E7184] dark:text-[#B8C2D1] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Agregar nueva línea"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Modelo ── */}
-              <div>
-                <FieldLabel>Modelo</FieldLabel>
-                <Input
-                  type="text"
-                  value={formData.modelo}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setFormData((prev) => ({ ...prev, modelo: e.target.value }))
-                  }
-                  placeholder="A2407, SM-S911B..."
-                  className="w-full rounded-2xl"
-                />
               </div>
             </div>
           </Card>
@@ -1010,20 +1008,9 @@ export default function RepuestoForm({
               )}
             </div>
 
-            {/* Notas */}
-            <div>
-              <FieldLabel>Notas</FieldLabel>
-              <textarea
-                value={formData.notas}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notas: e.target.value }))}
-                placeholder="Información adicional sobre el repuesto..."
-                rows={3}
-                className="w-full p-3 text-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-input-bg)] text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:border-[#48B9E6] transition-colors resize-none"
-              />
-            </div>
           </Card>
 
-          {/* ═══ Sección 5: Imágenes ══════════════════════════════════════ */}
+          {/* ═══ Sección 4: Inventario y precios ══════════════════════════════════════ */}
           <Card className="p-5 rounded-2xl">
             <SectionHeader icon={Camera} title="Imágenes del repuesto" />
 
@@ -1210,16 +1197,16 @@ export default function RepuestoForm({
         open={showNewTipoDialog}
         onClose={() => { setShowNewTipoDialog(false); setNewTipoNombre(""); }}
         onConfirm={handleCreateTipo}
-        title="Agregar Nuevo Tipo"
+        title="Agregar Nuevo Tipo de Equipo"
         confirmText="Crear Tipo"
       >
         <div className="mt-4">
-          <FieldLabel>Nombre del Tipo</FieldLabel>
+          <FieldLabel>Nombre del Tipo de Equipo</FieldLabel>
           <Input
             type="text"
             value={newTipoNombre}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTipoNombre(e.target.value)}
-            placeholder="Ej: Display, Puerto de Carga..."
+            placeholder="Ej: Laptop, Consola, Cámara..."
             className="w-full rounded-2xl"
             autoFocus
             onKeyDown={(e: React.KeyboardEvent) => {
@@ -1258,11 +1245,11 @@ export default function RepuestoForm({
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={showNewLineaDialog}
-        onClose={() => { setShowNewLineaDialog(false); setNewLineaNombre(""); }}
-        onConfirm={handleCreateLinea}
-        title="Agregar Nueva Línea"
-        confirmText="Crear Línea"
+        open={showNewModeloDialog}
+        onClose={() => { setShowNewModeloDialog(false); setNewModeloNombre(""); }}
+        onConfirm={handleCreateModelo}
+        title="Agregar Nuevo Modelo"
+        confirmText="Crear Modelo"
       >
         <div className="mt-4">
           <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mb-3">
@@ -1271,16 +1258,16 @@ export default function RepuestoForm({
               <> · Marca: <strong className="text-[#14324A] dark:text-[#F8FAFC]">{formData.marca}</strong></>
             )}
           </p>
-          <FieldLabel>Nombre de la Línea</FieldLabel>
+          <FieldLabel>Nombre del Modelo</FieldLabel>
           <Input
             type="text"
-            value={newLineaNombre}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLineaNombre(e.target.value)}
-            placeholder="Ej: iPhone 16, Galaxy S25..."
+            value={newModeloNombre}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModeloNombre(e.target.value)}
+            placeholder="Ej: iPhone 16, Galaxy S25, Pavilion 15..."
             className="w-full rounded-2xl"
             autoFocus
             onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === "Enter") { e.preventDefault(); handleCreateLinea(); }
+              if (e.key === "Enter") { e.preventDefault(); handleCreateModelo(); }
             }}
           />
         </div>

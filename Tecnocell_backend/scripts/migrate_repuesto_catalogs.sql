@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Migración: Catálogos jerárquicos de repuestos
--- Tablas: repuesto_tipos, repuesto_marcas, repuesto_lineas
+-- Tablas: repuesto_tipos, repuesto_marcas, repuesto_modelos
 -- Ejecutar en la base de datos tecnocell_web
 -- =============================================================================
 
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS `repuesto_marcas` (
     REFERENCES `repuesto_tipos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 3. Crear tabla repuesto_lineas ───────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `repuesto_lineas` (
+-- ── 3. Crear tabla repuesto_modelos ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS `repuesto_modelos` (
   `id`         INT(11)      NOT NULL AUTO_INCREMENT,
   `tipo_id`    INT(11)      NOT NULL,
   `marca_id`   INT(11)      NOT NULL,
@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS `repuesto_lineas` (
   `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_repuesto_lineas` (`tipo_id`, `marca_id`, `nombre`),
-  CONSTRAINT `fk_rlinea_tipo`  FOREIGN KEY (`tipo_id`)  REFERENCES `repuesto_tipos`  (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_rlinea_marca` FOREIGN KEY (`marca_id`) REFERENCES `repuesto_marcas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+  UNIQUE KEY `uk_repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`),
+  CONSTRAINT `fk_rmodelo_tipo`  FOREIGN KEY (`tipo_id`)  REFERENCES `repuesto_tipos`  (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_rmodelo_marca` FOREIGN KEY (`marca_id`) REFERENCES `repuesto_marcas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 4. Alterar tabla repuestos: cambiar ENUMs por VARCHAR ────────────────────
@@ -52,108 +52,179 @@ ALTER TABLE `repuestos`
 
 -- ── 5. Seed: repuesto_tipos ──────────────────────────────────────────────────
 INSERT IGNORE INTO `repuesto_tipos` (`nombre`) VALUES
-  ('Pantalla'),
-  ('Batería'),
-  ('Cámara'),
-  ('Flex'),
-  ('Placa'),
-  ('Back Cover'),
-  ('Altavoz'),
-  ('Conector'),
+  ('Laptop'),
+  ('PC'),
+  ('Celular'),
+  ('Tablet'),
+  ('Consola'),
+  ('Impresora'),
+  ('Monitor'),
   ('Otro');
 
--- ── 6. Seed: repuesto_marcas (todas las marcas para cada tipo) ───────────────
---    Genera la combinación de 9 tipos × 14 marcas = 126 filas.
+-- ── 6. Seed: repuesto_marcas por tipo ────────────────────────────────────────
+
+-- Laptop
 INSERT IGNORE INTO `repuesto_marcas` (`tipo_id`, `nombre`)
-SELECT t.id, m.nombre
-FROM `repuesto_tipos` t
+SELECT t.id, m.nombre FROM `repuesto_tipos` t
+CROSS JOIN (
+  SELECT 'HP'     AS nombre UNION ALL
+  SELECT 'Dell'             UNION ALL
+  SELECT 'Lenovo'           UNION ALL
+  SELECT 'Acer'             UNION ALL
+  SELECT 'Asus'
+) m WHERE t.nombre = 'Laptop';
+
+-- PC
+INSERT IGNORE INTO `repuesto_marcas` (`tipo_id`, `nombre`)
+SELECT t.id, m.nombre FROM `repuesto_tipos` t
+CROSS JOIN (
+  SELECT 'Genérica' AS nombre UNION ALL
+  SELECT 'HP'                 UNION ALL
+  SELECT 'Dell'               UNION ALL
+  SELECT 'Lenovo'
+) m WHERE t.nombre = 'PC';
+
+-- Celular
+INSERT IGNORE INTO `repuesto_marcas` (`tipo_id`, `nombre`)
+SELECT t.id, m.nombre FROM `repuesto_tipos` t
 CROSS JOIN (
   SELECT 'Apple'    AS nombre UNION ALL
   SELECT 'Samsung'            UNION ALL
   SELECT 'Xiaomi'             UNION ALL
   SELECT 'Motorola'           UNION ALL
-  SELECT 'Huawei'             UNION ALL
-  SELECT 'LG'                 UNION ALL
-  SELECT 'Nokia'              UNION ALL
-  SELECT 'Oppo'               UNION ALL
-  SELECT 'Vivo'               UNION ALL
-  SELECT 'Realme'             UNION ALL
-  SELECT 'OnePlus'            UNION ALL
-  SELECT 'Sony'               UNION ALL
-  SELECT 'Google'             UNION ALL
-  SELECT 'Otra'
-) m
-ORDER BY t.id, m.nombre;
+  SELECT 'Huawei'
+) m WHERE t.nombre = 'Celular';
 
--- ── 7. Seed: repuesto_lineas para Pantalla + Apple (iPhone) ─────────────────
-INSERT IGNORE INTO `repuesto_lineas` (`tipo_id`, `marca_id`, `nombre`)
-SELECT t.id, rm.id, linea.nombre
+-- Tablet
+INSERT IGNORE INTO `repuesto_marcas` (`tipo_id`, `nombre`)
+SELECT t.id, m.nombre FROM `repuesto_tipos` t
+CROSS JOIN (
+  SELECT 'Apple'   AS nombre UNION ALL
+  SELECT 'Samsung'           UNION ALL
+  SELECT 'Lenovo'            UNION ALL
+  SELECT 'Huawei'
+) m WHERE t.nombre = 'Tablet';
+
+-- Consola
+INSERT IGNORE INTO `repuesto_marcas` (`tipo_id`, `nombre`)
+SELECT t.id, m.nombre FROM `repuesto_tipos` t
+CROSS JOIN (
+  SELECT 'Sony'      AS nombre UNION ALL
+  SELECT 'Microsoft'           UNION ALL
+  SELECT 'Nintendo'
+) m WHERE t.nombre = 'Consola';
+
+-- ── 7. Seed: repuesto_modelos ─────────────────────────────────────────────────
+
+-- HP → Laptop
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'HP'
+CROSS JOIN (
+  SELECT 'Pavilion'  AS nombre UNION ALL
+  SELECT 'ProBook'             UNION ALL
+  SELECT 'EliteBook'
+) mod WHERE t.nombre = 'Laptop';
+
+-- Dell → Laptop
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Dell'
+CROSS JOIN (
+  SELECT 'Inspiron' AS nombre UNION ALL
+  SELECT 'Latitude'           UNION ALL
+  SELECT 'Vostro'
+) mod WHERE t.nombre = 'Laptop';
+
+-- Lenovo → Laptop
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Lenovo'
+CROSS JOIN (
+  SELECT 'ThinkPad' AS nombre UNION ALL
+  SELECT 'IdeaPad'            UNION ALL
+  SELECT 'Legion'
+) mod WHERE t.nombre = 'Laptop';
+
+-- Apple → Celular
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
 FROM `repuesto_tipos` t
 JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Apple'
 CROSS JOIN (
-  SELECT 'iPhone SE'  AS nombre UNION ALL SELECT 'iPhone 7'  UNION ALL
-  SELECT 'iPhone 8'             UNION ALL SELECT 'iPhone X'  UNION ALL
-  SELECT 'iPhone XR'            UNION ALL SELECT 'iPhone XS' UNION ALL
-  SELECT 'iPhone 11'            UNION ALL SELECT 'iPhone 12' UNION ALL
-  SELECT 'iPhone 13'            UNION ALL SELECT 'iPhone 14' UNION ALL
-  SELECT 'iPhone 15'            UNION ALL SELECT 'iPhone 16' UNION ALL
-  SELECT 'iPad'                 UNION ALL SELECT 'iPad Mini' UNION ALL
-  SELECT 'iPad Air'             UNION ALL SELECT 'iPad Pro'  UNION ALL
-  SELECT 'MacBook'              UNION ALL SELECT 'MacBook Air' UNION ALL
-  SELECT 'MacBook Pro'          UNION ALL SELECT 'iMac'      UNION ALL
-  SELECT 'Apple Watch'
-) linea
-WHERE t.nombre = 'Pantalla';
+  SELECT 'iPhone 11' AS nombre UNION ALL
+  SELECT 'iPhone 12'           UNION ALL
+  SELECT 'iPhone 13'           UNION ALL
+  SELECT 'iPhone 14'           UNION ALL
+  SELECT 'iPhone 15'           UNION ALL
+  SELECT 'iPhone 16'           UNION ALL
+  SELECT 'iPad'
+) mod WHERE t.nombre = 'Celular';
 
--- ── 8. Seed: repuesto_lineas para Pantalla + Samsung ────────────────────────
-INSERT IGNORE INTO `repuesto_lineas` (`tipo_id`, `marca_id`, `nombre`)
-SELECT t.id, rm.id, linea.nombre
+-- Samsung → Celular
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
 FROM `repuesto_tipos` t
 JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Samsung'
 CROSS JOIN (
-  SELECT 'Galaxy A03' AS nombre UNION ALL SELECT 'Galaxy A04' UNION ALL
-  SELECT 'Galaxy A05'           UNION ALL SELECT 'Galaxy A10' UNION ALL
-  SELECT 'Galaxy A12'           UNION ALL SELECT 'Galaxy A13' UNION ALL
-  SELECT 'Galaxy A14'           UNION ALL SELECT 'Galaxy A15' UNION ALL
-  SELECT 'Galaxy A20'           UNION ALL SELECT 'Galaxy A30' UNION ALL
-  SELECT 'Galaxy A50'           UNION ALL SELECT 'Galaxy A51' UNION ALL
-  SELECT 'Galaxy A52'           UNION ALL SELECT 'Galaxy A53' UNION ALL
-  SELECT 'Galaxy A54'           UNION ALL SELECT 'Galaxy S20' UNION ALL
-  SELECT 'Galaxy S21'           UNION ALL SELECT 'Galaxy S22' UNION ALL
-  SELECT 'Galaxy S23'           UNION ALL SELECT 'Galaxy S24' UNION ALL
-  SELECT 'Galaxy S25'           UNION ALL SELECT 'Galaxy Note 20' UNION ALL
-  SELECT 'Galaxy Z Flip'        UNION ALL SELECT 'Galaxy Z Fold' UNION ALL
+  SELECT 'Galaxy A' AS nombre UNION ALL
+  SELECT 'Galaxy S'           UNION ALL
   SELECT 'Galaxy Tab'
-) linea
-WHERE t.nombre = 'Pantalla';
+) mod WHERE t.nombre = 'Celular';
 
--- ── 9. Seed: repuesto_lineas para Batería + Apple ───────────────────────────
-INSERT IGNORE INTO `repuesto_lineas` (`tipo_id`, `marca_id`, `nombre`)
-SELECT t.id, rm.id, linea.nombre
+-- Xiaomi → Celular
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Xiaomi'
+CROSS JOIN (
+  SELECT 'Redmi' AS nombre UNION ALL
+  SELECT 'POCO'             UNION ALL
+  SELECT 'Mi'
+) mod WHERE t.nombre = 'Celular';
+
+-- Apple → Tablet
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
 FROM `repuesto_tipos` t
 JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Apple'
 CROSS JOIN (
-  SELECT 'iPhone SE'  AS nombre UNION ALL SELECT 'iPhone 7'  UNION ALL
-  SELECT 'iPhone 8'             UNION ALL SELECT 'iPhone X'  UNION ALL
-  SELECT 'iPhone XR'            UNION ALL SELECT 'iPhone XS' UNION ALL
-  SELECT 'iPhone 11'            UNION ALL SELECT 'iPhone 12' UNION ALL
-  SELECT 'iPhone 13'            UNION ALL SELECT 'iPhone 14' UNION ALL
-  SELECT 'iPhone 15'            UNION ALL SELECT 'iPhone 16' UNION ALL
-  SELECT 'iPad'                 UNION ALL SELECT 'iPad Mini' UNION ALL
-  SELECT 'iPad Air'             UNION ALL SELECT 'iPad Pro'  UNION ALL
-  SELECT 'MacBook Air'          UNION ALL SELECT 'MacBook Pro'
-) linea
-WHERE t.nombre = 'Batería';
+  SELECT 'iPad'      AS nombre UNION ALL
+  SELECT 'iPad Mini'           UNION ALL
+  SELECT 'iPad Air'            UNION ALL
+  SELECT 'iPad Pro'
+) mod WHERE t.nombre = 'Tablet';
 
--- ── 10. Seed: repuesto_lineas para Cámara + Apple ───────────────────────────
-INSERT IGNORE INTO `repuesto_lineas` (`tipo_id`, `marca_id`, `nombre`)
-SELECT t.id, rm.id, linea.nombre
+-- Samsung → Tablet
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
 FROM `repuesto_tipos` t
-JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Apple'
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Samsung'
 CROSS JOIN (
-  SELECT 'iPhone 11' AS nombre UNION ALL SELECT 'iPhone 12' UNION ALL
-  SELECT 'iPhone 13'           UNION ALL SELECT 'iPhone 14' UNION ALL
-  SELECT 'iPhone 15'           UNION ALL SELECT 'iPhone 16' UNION ALL
-  SELECT 'iPad Air'            UNION ALL SELECT 'iPad Pro'
-) linea
-WHERE t.nombre = 'Cámara';
+  SELECT 'Galaxy Tab A' AS nombre UNION ALL
+  SELECT 'Galaxy Tab S'
+) mod WHERE t.nombre = 'Tablet';
+
+-- Sony → Consola
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Sony'
+CROSS JOIN (
+  SELECT 'PlayStation 4' AS nombre UNION ALL
+  SELECT 'PlayStation 5'
+) mod WHERE t.nombre = 'Consola';
+
+-- Microsoft → Consola
+INSERT IGNORE INTO `repuesto_modelos` (`tipo_id`, `marca_id`, `nombre`)
+SELECT t.id, rm.id, mod.nombre
+FROM `repuesto_tipos` t
+JOIN `repuesto_marcas` rm ON rm.tipo_id = t.id AND rm.nombre = 'Microsoft'
+CROSS JOIN (
+  SELECT 'Xbox One'        AS nombre UNION ALL
+  SELECT 'Xbox Series S'             UNION ALL
+  SELECT 'Xbox Series X'
+) mod WHERE t.nombre = 'Consola';

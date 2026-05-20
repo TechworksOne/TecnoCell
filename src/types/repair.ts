@@ -151,6 +151,7 @@ export interface RepairFormData {
   items: RepairItem[];
   manoDeObra: number;
   observaciones?: string;
+  tecnicoAsignado?: string;
   
   // Fotos opcionales del equipo
   fotosEquipo?: string[];
