@@ -100,8 +100,11 @@ exports.getCuentasBancarias = async (req, res) => {
     const [cuentas] = await db.query(
       'SELECT * FROM cuentas_bancarias WHERE activa = TRUE ORDER BY nombre'
     );
-    
-    res.json({ success: true, data: cuentas });
+    const isAdmin = req.user?.role === 'admin' || (Array.isArray(req.user?.roles) && req.user.roles.includes('ADMINISTRADOR'));
+    const data = isAdmin
+      ? cuentas
+      : cuentas.map(({ id, nombre, tipo_cuenta, pos_asociado, activa }) => ({ id, nombre, tipo_cuenta, pos_asociado, activa }));
+    res.json({ success: true, data });
   } catch (error) {
     console.error('Error getting cuentas bancarias:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -1066,6 +1069,54 @@ exports.transferenciaBancos = async (req, res) => {
     await conn.rollback();
     conn.release();
     console.error('Error en transferenciaBancos:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ========== CRUD CUENTAS BANCARIAS (solo admin) ==========
+
+exports.crearCuentaBancaria = async (req, res) => {
+  try {
+    const { nombre, numero_cuenta, tipo_cuenta, pos_asociado } = req.body;
+    if (!nombre?.trim()) return res.status(400).json({ success: false, message: 'El nombre es requerido' });
+    await db.query(
+      'INSERT INTO cuentas_bancarias (nombre, numero_cuenta, tipo_cuenta, pos_asociado, saldo_actual, activa) VALUES (?, ?, ?, ?, 0, 1)',
+      [nombre.trim(), numero_cuenta || null, tipo_cuenta || 'Corriente', pos_asociado || null]
+    );
+    res.status(201).json({ success: true, message: 'Cuenta bancaria creada exitosamente' });
+  } catch (error) {
+    console.error('Error al crear cuenta bancaria:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.editarCuentaBancaria = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, numero_cuenta, tipo_cuenta, pos_asociado } = req.body;
+    if (!nombre?.trim()) return res.status(400).json({ success: false, message: 'El nombre es requerido' });
+    const [result] = await db.query(
+      'UPDATE cuentas_bancarias SET nombre = ?, numero_cuenta = ?, tipo_cuenta = ?, pos_asociado = ? WHERE id = ?',
+      [nombre.trim(), numero_cuenta || null, tipo_cuenta || 'Corriente', pos_asociado || null, id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Cuenta no encontrada' });
+    res.json({ success: true, message: 'Cuenta bancaria actualizada exitosamente' });
+  } catch (error) {
+    console.error('Error al editar cuenta bancaria:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.desactivarCuentaBancaria = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.query(
+      'UPDATE cuentas_bancarias SET activa = 0 WHERE id = ?', [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Cuenta no encontrada' });
+    res.json({ success: true, message: 'Cuenta bancaria desactivada exitosamente' });
+  } catch (error) {
+    console.error('Error al desactivar cuenta bancaria:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

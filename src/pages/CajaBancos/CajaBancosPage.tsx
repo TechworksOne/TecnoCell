@@ -4,9 +4,10 @@ import {
   ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   RefreshCw, AlertCircle, TrendingUp, TrendingDown,
   CreditCard, Banknote, Search, Filter, ChevronDown,
-  ShieldCheck, Landmark, FileText
+  ShieldCheck, Landmark, FileText, Pencil, Trash2, EyeOff
 } from 'lucide-react';
 import API_URL from '../../services/config';
+import { useAuth } from '../../store/useAuth';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -20,7 +21,7 @@ interface CuentaBancaria {
   nombre: string;
   numero_cuenta: string;
   tipo_cuenta: string;
-  saldo_actual: number;
+  saldo_actual?: number;
   pos_asociado: string | null;
   activa: boolean;
 }
@@ -67,6 +68,14 @@ export default function CajaBancosPage() {
   const [observaciones, setObservaciones] = useState('');
   const [aCajaChica, setACajaChica] = useState(false);
 
+  // Banco CRUD (admin)
+  const [showBancoModal, setShowBancoModal] = useState(false);
+  const [bancoEditando, setBancoEditando] = useState<CuentaBancaria | null>(null);
+  const [bancoForm, setBancoForm] = useState({ nombre: '', numero_cuenta: '', tipo_cuenta: 'Corriente', pos_asociado: '' });
+  const [savingBanco, setSavingBanco] = useState(false);
+  const [showDesactivarModal, setShowDesactivarModal] = useState(false);
+  const [bancoADesactivar, setBancoADesactivar] = useState<CuentaBancaria | null>(null);
+
   // Modal confirmación
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<{ id: number; tipo: 'caja' | 'banco'; mov: Movimiento } | null>(null);
@@ -111,6 +120,59 @@ export default function CajaBancosPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || (Array.isArray(user?.roles) && user.roles.includes('ADMINISTRADOR'));
+
+  const abrirModalBanco = (cuenta?: CuentaBancaria) => {
+    if (cuenta) {
+      setBancoEditando(cuenta);
+      setBancoForm({
+        nombre: cuenta.nombre,
+        numero_cuenta: cuenta.numero_cuenta || '',
+        tipo_cuenta: cuenta.tipo_cuenta || 'Corriente',
+        pos_asociado: cuenta.pos_asociado || '',
+      });
+    } else {
+      setBancoEditando(null);
+      setBancoForm({ nombre: '', numero_cuenta: '', tipo_cuenta: 'Corriente', pos_asociado: '' });
+    }
+    setShowBancoModal(true);
+  };
+
+  const handleGuardarBanco = async () => {
+    if (!bancoForm.nombre.trim()) { alert('El nombre es requerido'); return; }
+    try {
+      setSavingBanco(true);
+      const token = sessionStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      if (bancoEditando) {
+        await axios.put(`${API_URL}/caja/bancos/${bancoEditando.id}`, bancoForm, config);
+      } else {
+        await axios.post(`${API_URL}/caja/bancos`, bancoForm, config);
+      }
+      setShowBancoModal(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error al guardar banco');
+    } finally {
+      setSavingBanco(false);
+    }
+  };
+
+  const handleDesactivarBanco = async () => {
+    if (!bancoADesactivar) return;
+    try {
+      const token = sessionStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_URL}/caja/bancos/${bancoADesactivar.id}`, config);
+      setShowDesactivarModal(false);
+      setBancoADesactivar(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error al desactivar banco');
     }
   };
 
@@ -356,7 +418,10 @@ export default function CajaBancosPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Bancos</p>
-                <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">Q{totalBancos.toFixed(2)}</p>
+                {isAdmin
+                  ? <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">Q{totalBancos.toFixed(2)}</p>
+                  : <p className="text-sm font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-1"><EyeOff size={14} /> Saldo oculto</p>
+                }
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{cuentasBancarias.length} cuenta{cuentasBancarias.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="bg-blue-50 p-2 rounded-xl">
@@ -390,7 +455,7 @@ export default function CajaBancosPage() {
               { label: 'Depósito a banco', icon: <ArrowUpCircle size={18} />, color: 'hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 dark:hover:bg-blue-950/40 dark:hover:border-blue-800 dark:hover:text-blue-300', tipo: 'DEPOSITO' as const },
               { label: 'Transferencia', icon: <ArrowRightLeft size={18} />, color: 'hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 dark:hover:bg-violet-950/40 dark:hover:border-violet-800 dark:hover:text-violet-300', tipo: 'TRANSFERENCIA' as const },
               { label: 'Ingreso manual', icon: <Banknote size={18} />, color: 'hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:border-emerald-800 dark:hover:text-emerald-300', tipo: 'INGRESO_MANUAL' as const },
-            ].map(({ label, icon, color, tipo }) => (
+            ].filter(item => item.tipo !== 'TRANSFERENCIA' || isAdmin).map(({ label, icon, color, tipo }) => (
               <button
                 key={tipo}
                 onClick={() => abrirModal(tipo)}
@@ -513,7 +578,17 @@ export default function CajaBancosPage() {
             <div>
               {/* Cards de cuentas bancarias */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Cuentas bancarias</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cuentas bancarias</p>
+                  {isAdmin && (
+                    <button
+                      onClick={() => abrirModalBanco()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                    >
+                      <Plus size={13} /> Agregar banco
+                    </button>
+                  )}
+                </div>
                 {cuentasBancarias.length === 0 ? (
                   <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No hay cuentas bancarias registradas.</p>
                 ) : (
@@ -530,11 +605,31 @@ export default function CajaBancosPage() {
                               <p className="text-xs text-slate-500 dark:text-slate-400">{cuenta.tipo_cuenta}</p>
                             </div>
                           </div>
-                          {cuenta.activa ? (
-                            <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full">Activa</span>
-                          ) : (
-                            <span className="text-[10px] font-semibold bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded-full">Inactiva</span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {cuenta.activa ? (
+                              <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-full">Activa</span>
+                            ) : (
+                              <span className="text-[10px] font-semibold bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded-full">Inactiva</span>
+                            )}
+                            {isAdmin && cuenta.activa && (
+                              <>
+                                <button
+                                  onClick={() => abrirModalBanco(cuenta)}
+                                  className="p-1 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors"
+                                  title="Editar banco"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => { setBancoADesactivar(cuenta); setShowDesactivarModal(true); }}
+                                  className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 dark:text-red-400 transition-colors"
+                                  title="Desactivar banco"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                         {cuenta.numero_cuenta && (
                           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">N°: {cuenta.numero_cuenta}</p>
@@ -544,15 +639,23 @@ export default function CajaBancosPage() {
                         )}
                         <div className="border-t border-blue-200 dark:border-blue-900/50 pt-2 mt-2">
                           <p className="text-xs text-slate-500 dark:text-slate-400">Saldo confirmado</p>
-                          <p className="text-lg font-bold text-blue-700 dark:text-blue-400">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</p>
-                          {(() => {
-                            const pendMonto = movimientosBancos
-                              .filter(m => m.cuenta_id === cuenta.id && m.estado === 'PENDIENTE' && m.tipo_movimiento === 'INGRESO')
-                              .reduce((sum, m) => sum + Number(m.monto || 0), 0);
-                            return pendMonto > 0 ? (
-                              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">+ Q{pendMonto.toFixed(2)} pendiente por confirmar</p>
-                            ) : null;
-                          })()}
+                          {isAdmin ? (
+                            <>
+                              <p className="text-lg font-bold text-blue-700 dark:text-blue-400">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</p>
+                              {(() => {
+                                const pendMonto = movimientosBancos
+                                  .filter(m => m.cuenta_id === cuenta.id && m.estado === 'PENDIENTE' && m.tipo_movimiento === 'INGRESO')
+                                  .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+                                return pendMonto > 0 ? (
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">+ Q{pendMonto.toFixed(2)} pendiente por confirmar</p>
+                                ) : null;
+                              })()}
+                            </>
+                          ) : (
+                            <p className="text-sm font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
+                              <EyeOff size={13} /> Saldo oculto
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -617,16 +720,16 @@ export default function CajaBancosPage() {
                   <option value="">Seleccione una cuenta...</option>
                   {cuentasBancarias.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.nombre} — Q{Number(c.saldo_actual || 0).toFixed(2)}
+                      {c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}
                     </option>
                   ))}
                 </Select>
               </div>
-              {cuentaOrigen && (() => {
+              {cuentaOrigen && isAdmin && (() => {
                 const cuenta = cuentasBancarias.find(c => c.id === parseInt(cuentaOrigen));
-                return cuenta ? (
+                return cuenta?.saldo_actual != null ? (
                   <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl px-3 py-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
-                    Saldo disponible: <span className="font-bold">Q{Number(cuenta.saldo_actual || 0).toFixed(2)}</span>
+                    Saldo disponible: <span className="font-bold">Q{Number(cuenta.saldo_actual).toFixed(2)}</span>
                   </div>
                 ) : null;
               })()}
@@ -648,7 +751,7 @@ export default function CajaBancosPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cuenta de origen</label>
                 <Select value={cuentaOrigen} onChange={e => setCuentaOrigen(e.target.value)} className="w-full">
                   <option value="">Seleccione cuenta origen...</option>
-                  {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre} — Q{Number(c.saldo_actual || 0).toFixed(2)}</option>)}
+                  {cuentasBancarias.map(c => <option key={c.id} value={c.id}>{c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
                 </Select>
               </div>
               <div className="flex items-center justify-center text-slate-400"><ArrowRightLeft size={20} /></div>
@@ -656,7 +759,7 @@ export default function CajaBancosPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cuenta de destino</label>
                 <Select value={cuentaDestino} onChange={e => setCuentaDestino(e.target.value)} className="w-full">
                   <option value="">Seleccione cuenta destino...</option>
-                  {cuentasBancarias.filter(c => c.id.toString() !== cuentaOrigen).map(c => <option key={c.id} value={c.id}>{c.nombre} — Q{Number(c.saldo_actual || 0).toFixed(2)}</option>)}
+                  {cuentasBancarias.filter(c => c.id.toString() !== cuentaOrigen).map(c => <option key={c.id} value={c.id}>{c.nombre}{isAdmin && c.saldo_actual != null ? ` — Q${Number(c.saldo_actual).toFixed(2)}` : ''}</option>)}
                 </Select>
               </div>
             </>
@@ -713,8 +816,89 @@ export default function CajaBancosPage() {
         </div>
       </Modal>
 
-      {/* ── MODAL CONFIRMAR MOVIMIENTO ──────────────────────────────────────── */}
+      {/* ── MODAL BANCO (CREAR / EDITAR) ────────────────────────────────────── */}
       <Modal
+        isOpen={showBancoModal}
+        onClose={() => setShowBancoModal(false)}
+        title={bancoEditando ? 'Editar cuenta bancaria' : 'Agregar cuenta bancaria'}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre <span className="text-red-500">*</span></label>
+            <Input
+              type="text"
+              value={bancoForm.nombre}
+              onChange={e => setBancoForm(f => ({ ...f, nombre: e.target.value }))}
+              placeholder="Ej: Banco Industrial"
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Número de cuenta</label>
+            <Input
+              type="text"
+              value={bancoForm.numero_cuenta}
+              onChange={e => setBancoForm(f => ({ ...f, numero_cuenta: e.target.value }))}
+              placeholder="Ej: 0123456789"
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de cuenta</label>
+            <Select value={bancoForm.tipo_cuenta} onChange={e => setBancoForm(f => ({ ...f, tipo_cuenta: e.target.value }))} className="w-full">
+              <option value="Corriente">Corriente</option>
+              <option value="Ahorro">Ahorro</option>
+              <option value="Monetaria">Monetaria</option>
+              <option value="Inversión">Inversión</option>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">POS asociado (opcional)</label>
+            <Input
+              type="text"
+              value={bancoForm.pos_asociado}
+              onChange={e => setBancoForm(f => ({ ...f, pos_asociado: e.target.value }))}
+              placeholder="Ej: Visa POS #1"
+              className="w-full"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowBancoModal(false)} className="flex-1">Cancelar</Button>
+            <Button
+              onClick={handleGuardarBanco}
+              disabled={savingBanco}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {savingBanco ? 'Guardando...' : bancoEditando ? 'Guardar cambios' : 'Crear banco'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── MODAL DESACTIVAR BANCO ──────────────────────────────────────────── */}
+      <Modal
+        isOpen={showDesactivarModal}
+        onClose={() => { setShowDesactivarModal(false); setBancoADesactivar(null); }}
+        title="¿Desactivar esta cuenta?"
+      >
+        {bancoADesactivar && (
+          <div className="space-y-4">
+            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-800 dark:text-red-300">
+              Esta acción desactivará la cuenta <span className="font-bold">{bancoADesactivar.nombre}</span>. Ya no aparecerá en nuevos movimientos, pero su historial se conservará.
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => { setShowDesactivarModal(false); setBancoADesactivar(null); }} className="flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleDesactivarBanco} className="flex-1 bg-red-600 hover:bg-red-700">
+                <Trash2 size={15} className="mr-1.5" />Desactivar cuenta
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── MODAL CONFIRMAR MOVIMIENTO ──────────────────────────────────────── */}      <Modal
         isOpen={showConfirmModal}
         onClose={() => { setShowConfirmModal(false); setMovimientoAConfirmar(null); }}
         title="¿Confirmar este movimiento?"
