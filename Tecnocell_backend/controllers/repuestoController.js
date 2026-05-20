@@ -655,7 +655,7 @@ exports.registrarMovimiento = async (req, res) => {
 
 // ============================================================================
 // CATÁLOGOS JERÁRQUICOS DE REPUESTOS
-// Tablas: repuesto_tipos → repuesto_marcas → repuesto_lineas
+// Tablas: repuesto_tipos → repuesto_marcas → repuesto_modelos
 // ============================================================================
 
 /**
@@ -747,29 +747,29 @@ exports.createMarcaRepuesto = async (req, res) => {
 };
 
 /**
- * GET /api/repuestos/lineas?tipo_id=ID&marca_id=ID
+ * GET /api/repuestos/modelos?tipo_id=ID&marca_id=ID
  */
-exports.getLineasRepuesto = async (req, res) => {
+exports.getModelosRepuesto = async (req, res) => {
   const { tipo_id, marca_id } = req.query;
   if (!tipo_id || !marca_id) {
     return res.status(400).json({ error: 'tipo_id y marca_id son requeridos' });
   }
   try {
     const [rows] = await db.query(
-      'SELECT * FROM repuesto_lineas WHERE tipo_id = ? AND marca_id = ? AND activo = 1 ORDER BY nombre ASC',
+      'SELECT * FROM repuesto_modelos WHERE tipo_id = ? AND marca_id = ? AND activo = 1 ORDER BY nombre ASC',
       [tipo_id, marca_id],
     );
     res.json(rows);
   } catch (error) {
-    console.error('Error al obtener líneas de repuesto:', error);
-    res.status(500).json({ error: 'Error al obtener líneas de repuesto' });
+    console.error('Error al obtener modelos de repuesto:', error);
+    res.status(500).json({ error: 'Error al obtener modelos de repuesto' });
   }
 };
 
 /**
- * POST /api/repuestos/lineas
+ * POST /api/repuestos/modelos
  */
-exports.createLineaRepuesto = async (req, res) => {
+exports.createModeloRepuesto = async (req, res) => {
   const { tipo_id, marca_id, nombre } = req.body;
   if (!tipo_id || !marca_id || !nombre || !nombre.toString().trim()) {
     return res.status(400).json({ error: 'tipo_id, marca_id y nombre son requeridos' });
@@ -784,19 +784,23 @@ exports.createLineaRepuesto = async (req, res) => {
   }
   try {
     const [result] = await db.query(
-      'INSERT INTO repuesto_lineas (tipo_id, marca_id, nombre) VALUES (?, ?, ?)',
+      'INSERT INTO repuesto_modelos (tipo_id, marca_id, nombre) VALUES (?, ?, ?)',
       [tipo_id, marca_id, nombre.toString().trim()],
     );
-    const [rows] = await db.query('SELECT * FROM repuesto_lineas WHERE id = ?', [result.insertId]);
+    const [rows] = await db.query('SELECT * FROM repuesto_modelos WHERE id = ?', [result.insertId]);
     res.status(201).json(rows[0]);
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: 'Ya existe esa línea para este tipo y marca' });
+      return res.status(400).json({ error: 'Ya existe ese modelo para este tipo y marca' });
     }
-    console.error('Error al crear línea de repuesto:', error);
-    res.status(500).json({ error: 'Error al crear línea de repuesto' });
+    console.error('Error al crear modelo de repuesto:', error);
+    res.status(500).json({ error: 'Error al crear modelo de repuesto' });
   }
 };
+
+// Aliases de compatibilidad
+exports.getLineasRepuesto = exports.getModelosRepuesto;
+exports.createLineaRepuesto = exports.createModeloRepuesto;
 
 // ============================================================================
 

@@ -183,7 +183,7 @@ export const deleteLinea = async (id: number): Promise<{ message: string }> => {
 // CATÁLOGOS JERÁRQUICOS DE REPUESTOS
 // GET/POST /api/repuestos/tipos
 // GET/POST /api/repuestos/marcas
-// GET/POST /api/repuestos/lineas
+// GET/POST /api/repuestos/modelos
 // ============================================
 
 export interface RepuestoTipo {
@@ -203,7 +203,7 @@ export interface RepuestoMarca {
   updated_at: string;
 }
 
-export interface RepuestoLinea {
+export interface RepuestoModelo {
   id: number;
   tipo_id: number;
   marca_id: number;
@@ -236,19 +236,19 @@ export const createRepuestoMarca = async (data: {
   return response.data;
 };
 
-export const getRepuestoLineas = async (
+export const getRepuestoModelos = async (
   tipo_id: number,
   marca_id: number,
-): Promise<RepuestoLinea[]> => {
-  const response = await api.get('/repuestos/lineas', { params: { tipo_id, marca_id } });
+): Promise<RepuestoModelo[]> => {
+  const response = await api.get('/repuestos/modelos', { params: { tipo_id, marca_id } });
   return response.data;
 };
 
-export const createRepuestoLinea = async (data: {
+export const createRepuestoModelo = async (data: {
   tipo_id: number;
   marca_id: number;
   nombre: string;
-}): Promise<RepuestoLinea> => {
-  const response = await api.post('/repuestos/lineas', data);
+}): Promise<RepuestoModelo> => {
+  const response = await api.post('/repuestos/modelos', data);
   return response.data;
 };

@@ -21,10 +21,13 @@ router.post('/tipos', repuestoController.createTipoRepuesto);
 router.get('/marcas', repuestoController.getMarcasRepuesto);
 // POST /api/repuestos/marcas
 router.post('/marcas', repuestoController.createMarcaRepuesto);
-// GET  /api/repuestos/lineas?tipo_id=ID&marca_id=ID
-router.get('/lineas', repuestoController.getLineasRepuesto);
-// POST /api/repuestos/lineas
-router.post('/lineas', repuestoController.createLineaRepuesto);
+// GET  /api/repuestos/modelos?tipo_id=ID&marca_id=ID
+router.get('/modelos', repuestoController.getModelosRepuesto);
+// POST /api/repuestos/modelos
+router.post('/modelos', repuestoController.createModeloRepuesto);
+// Alias de compatibilidad: /lineas → /modelos
+router.get('/lineas', repuestoController.getModelosRepuesto);
+router.post('/lineas', repuestoController.createModeloRepuesto);
 // ─────────────────────────────────────────────────────────────────────────
 
 // GET /api/repuestos - Obtener todos los repuestos (con filtros)
