@@ -101,64 +101,115 @@ function sanitizeFileName(name: string): string {
 }
 
 /**
- * Calculates the height needed for the client+equipment box.
+ * Formats a date string (ISO, yyyy-mm-dd, or dd/mm/yyyy) to dd/mm/yyyy.
  */
-function calcBoxHeight(data: RecepcionEquipoData): number {
-  // Exact rendering path:
-  //   +6  first padding inside box
-  //   +6  after DATOS DEL CLIENTE title
-  //   +5  name+phone row
-  //   +5  email row (if present)
-  //   +3  gap before DATOS DEL EQUIPO
-  //   +6  after DATOS DEL EQUIPO title
-  //   +5  tipo/marca/modelo row
-  //   +5  color/imei row
-  //   +access block
-  //   +5  final padding
-  let h = 6 + 6 + 5 + 3 + 6 + 5 + 5 + 5; // 41 base
-  if (data.cliente.email) h += 5;
-  const tipo = data.equipo.accesoTipo;
-  if (tipo === 'pin' || tipo === 'ninguno') h += 5;
-  else if (tipo === 'patron') {
-    const valor = data.equipo.accesoValor;
-    h += valor ? (4 + 16 + 4) : 5; // label+grid+gap OR fallback text
-  } else if (!tipo && data.equipo.contraseña) h += 5; // legacy
-  return h + 3; // 3 mm safety margin
+function formatFechaPDF(fecha: string): string {
+  if (!fecha) return '';
+  if (fecha.includes('T') || fecha.includes('Z')) {
+    const d = new Date(fecha);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+  if (fecha.includes('/')) return fecha;
+  const parts = fecha.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return fecha;
+}
+
+/**
+ * Sanitizes a string to be safe for use in a file name.
+ */
+function sanitizeFileName(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s_-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
 }
 
 export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean = false) => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'letter'
+    format: 'letter',
   });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentWidth = pageWidth - 2 * margin;
+
+  // ── Top-right logo box constants (same position on every page) ─────────
+  const hdrBoxX = pageWidth - margin - 45;
+  const hdrBoxY = margin - 5;
+  const hdrBoxW = 45;
+  const hdrBoxH = 25;
+  const logoWidth  = 30;
+  const logoHeight = 15;
+  const logoX = hdrBoxX + (hdrBoxW - logoWidth)  / 2;
+  const logoY = hdrBoxY + (hdrBoxH - logoHeight) / 2;
+
+  function renderHeader() {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(hdrBoxX, hdrBoxY, hdrBoxW, hdrBoxH);
+    doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  }
+
+  function renderFooter() {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('TECNOCELL - Soluciones Tecnológicas Profesionales',
+      pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text(`No. Reparación: ${data.numeroReparacion}`,
+      pageWidth / 2, pageHeight - 6,  { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  // ── Pre-compute diagnostico lines (font size must match rendering) ─────
+  doc.setFontSize(10);
+  const diagLines = doc.splitTextToSize(data.equipo.diagnostico || '', contentWidth - 16);
+
+  // ── Calculate blue box height (all content that goes inside it) ────────
+  function calcBlueBoxHeight(): number {
+    let h = 6;  // top padding inside box
+    // DATOS DEL CLIENTE
+    h += 6;     // title + gap
+    h += 5;     // nombre / teléfono row
+    if (data.cliente.email) h += 5;
+    h += 3;     // gap before equipo section
+    // DATOS DEL EQUIPO
+    h += 6;     // title + gap
+    h += 5;     // tipo / marca / modelo row
+    h += 5;     // color / imei row
+    // Access block
+    const tipo  = data.equipo.accesoTipo;
+    const valor = data.equipo.accesoValor;
+    if (tipo === 'patron' && valor) h += 4 + 16 + 4; // label + 16mm grid + gap
+    else if (tipo === 'pin' || tipo === 'ninguno')    h += 5;
+    else if (!tipo && data.equipo.contraseña)         h += 5; // legacy
+    // Diagnóstico inside box
+    h += 6;                        // "Diagnóstico Inicial:" label + gap
+    h += diagLines.length * 5;     // text lines
+    h += 8;                        // bottom padding
+    return h + 4;                  // 4 mm safety margin
+  }
+
+  const blueBoxHeight = calcBlueBoxHeight();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PÁGINA 1
+  // ══════════════════════════════════════════════════════════════════════
   let yPos = margin;
 
-  // ============ PÁGINA 1 ============
+  renderHeader();
+  yPos += 5;
 
-  // Recuadro superior derecho — logo va dentro
-  const boxX = pageWidth - margin - 45;
-  const boxY = margin - 5;
-  const boxW = 45;
-  const boxH = 25;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(boxX, boxY, boxW, boxH);
-
-  // LOGO dentro del recuadro superior derecho
-  const logoWidth = 30;
-  const logoHeight = 15;
-  const logoX = boxX + (boxW - logoWidth) / 2;
-  const logoY = boxY + (boxH - logoHeight) / 2;
-  doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-  yPos += 5; // small top gap before heading
-
-  // ENCABEZADO CENTRADO - TECNOCELL
+  // Heading
   doc.setFont('times', 'bold');
   doc.setFontSize(16);
   doc.text('TECNOCELL', pageWidth / 2, yPos, { align: 'center' });
@@ -166,31 +217,31 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.setFont('times', 'italic');
   doc.setFontSize(10);
   doc.text('nosotros te lo reparamos', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 10;
+  yPos += 8;
 
-  // Línea separadora
   doc.setLineWidth(0.3);
   doc.line(margin, yPos, pageWidth - margin - 50, yPos);
-  yPos += 10;
+  yPos += 8;
 
-  // ============ DATOS DEL CLIENTE - Recuadro celeste con bordes redondeados ============
-  const boxHeight1 = calcBoxHeight(data);
-  doc.setFillColor(173, 216, 230); // Celeste
-  doc.setDrawColor(0, 100, 150); // Borde azul oscuro
+  // ── Blue box ──────────────────────────────────────────────────────────
+  const blueBoxY = yPos;
+  doc.setFillColor(173, 216, 230);
+  doc.setDrawColor(0, 100, 150);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, contentWidth - 50, boxHeight1, 3, 3, 'FD');
+  doc.roundedRect(margin, blueBoxY, contentWidth - 50, blueBoxHeight, 3, 3, 'FD');
 
   yPos += 6;
   doc.setTextColor(0, 0, 0);
+
+  // DATOS DEL CLIENTE
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text('DATOS DEL CLIENTE', margin + 3, yPos);
   yPos += 6;
-
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  doc.text(`Nombre: ${data.cliente.nombre}`, margin + 3, yPos);
-  doc.text(`Teléfono: ${data.cliente.telefono}`, margin + 90, yPos);
+  doc.text(`Nombre: ${data.cliente.nombre}`,       margin + 3,  yPos);
+  doc.text(`Teléfono: ${data.cliente.telefono}`,   margin + 90, yPos);
   yPos += 5;
   if (data.cliente.email) {
     doc.text(`Email: ${data.cliente.email}`, margin + 3, yPos);
@@ -198,26 +249,25 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   }
 
   yPos += 3;
+
+  // DATOS DEL EQUIPO
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text('DATOS DEL EQUIPO', margin + 3, yPos);
   yPos += 6;
-
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  doc.text(`Tipo: ${data.equipo.tipo}`, margin + 3, yPos);
-  doc.text(`Marca: ${data.equipo.marca}`, margin + 50, yPos);
-  doc.text(`Modelo: ${data.equipo.modelo}`, margin + 100, yPos);
+  doc.text(`Tipo: ${data.equipo.tipo}`,       margin + 3,   yPos);
+  doc.text(`Marca: ${data.equipo.marca}`,     margin + 50,  yPos);
+  doc.text(`Modelo: ${data.equipo.modelo}`,   margin + 100, yPos);
   yPos += 5;
   doc.text(`Color: ${data.equipo.color}`, margin + 3, yPos);
-  if (data.equipo.imei) {
-    doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
-  }
+  if (data.equipo.imei) doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
   yPos += 5;
 
-  // Access method rendering (page 1)
+  // Access method
   {
-    const tipo = data.equipo.accesoTipo;
+    const tipo  = data.equipo.accesoTipo;
     const valor = data.equipo.accesoValor;
     if (tipo === 'patron' && valor) {
       doc.text('Acceso: Patrón', margin + 3, yPos);
@@ -235,62 +285,56 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
       doc.setFont('times', 'normal');
       yPos += 5;
     } else if (!tipo && data.equipo.contraseña) {
-      // legacy
       doc.text(`Acceso: ${data.equipo.contraseña}`, margin + 3, yPos);
       yPos += 5;
     }
   }
 
-  yPos += 5;
-
-  // Diagnóstico Inicial
+  // Diagnóstico inside the blue box
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
-  doc.text('Diagnóstico Inicial:', margin, yPos);
+  doc.text('Diagnóstico Inicial:', margin + 3, yPos);
   yPos += 5;
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  const diagnosticoLines = doc.splitTextToSize(data.equipo.diagnostico, contentWidth - 10);
-  doc.text(diagnosticoLines, margin, yPos, { maxWidth: contentWidth - 10, align: 'justify' });
-  yPos += diagnosticoLines.length * 5 + 10;
+  doc.text(diagLines, margin + 3, yPos, { maxWidth: contentWidth - 16, align: 'justify' });
 
-  // Línea separadora antes de la política
+  // Jump to just after the blue box
+  yPos = blueBoxY + blueBoxHeight + 8;
+
+  // ── Política de Garantía ──────────────────────────────────────────────
   doc.setLineWidth(0.3);
-  doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 8;
+  doc.line(margin, yPos - 4, pageWidth - margin, yPos - 4);
 
-  // Título de Política de Garantía
   doc.setFont('times', 'bold');
   doc.setFontSize(12);
   doc.text('POLÍTICA DE GARANTÍA – TECNOCELL', margin, yPos);
   yPos += 8;
 
-  // Texto introductorio
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  doc.text('TECNOCELL ofrece una garantía de 5 meses para los siguientes servicios de reparación:', margin, yPos, { maxWidth: contentWidth - 50, align: 'justify' });
+  doc.text(
+    'TECNOCELL ofrece una garantía de 5 meses para los siguientes servicios de reparación:',
+    margin, yPos, { maxWidth: contentWidth - 50, align: 'justify' }
+  );
   yPos += 8;
 
-  // Lista de servicios con viñetas
-  doc.setFontSize(10);
   const servicios = [
     'Reparación y cambio de hardware (celulares, laptops, tablets, consolas, impresoras, etc.)',
     'Servicios de soldadura y micro-soldadura (componentes SMD, puertos, líneas de alimentación, conectores, filtros, bobinas, etc.)',
-    'Reparaciones y mantenimiento técnico en impresoras (sistemas de tinta, placas, motores, sensores, engranajes, equipos de inyección, láser o térmicos)'
+    'Reparaciones y mantenimiento técnico en impresoras (sistemas de tinta, placas, motores, sensores, engranajes, equipos de inyección, láser o térmicos)',
   ];
-
-  servicios.forEach(servicio => {
+  servicios.forEach(s => {
     doc.text('•', margin + 3, yPos);
-    const lines = doc.splitTextToSize(servicio, contentWidth - 12);
-    doc.text(lines, margin + 8, yPos, { maxWidth: contentWidth - 12, align: 'justify' });
-    yPos += lines.length * 5 + 2;
+    const ls = doc.splitTextToSize(s, contentWidth - 12);
+    doc.text(ls, margin + 8, yPos, { maxWidth: contentWidth - 12, align: 'justify' });
+    yPos += ls.length * 5 + 2;
   });
 
   yPos += 5;
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 8;
 
-  // COBERTURA DE LA GARANTÍA
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text('COBERTURA DE LA GARANTÍA', margin, yPos);
@@ -298,8 +342,10 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
 
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  const intro = 'La garantía aplica únicamente a defectos relacionados con la intervención realizada, siempre que se cumpla lo siguiente:';
-  const introLines = doc.splitTextToSize(intro, contentWidth);
+  const introLines = doc.splitTextToSize(
+    'La garantía aplica únicamente a defectos relacionados con la intervención realizada, siempre que se cumpla lo siguiente:',
+    contentWidth
+  );
   doc.text(introLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
   yPos += introLines.length * 5.5 + 5;
 
@@ -308,34 +354,30 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
     'El equipo no haya sido manipulado por terceros después de la reparación.',
     'No existan daños físicos (golpes, caídas, quiebres, presión excesiva).',
     'No se hayan realizado modificaciones de software que afecten el funcionamiento del componente reparado.',
-    'En reparaciones de impresoras, la garantía no aplica para:'
+    'En reparaciones de impresoras, la garantía no aplica para:',
   ];
-
   coberturaItems.forEach(item => {
     doc.text('•', margin + 5, yPos);
-    const lines = doc.splitTextToSize(item, contentWidth - 15);
-    doc.text(lines, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
-    yPos += lines.length * 5.5 + 2;
+    const ls = doc.splitTextToSize(item, contentWidth - 15);
+    doc.text(ls, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
+    yPos += ls.length * 5.5 + 2;
   });
 
-  // Sub-items con círculos (○)
   const subItems = [
     'Líneas de impresión defectuosas causadas por aire en mangueras, dampers o el sistema continuo de tinta.',
-    'Obstrucciones por tinta de baja calidad, uso incorrecto o falta de mantenimiento.'
+    'Obstrucciones por tinta de baja calidad, uso incorrecto o falta de mantenimiento.',
   ];
-
   subItems.forEach(item => {
     doc.circle(margin + 12, yPos - 1.5, 1, 'S');
-    const lines = doc.splitTextToSize(item, contentWidth - 25);
-    doc.text(lines, margin + 17, yPos, { maxWidth: contentWidth - 25, align: 'justify' });
-    yPos += lines.length * 5.5 + 2;
+    const ls = doc.splitTextToSize(item, contentWidth - 25);
+    doc.text(ls, margin + 17, yPos, { maxWidth: contentWidth - 25, align: 'justify' });
+    yPos += ls.length * 5.5 + 2;
   });
 
   yPos += 5;
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 8;
 
-  // HALLAZGOS ADICIONALES
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text('HALLAZGOS ADICIONALES DURANTE EL SERVICIO', margin, yPos);
@@ -343,136 +385,64 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
 
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  const hallazgosIntro = 'Durante la revisión o reparación, TECNOCELL puede descubrir daños adicionales que no podían detectarse al momento de recibir el equipo. Estos problemas no están cubiertos por la garantía inicial y podrían requerir reparaciones extra.';
-  const hallazgosLines = doc.splitTextToSize(hallazgosIntro, contentWidth);
+  const hallazgosLines = doc.splitTextToSize(
+    'Durante la revisión o reparación, TECNOCELL puede descubrir daños adicionales que no podían detectarse al momento de recibir el equipo. Estos problemas no están cubiertos por la garantía inicial y podrían requerir reparaciones extra.',
+    contentWidth
+  );
   doc.text(hallazgosLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
   yPos += hallazgosLines.length * 5.5 + 8;
 
-  // Ejemplos de hallazgos adicionales
   doc.setFont('times', 'bold');
   doc.text('Ejemplos en computadoras y laptops:', margin, yPos);
   yPos += 6;
-
   doc.setFont('times', 'normal');
-  const ejemplosPC = [
+  [
     'Se cambia la memoria RAM porque estaba fallando, y al encender nuevamente se detecta que el disco duro también está dañado o tiene problemas de lectura.',
-    'Se limpia el equipo o se revisa por lentitud, y se descubre que el ventilador o el disco duro ya no funciona bien, lo cual provoca sobrecalentamiento.'
-  ];
-
-  ejemplosPC.forEach(ejemplo => {
+    'Se limpia el equipo o se revisa por lentitud, y se descubre que el ventilador o el disco duro ya no funciona bien, lo cual provoca sobrecalentamiento.',
+  ].forEach(ej => {
     doc.text('•', margin + 5, yPos);
-    const lines = doc.splitTextToSize(ejemplo, contentWidth - 15);
-    doc.text(lines, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
-    yPos += lines.length * 5.5 + 2;
+    const ls = doc.splitTextToSize(ej, contentWidth - 15);
+    doc.text(ls, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
+    yPos += ls.length * 5.5 + 2;
   });
 
   yPos += 5;
   doc.setFont('times', 'bold');
   doc.text('Ejemplos en teléfonos celulares:', margin, yPos);
   yPos += 6;
-
   doc.setFont('times', 'normal');
-  const ejemplosCel = [
+  [
     'Se cambia la pantalla porque estaba quebrada, pero después se detecta que el equipo no carga, y es necesario reemplazar el centro de carga (rack).',
-    'Se reemplaza la batería porque no retenía carga, pero luego se identifica que el centro de carga presenta otra falla independiente que impide el encendido normal.'
-  ];
-
-  ejemplosCel.forEach(ejemplo => {
+    'Se reemplaza la batería porque no retenía carga, pero luego se identifica que el centro de carga presenta otra falla independiente que impide el encendido normal.',
+  ].forEach(ej => {
     doc.text('•', margin + 5, yPos);
-    const lines = doc.splitTextToSize(ejemplo, contentWidth - 15);
-    doc.text(lines, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
-    yPos += lines.length * 5.5 + 2;
+    const ls = doc.splitTextToSize(ej, contentWidth - 15);
+    doc.text(ls, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
+    yPos += ls.length * 5.5 + 2;
   });
 
   yPos += 8;
-  const notificacion = 'En todos los casos, TECNOCELL notificará al cliente antes de continuar, explicando el nuevo problema y el costo adicional necesario para completar la reparación.';
-  const notificacionLines = doc.splitTextToSize(notificacion, contentWidth);
-  doc.text(notificacionLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
-  yPos += notificacionLines.length * 5.5 + 8;
+  const notifLines = doc.splitTextToSize(
+    'En todos los casos, TECNOCELL notificará al cliente antes de continuar, explicando el nuevo problema y el costo adicional necesario para completar la reparación.',
+    contentWidth
+  );
+  doc.text(notifLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
 
-  // ============ PÁGINA 2 ============
+  renderFooter();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PÁGINA 2  — sin bloque cliente/equipo
+  // ══════════════════════════════════════════════════════════════════════
   doc.addPage();
   yPos = margin + 5;
 
-  // Recuadro superior derecho (repetir en página 2) — logo dentro
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(boxX, boxY, boxW, boxH);
-  doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  renderHeader();
 
-  // Recuadro celeste con datos del cliente y equipo (altura dinámica)
-  const boxHeight2 = calcBoxHeight(data);
-  doc.setFillColor(173, 216, 230);
-  doc.setDrawColor(0, 100, 150);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, contentWidth - 50, boxHeight2, 3, 3, 'FD');
-
-  yPos += 6;
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('times', 'bold');
-  doc.setFontSize(11);
-  doc.text('DATOS DEL CLIENTE', margin + 3, yPos);
-  yPos += 6;
-
-  doc.setFont('times', 'normal');
-  doc.setFontSize(10);
-  doc.text(`Nombre: ${data.cliente.nombre}`, margin + 3, yPos);
-  doc.text(`Teléfono: ${data.cliente.telefono}`, margin + 90, yPos);
-  yPos += 5;
-  if (data.cliente.email) {
-    doc.text(`Email: ${data.cliente.email}`, margin + 3, yPos);
-    yPos += 5;
-  }
-
-  yPos += 3;
-  doc.setFont('times', 'bold');
-  doc.setFontSize(11);
-  doc.text('DATOS DEL EQUIPO', margin + 3, yPos);
-  yPos += 6;
-
-  doc.setFont('times', 'normal');
-  doc.setFontSize(10);
-  doc.text(`Tipo: ${data.equipo.tipo}`, margin + 3, yPos);
-  doc.text(`Marca: ${data.equipo.marca}`, margin + 50, yPos);
-  doc.text(`Modelo: ${data.equipo.modelo}`, margin + 100, yPos);
-  yPos += 5;
-  doc.text(`Color: ${data.equipo.color}`, margin + 3, yPos);
-  if (data.equipo.imei) {
-    doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
-  }
-  yPos += 5;
-
-  // Access method rendering (page 2)
-  {
-    const tipo = data.equipo.accesoTipo;
-    const valor = data.equipo.accesoValor;
-    if (tipo === 'patron' && valor) {
-      doc.text('Acceso: Patrón', margin + 3, yPos);
-      yPos += 4;
-      const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
-      const gridSize = 16;
-      drawPatternGrid(doc, margin + 12, yPos + gridSize / 2, gridSize, patternArr);
-      yPos += gridSize + 4;
-    } else if (tipo === 'pin') {
-      doc.text('Acceso: PIN registrado', margin + 3, yPos);
-      yPos += 5;
-    } else if (tipo === 'ninguno') {
-      doc.setFont('times', 'italic');
-      doc.text('Sin acceso registrado', margin + 3, yPos);
-      doc.setFont('times', 'normal');
-      yPos += 5;
-    } else if (!tipo && data.equipo.contraseña) {
-      doc.text(`Acceso: ${data.equipo.contraseña}`, margin + 3, yPos);
-      yPos += 5;
-    }
-  }
-
-  yPos += 5;
-
+  doc.setLineWidth(0.3);
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 8;
 
-  // INFORMACIÓN DE DEVOLUCIÓN
+  // CONDICIONES DE DEVOLUCIÓN
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.text('CONDICIONES DE DEVOLUCIÓN DEL EQUIPO', margin, yPos);
@@ -480,22 +450,22 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
 
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  const devolucionIntro = 'Si el cliente decide no proceder con la reparación y solicita la devolución del equipo sin reparar, se aplicará un cobro de Q50.00 por concepto de revisión técnica, diagnóstico y manipulación del equipo.';
-  const devolucionLines = doc.splitTextToSize(devolucionIntro, contentWidth);
-  doc.text(devolucionLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
-  yPos += devolucionLines.length * 5.5 + 8;
+  const devLines = doc.splitTextToSize(
+    'Si el cliente decide no proceder con la reparación y solicita la devolución del equipo sin reparar, se aplicará un cobro de Q50.00 por concepto de revisión técnica, diagnóstico y manipulación del equipo.',
+    contentWidth
+  );
+  doc.text(devLines, margin, yPos, { maxWidth: contentWidth, align: 'justify' });
+  yPos += devLines.length * 5.5 + 8;
 
-  const condiciones = [
+  [
     'El equipo tiene 30 días calendario para ser retirado después de haber sido informado que está listo.',
     'Pasados los 30 días, el equipo pasará a bodega y se cobrará Q10.00 adicionales por resguardo.',
-    'Si el equipo no es retirado en un período de 3 meses después de ingresar a bodega, se considerará abandonado y pasará a propiedad de TECNOCELL para cubrir los gastos de diagnóstico, reparación y almacenamiento.'
-  ];
-
-  condiciones.forEach(cond => {
+    'Si el equipo no es retirado en un período de 3 meses después de ingresar a bodega, se considerará abandonado y pasará a propiedad de TECNOCELL para cubrir los gastos de diagnóstico, reparación y almacenamiento.',
+  ].forEach(cond => {
     doc.text('•', margin + 5, yPos);
-    const lines = doc.splitTextToSize(cond, contentWidth - 15);
-    doc.text(lines, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
-    yPos += lines.length * 5.5 + 2;
+    const ls = doc.splitTextToSize(cond, contentWidth - 15);
+    doc.text(ls, margin + 10, yPos, { maxWidth: contentWidth - 15, align: 'justify' });
+    yPos += ls.length * 5.5 + 2;
   });
 
   yPos += 8;
@@ -503,10 +473,10 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   yPos += 8;
 
   // DECLARACIÓN DE ACEPTACIÓN
+  const declaracionHeight = 25;
   doc.setFillColor(255, 255, 200);
   doc.setDrawColor(200, 180, 0);
   doc.setLineWidth(0.5);
-  const declaracionHeight = 25;
   doc.rect(margin, yPos, contentWidth, declaracionHeight, 'FD');
 
   yPos += 6;
@@ -514,12 +484,13 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.setFontSize(11);
   doc.text('DECLARACIÓN DE ACEPTACIÓN', margin + 3, yPos);
   yPos += 6;
-
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  const declaracion = 'Al firmar este documento, el cliente acepta haber leído, comprendido y estar de acuerdo con todos los términos y condiciones de garantía, costos y devolución establecidos por TECNOCELL.';
-  const declaracionLines = doc.splitTextToSize(declaracion, contentWidth - 6);
-  doc.text(declaracionLines, margin + 3, yPos, { maxWidth: contentWidth - 6, align: 'justify' });
+  const declLines = doc.splitTextToSize(
+    'Al firmar este documento, el cliente acepta haber leído, comprendido y estar de acuerdo con todos los términos y condiciones de garantía, costos y devolución establecidos por TECNOCELL.',
+    contentWidth - 6
+  );
+  doc.text(declLines, margin + 3, yPos, { maxWidth: contentWidth - 6, align: 'justify' });
   yPos += declaracionHeight + 8;
 
   // FIRMAS
@@ -527,7 +498,6 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   const firmaY = yPos;
   const firmaWidth = (contentWidth - 20) / 2;
 
-  // Firma del cliente
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
   doc.line(margin, firmaY, margin + firmaWidth, firmaY);
@@ -537,21 +507,17 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.setFont('times', 'normal');
   doc.text(data.cliente.nombre, margin + firmaWidth / 2, firmaY + 10, { align: 'center' });
 
-  // Firma de TECNOCELL
   const firma2X = margin + firmaWidth + 20;
   doc.line(firma2X, firmaY, firma2X + firmaWidth, firmaY);
   doc.setFont('times', 'bold');
+  doc.setFontSize(9);
   doc.text('Recibido por TECNOCELL', firma2X + firmaWidth / 2, firmaY + 5, { align: 'center' });
   doc.setFont('times', 'normal');
   doc.text(`Fecha: ${formatFechaPDF(data.fecha)}`, firma2X + firmaWidth / 2, firmaY + 10, { align: 'center' });
 
-  // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text('TECNOCELL - Soluciones Tecnológicas Profesionales', pageWidth / 2, pageHeight - 10, { align: 'center' });
-  doc.text(`No. Reparación: ${data.numeroReparacion}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+  renderFooter();
 
-  // Generar salida según el modo
+  // ── Output ────────────────────────────────────────────────────────────
   if (preview) {
     window.open(doc.output('bloburl'), '_blank');
   } else {
