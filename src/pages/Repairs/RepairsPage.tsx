@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Plus, Search, Eye, Clock, History, Printer, FileSearch,
+  Plus, Search, Eye, EyeOff, Clock, History, Printer, FileSearch,
   User, Smartphone, CalendarDays, Tag, Wrench,
   ChevronDown, DollarSign, X, AlertTriangle, CheckCircle2,
   Ban,
@@ -499,6 +499,7 @@ export default function RepairsPage() {
   const [showCancelModal,   setShowCancelModal]   = useState<Repair | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [loadingRepairs, setLoadingRepairs] = useState(true);
+  const [showDetailPin, setShowDetailPin]   = useState(false);
   const [backendRepairs, setBackendRepairs] = useState<Repair[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -677,7 +678,7 @@ export default function RepairsPage() {
           <RepairCard
             key={r.id}
             repair={r}
-            onViewDetail={rep => { setSelectedRepair(rep); setShowDetailModal(true); }}
+            onViewDetail={rep => { setSelectedRepair(rep); setShowDetailModal(true); setShowDetailPin(false); }}
             onHistory={id => setShowHistoryModal(id)}
             onFlowManage={() => navigate('/flujo-reparaciones')}
             onPrintPDF={handleGeneratePDF}
@@ -770,7 +771,36 @@ export default function RepairsPage() {
                   <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Marca / Modelo</p><p className="text-slate-900 dark:text-slate-100 font-medium">{[r.recepcion.marca, r.recepcion.modelo].filter(Boolean).join(' ') || '—'}</p></div>
                   <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Color</p><p className="text-slate-800 dark:text-slate-200">{r.recepcion.color || '—'}</p></div>
                   {r.recepcion.imei && <div><p className="text-[10px] text-slate-500 dark:text-slate-400">IMEI / Serie</p><p className="text-slate-800 dark:text-slate-200 font-mono text-xs">{r.recepcion.imei}</p></div>}
-                  {r.recepcion.contraseña && <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Contraseña</p><p className="text-slate-800 dark:text-slate-200">{r.recepcion.contraseña}</p></div>}
+                  {/* Acceso — se muestra sólo en detalle, nunca en tabla general */}
+                  {(() => {
+                    const tipo = r.recepcion.accesoTipo;
+                    const valor = r.recepcion.accesoValor;
+                    const legacy = r.recepcion.contraseña;
+                    if (tipo === 'patron' && valor) {
+                      return (
+                        <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Patrón</p><p className="text-slate-800 dark:text-slate-200 font-mono text-xs">{valor}</p></div>
+                      );
+                    }
+                    if (tipo === 'pin' && valor) {
+                      return (
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">PIN / Contraseña</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-slate-800 dark:text-slate-200 font-mono text-xs">
+                              {showDetailPin ? valor : '•'.repeat(valor.length || 4)}
+                            </p>
+                            <button type="button" onClick={() => setShowDetailPin(v => !v)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" aria-label={showDetailPin ? 'Ocultar' : 'Mostrar'}>
+                              {showDetailPin ? <EyeOff size={12} /> : <Eye size={12} />}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (legacy) {
+                      return <div><p className="text-[10px] text-slate-500 dark:text-slate-400">Acceso</p><p className="text-slate-800 dark:text-slate-200">{legacy}</p></div>;
+                    }
+                    return null;
+                  })()}
                   {r.recepcion.diagnosticoInicial ? (
                     <div className="col-span-2"><p className="text-[10px] text-slate-500 dark:text-slate-400">Diagnóstico inicial</p><p className="text-slate-600 dark:text-slate-300 italic mt-0.5">{r.recepcion.diagnosticoInicial}</p></div>
                   ) : (

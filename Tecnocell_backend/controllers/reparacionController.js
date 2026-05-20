@@ -80,6 +80,8 @@ exports.createReparacion = async (req, res) => {
       color,
       imeiSerie,
       patronContrasena,
+      acceso_tipo = 'ninguno',
+      acceso_valor = null,
       estadoFisico,
       diagnosticoInicial,
       // Estado
@@ -117,15 +119,17 @@ exports.createReparacion = async (req, res) => {
       `INSERT INTO reparaciones (
         id, cliente_id, cliente_nombre, cliente_telefono, cliente_email,
         tipo_equipo, marca, modelo, color, imei_serie, patron_contrasena,
+        acceso_tipo, acceso_valor,
         estado_fisico, diagnostico_inicial,
         estado, prioridad,
         mano_obra, subtotal, impuestos, total,
         monto_anticipo, saldo_anticipo, metodo_anticipo,
         fecha_ingreso, observaciones, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         repairId, clienteId || null, clienteNombre, clienteTelefono, clienteEmail,
         tipoEquipo, marca, modelo, color, imeiSerie, patronContrasena,
+        acceso_tipo, acceso_valor,
         estadoFisico, diagnosticoInicial,
         estado, prioridad,
         manoObraCentavos, subtotalCentavos, impuestosCentavos, totalCentavos,

@@ -98,6 +98,8 @@ export const createReparacion = async (repairData: RepairFormData, fotosRecepcio
       color: repairData.recepcion.color,
       imeiSerie: repairData.recepcion.imeiSerie,
       patronContrasena: repairData.recepcion.patronContraseña,
+      accesoTipo: repairData.recepcion.accesoTipo || 'ninguno',
+      accesoValor: repairData.recepcion.accesoValor ?? null,
       estadoFisico: repairData.recepcion.estadoFisico,
       diagnosticoInicial: repairData.recepcion.diagnosticoInicial,
       
@@ -161,6 +163,8 @@ export const getAllReparaciones = async (filters?: {
         color: rep.color,
         imei: rep.imei_serie,
         contraseña: rep.patron_contrasena,
+        accesoTipo: (rep.acceso_tipo as 'ninguno' | 'pin' | 'patron') || 'ninguno',
+        accesoValor: rep.acceso_valor ?? null,
         diagnosticoInicial: rep.diagnostico_inicial,
         estadoFisico: rep.estado_fisico,
         accesoriosRecibidos: {

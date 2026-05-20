@@ -33,6 +33,8 @@ export interface RepairReception {
   imei?: string;           // alias mapped from API (imei_serie)
   patronContraseña?: string;
   contraseña?: string;     // alias mapped from API (patron_contrasena)
+  accesoTipo?: 'ninguno' | 'pin' | 'patron';
+  accesoValor?: string | null;
   accesoriosRecibidos: AccessoriesReceived;
   estadoFisico?: string;
   diagnosticoInicial?: string;

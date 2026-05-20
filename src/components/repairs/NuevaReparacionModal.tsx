@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, User, Smartphone, FileText, Save, Printer,
   ArrowLeft, ChevronRight, AlertCircle, CheckCircle2,
+  Eye, EyeOff, RotateCcw,
 } from 'lucide-react';
 import { Customer } from '../../types/customer';
 import { RepairFormData } from '../../types/repair';
@@ -12,6 +13,7 @@ import equipoService from '../../services/equipoService';
 import type { EquipoMarca, EquipoModelo, TipoEquipo } from '../../types/equipo';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { createReparacion } from '../../services/repairService';
+import PatternLock from './PatternLock';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Step = 'cliente' | 'equipo' | 'resumen';
@@ -22,7 +24,8 @@ interface EquipmentData {
   modelo: string;
   color: string;
   imei: string;
-  contraseña: string;
+  accesoTipo: 'ninguno' | 'pin' | 'patron';
+  accesoValor: string;
   diagnostico: string;
 }
 
@@ -43,7 +46,8 @@ const INITIAL_EQUIPMENT: EquipmentData = {
   modelo: '',
   color: '',
   imei: '',
-  contraseña: '',
+  accesoTipo: 'ninguno',
+  accesoValor: '',
   diagnostico: '',
 };
 
@@ -79,6 +83,8 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
   const [nuevoModelo, setNuevoModelo] = useState('');
   const [marcaError, setMarcaError] = useState<string | null>(null);
   const [modeloError, setModeloError] = useState<string | null>(null);
+  const [patternArr, setPatternArr]   = useState<number[]>([]);
+  const [showPin, setShowPin]         = useState(false);
 
   // ── Reset on open ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -93,6 +99,8 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
       setNuevaMarca('');
       setShowNuevoModelo(false);
       setNuevoModelo('');
+      setPatternArr([]);
+      setShowPin(false);
     }
   }, [isOpen]);
 
@@ -180,9 +188,14 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
   // ── Navigation ─────────────────────────────────────────────────────────────
   const canContinue = useCallback((): boolean => {
     if (currentStep === 'cliente') return !!selectedCustomer;
-    if (currentStep === 'equipo') return !!equipmentData.marca.trim() && !!equipmentData.modelo.trim();
+    if (currentStep === 'equipo') {
+      if (!equipmentData.marca.trim() || !equipmentData.modelo.trim()) return false;
+      if (equipmentData.accesoTipo === 'pin' && !equipmentData.accesoValor.trim()) return false;
+      if (equipmentData.accesoTipo === 'patron' && patternArr.length < 4) return false;
+      return true;
+    }
     return true;
-  }, [currentStep, selectedCustomer, equipmentData]);
+  }, [currentStep, selectedCustomer, equipmentData, patternArr]);
 
   const handleNext = () => {
     if (currentStep === 'cliente') setCurrentStep('equipo');
@@ -222,7 +235,11 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
         modelo: equipmentData.modelo,
         color: equipmentData.color,
         imei: equipmentData.imei,
-        contraseña: equipmentData.contraseña,
+        contraseña: equipmentData.accesoTipo === 'pin'
+          ? equipmentData.accesoValor
+          : equipmentData.accesoTipo === 'patron'
+          ? `Patrón: ${patternArr.join('-')}`
+          : undefined,
         diagnostico: equipmentData.diagnostico,
       },
     }, false);
@@ -250,7 +267,15 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
           modelo: equipmentData.modelo,
           color: equipmentData.color,
           imeiSerie: equipmentData.imei || undefined,
-          patronContraseña: equipmentData.contraseña || undefined,
+          patronContraseña: equipmentData.accesoTipo !== 'ninguno'
+            ? (equipmentData.accesoTipo === 'patron' ? patternArr.join('-') : equipmentData.accesoValor) || undefined
+            : undefined,
+          accesoTipo: equipmentData.accesoTipo,
+          accesoValor: equipmentData.accesoTipo === 'pin'
+            ? equipmentData.accesoValor || undefined
+            : equipmentData.accesoTipo === 'patron' && patternArr.length >= 4
+            ? patternArr.join('-')
+            : undefined,
           diagnosticoInicial: equipmentData.diagnostico || undefined,
           estadoFisico: 'Pendiente revisión física',
           accesoriosRecibidos: { chip: false, estuche: false, memoriaSD: false, cargador: false },
@@ -540,17 +565,74 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
                   />
                 </div>
 
-                {/* Contraseña */}
+                {/* Método de acceso */}
                 <div>
-                  <label className={labelCls}>Contraseña / Patrón <span className="text-slate-400 dark:text-slate-500 font-normal normal-case">(opcional)</span></label>
-                  <input
-                    value={equipmentData.contraseña}
-                    onChange={e => setEquipmentData({ ...equipmentData, contraseña: e.target.value })}
-                    placeholder="Para acceder durante la reparación"
+                  <label className={labelCls}>Método de acceso</label>
+                  <select
+                    value={equipmentData.accesoTipo}
+                    onChange={e => {
+                      setEquipmentData({ ...equipmentData, accesoTipo: e.target.value as 'ninguno' | 'pin' | 'patron', accesoValor: '' });
+                      setPatternArr([]);
+                    }}
                     className={inputCls}
-                  />
+                  >
+                    <option value="ninguno">Ninguno</option>
+                    <option value="pin">PIN / Contraseña</option>
+                    <option value="patron">Patrón</option>
+                  </select>
                 </div>
               </div>
+
+              {/* PIN input (conditional) */}
+              {equipmentData.accesoTipo === 'pin' && (
+                <div>
+                  <label className={labelCls}>PIN / Contraseña del equipo <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      value={equipmentData.accesoValor}
+                      onChange={e => setEquipmentData({ ...equipmentData, accesoValor: e.target.value })}
+                      placeholder="Ingresa el PIN o contraseña del equipo"
+                      className={`${inputCls} pr-10`}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      aria-label={showPin ? 'Ocultar PIN' : 'Mostrar PIN'}
+                    >
+                      {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pattern lock (conditional) */}
+              {equipmentData.accesoTipo === 'patron' && (
+                <div>
+                  <label className={labelCls}>
+                    Patrón de desbloqueo <span className="text-red-500">*</span>{' '}
+                    <span className="text-slate-400 dark:text-slate-500 font-normal normal-case">(mín. 4 puntos)</span>
+                  </label>
+                  <div className="flex flex-col items-center py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
+                    <PatternLock
+                      pattern={patternArr}
+                      onChange={setPatternArr}
+                      minPoints={4}
+                    />
+                    {patternArr.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPatternArr([])}
+                        className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      >
+                        <RotateCcw size={11} /> Limpiar patrón
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Diagnóstico */}
               <div>
@@ -632,10 +714,12 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
                       <p className="text-slate-700 dark:text-slate-200 font-mono text-xs">{equipmentData.imei}</p>
                     </div>
                   )}
-                  {equipmentData.contraseña && (
+                  {equipmentData.accesoTipo !== 'ninguno' && (
                     <div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Contraseña</p>
-                      <p className="text-slate-700 dark:text-slate-200">{equipmentData.contraseña}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Acceso</p>
+                      <p className="text-slate-700 dark:text-slate-200">
+                        {equipmentData.accesoTipo === 'pin' ? 'PIN registrado' : `Patrón: ${patternArr.join('-')}`}
+                      </p>
                     </div>
                   )}
                 </div>
