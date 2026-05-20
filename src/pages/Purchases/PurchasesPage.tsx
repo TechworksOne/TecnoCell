@@ -14,11 +14,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useCatalog } from "../../store/useCatalog";
 import { useRepuestosStore } from "../../store/useRepuestosStore";
 import { getAllCompras } from "../../services/purchaseService";
 import Modal from "../../components/ui/Modal";
+import NuevaCompraModal from "./NuevaCompraModal";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toNum = (v: unknown): number => {
@@ -49,14 +49,13 @@ function KpiCard({
 export default function PurchasesPage() {
   const { products, loadProducts } = useCatalog();
   const { repuestos, loadRepuestos } = useRepuestosStore();
-  const navigate = useNavigate();
-
   const [searchTerm, setSearchTerm] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
   const [compras, setCompras] = useState<any[]>([]);
   const [loadingCompras, setLoadingCompras] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showNuevaCompra, setShowNuevaCompra] = useState(false);
   const [activeTab, setActiveTab] = useState<"inventario" | "historial">("inventario");
   const [inventarioTipo, setInventarioTipo] = useState<"productos" | "repuestos">("productos");
 
@@ -176,7 +175,7 @@ export default function PurchasesPage() {
           </p>
         </div>
         <button
-          onClick={() => navigate("/compras/nueva")}
+          onClick={() => setShowNuevaCompra(true)}
           className="shrink-0 flex items-center gap-2 bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] hover:brightness-110 text-white font-semibold rounded-2xl px-5 py-2.5 text-sm shadow-sm transition-all self-start"
         >
           <Plus size={16} />
@@ -464,7 +463,7 @@ export default function PurchasesPage() {
               <p className="font-semibold text-[#14324A] dark:text-[#F8FAFC]">No hay compras registradas</p>
               <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1]">Aún no has registrado ninguna compra</p>
               <button
-                onClick={() => navigate("/compras/nueva")}
+                onClick={() => setShowNuevaCompra(true)}
                 className="mt-1 flex items-center gap-1.5 bg-gradient-to-r from-[#2EA7D8] to-[#2563EB] text-white text-sm rounded-xl px-4 py-2 hover:brightness-110"
               >
                 <Plus size={14} /> Registrar Primera Compra
@@ -574,6 +573,12 @@ export default function PurchasesPage() {
           </div>
         </Modal>
       )}
+
+      <NuevaCompraModal
+        isOpen={showNuevaCompra}
+        onClose={() => setShowNuevaCompra(false)}
+        onSuccess={loadCompras}
+      />
     </div>
   );
 }
