@@ -151,7 +151,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
 
         {/* Body */}
         <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
-          {/* Info reparación */}}
+          {/* Info reparación */}
           <div className="rounded-xl p-3 text-sm space-y-1" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
             <p className="font-semibold" style={{ color: 'var(--color-text)' }}>{entrega.id}</p>
             <p style={{ color: 'var(--color-text-sec)' }}>{entrega.cliente_nombre}</p>
