@@ -14,10 +14,75 @@ interface RecepcionEquipoData {
     color: string;
     imei?: string;
     contraseña?: string;
+    accesoTipo?: 'ninguno' | 'pin' | 'patron';
+    accesoValor?: string;
     diagnostico: string;
   };
   numeroReparacion: string;
   fecha: string;
+}
+
+/**
+ * Draws a 3×3 pattern grid using jsPDF primitives.
+ * @param doc - jsPDF instance
+ * @param cx - center X of the grid (mm)
+ * @param cy - center Y of the grid (mm)
+ * @param size - total size of the grid (mm)
+ * @param pattern - array of node numbers 1-9 in order
+ */
+function drawPatternGrid(doc: jsPDF, cx: number, cy: number, size: number, pattern: number[]) {
+  const cellSize = size / 2; // distance between dot centers
+  const dotR = 1.5;
+  const lineR = 0.8; // "active" dot radius
+
+  // Dot centers: node 1=top-left, 2=top-center, ... 9=bottom-right
+  const getDotPos = (n: number): [number, number] => {
+    const col = (n - 1) % 3;
+    const row = Math.floor((n - 1) / 3);
+    return [cx - cellSize + col * cellSize, cy - cellSize + row * cellSize];
+  };
+
+  // Draw connecting lines first (behind dots)
+  if (pattern.length >= 2) {
+    doc.setDrawColor(0, 100, 200);
+    doc.setLineWidth(0.7);
+    for (let i = 0; i < pattern.length - 1; i++) {
+      const [x1, y1] = getDotPos(pattern[i]);
+      const [x2, y2] = getDotPos(pattern[i + 1]);
+      doc.line(x1, y1, x2, y2);
+    }
+  }
+
+  // Draw all 9 dots
+  for (let n = 1; n <= 9; n++) {
+    const [x, y] = getDotPos(n);
+    const isActive = pattern.includes(n);
+    if (isActive) {
+      doc.setFillColor(0, 100, 200);
+      doc.setDrawColor(0, 100, 200);
+      doc.circle(x, y, lineR, 'FD');
+    } else {
+      doc.setFillColor(180, 180, 180);
+      doc.setDrawColor(100, 100, 100);
+      doc.circle(x, y, dotR, 'FD');
+    }
+  }
+}
+
+/**
+ * Calculates the height needed for the client+equipment box.
+ */
+function calcBoxHeight(data: RecepcionEquipoData): number {
+  // Base: "DATOS DEL CLIENTE" title(6) + name+phone row(5) + email(5 if present) + gap(3)
+  //       + "DATOS DEL EQUIPO" title(6) + tipo/marca/modelo row(5) + color/imei row(5)
+  //       + access row if needed (for pin: 5; for patron: grid ~22; for ninguno: 0) + padding(10)
+  let h = 6 + 5 + 3 + 6 + 5 + 5 + 10; // 40 base
+  if (data.cliente.email) h += 5;
+  const tipo = data.equipo.accesoTipo;
+  if (tipo === 'pin') h += 5;
+  else if (tipo === 'patron') h += 22;
+  else if (!tipo && data.equipo.contraseña) h += 5; // legacy
+  return h;
 }
 
 export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean = false) => {
@@ -34,18 +99,23 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   let yPos = margin;
 
   // ============ PÁGINA 1 ============
-  
-  // Recuadro superior derecho (para sellos/firmas) - sin círculos
+
+  // Recuadro superior derecho — logo va dentro
+  const boxX = pageWidth - margin - 45;
+  const boxY = margin - 5;
+  const boxW = 45;
+  const boxH = 25;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(pageWidth - margin - 45, margin - 5, 45, 25);
+  doc.rect(boxX, boxY, boxW, boxH);
 
-  // LOGO TECNOCELL (centrado)
+  // LOGO dentro del recuadro superior derecho
   const logoWidth = 30;
   const logoHeight = 15;
-  const logoX = (pageWidth - logoWidth) / 2;
-  doc.addImage(logoUrl, 'PNG', logoX, yPos - 5, logoWidth, logoHeight);
-  yPos += logoHeight;
+  const logoX = boxX + (boxW - logoWidth) / 2;
+  const logoY = boxY + (boxH - logoHeight) / 2;
+  doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  yPos += 5; // small top gap before heading
 
   // ENCABEZADO CENTRADO - TECNOCELL
   doc.setFont('times', 'bold');
@@ -63,10 +133,11 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   yPos += 10;
 
   // ============ DATOS DEL CLIENTE - Recuadro celeste con bordes redondeados ============
+  const boxHeight1 = calcBoxHeight(data);
   doc.setFillColor(173, 216, 230); // Celeste
   doc.setDrawColor(0, 100, 150); // Borde azul oscuro
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, contentWidth - 50, 35, 3, 3, 'FD'); // Bordes redondeados
+  doc.roundedRect(margin, yPos, contentWidth - 50, boxHeight1, 3, 3, 'FD');
 
   yPos += 6;
   doc.setTextColor(0, 0, 0);
@@ -102,12 +173,29 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
     doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
   }
   yPos += 5;
-  if (data.equipo.contraseña) {
-    doc.text(`Contraseña/Patrón: ${data.equipo.contraseña}`, margin + 3, yPos);
-    yPos += 5;
+
+  // Access method rendering
+  {
+    const tipo = data.equipo.accesoTipo;
+    const valor = data.equipo.accesoValor;
+    if (tipo === 'patron' && valor) {
+      doc.text('Patrón de acceso:', margin + 3, yPos);
+      yPos += 4;
+      const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
+      const gridSize = 16; // mm
+      drawPatternGrid(doc, margin + 12, yPos + gridSize / 2, gridSize, patternArr);
+      yPos += gridSize + 4;
+    } else if (tipo === 'pin') {
+      doc.text('Acceso: PIN registrado', margin + 3, yPos);
+      yPos += 5;
+    } else if (!tipo && data.equipo.contraseña) {
+      // legacy
+      doc.text(`Contraseña/Patrón: ${data.equipo.contraseña}`, margin + 3, yPos);
+      yPos += 5;
+    }
   }
 
-  yPos += 8;
+  yPos += 5;
 
   // Diagnóstico Inicial
   doc.setFont('times', 'bold');
@@ -260,16 +348,18 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.addPage();
   yPos = margin + 5;
 
-  // Recuadro superior derecho (repetir en página 2) - sin círculos
+  // Recuadro superior derecho (repetir en página 2) — logo dentro
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
-  doc.rect(pageWidth - margin - 45, margin - 5, 45, 25);
+  doc.rect(boxX, boxY, boxW, boxH);
+  doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  // Recuadro celeste con datos del cliente y equipo
+  // Recuadro celeste con datos del cliente y equipo (altura dinámica)
+  const boxHeight2 = calcBoxHeight(data);
   doc.setFillColor(173, 216, 230);
   doc.setDrawColor(0, 100, 150);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, contentWidth - 50, 35, 3, 3, 'FD');
+  doc.roundedRect(margin, yPos, contentWidth - 50, boxHeight2, 3, 3, 'FD');
 
   yPos += 6;
   doc.setTextColor(0, 0, 0);
@@ -304,8 +394,29 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   if (data.equipo.imei) {
     doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
   }
+  yPos += 5;
 
-  yPos += 8;
+  // Access method rendering (page 2)
+  {
+    const tipo = data.equipo.accesoTipo;
+    const valor = data.equipo.accesoValor;
+    if (tipo === 'patron' && valor) {
+      doc.text('Patrón de acceso:', margin + 3, yPos);
+      yPos += 4;
+      const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
+      const gridSize = 16;
+      drawPatternGrid(doc, margin + 12, yPos + gridSize / 2, gridSize, patternArr);
+      yPos += gridSize + 4;
+    } else if (tipo === 'pin') {
+      doc.text('Acceso: PIN registrado', margin + 3, yPos);
+      yPos += 5;
+    } else if (!tipo && data.equipo.contraseña) {
+      doc.text(`Contraseña/Patrón: ${data.equipo.contraseña}`, margin + 3, yPos);
+      yPos += 5;
+    }
+  }
+
+  yPos += 5;
 
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 8;

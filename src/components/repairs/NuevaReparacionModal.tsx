@@ -235,10 +235,11 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
         modelo: equipmentData.modelo,
         color: equipmentData.color,
         imei: equipmentData.imei,
-        contraseña: equipmentData.accesoTipo === 'pin'
+        accesoTipo: equipmentData.accesoTipo,
+        accesoValor: equipmentData.accesoTipo === 'patron'
+          ? patternArr.join('-')
+          : equipmentData.accesoTipo === 'pin'
           ? equipmentData.accesoValor
-          : equipmentData.accesoTipo === 'patron'
-          ? `Patrón: ${patternArr.join('-')}`
           : undefined,
         diagnostico: equipmentData.diagnostico,
       },
