@@ -139,35 +139,41 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
     doc.setTextColor(0, 0, 0);
   }
 
-  // ── Pre-compute diagnostico lines (font size must match rendering) ─────
-  // Inner text width = contentWidth minus 3mm left + 3mm right padding
-  const innerWidth = contentWidth - 6;
-  doc.setFontSize(10);
-  const diagLines = doc.splitTextToSize(data.equipo.diagnostico || '', innerWidth);
+  // ── Two-column layout constants for the bottom section of the blue box ──────
+  const boxPad   = 5;                              // inner padding from box edges
+  const diagColX = margin + Math.round(contentWidth * 0.42); // right col X
+  const diagColW = contentWidth - Math.round(contentWidth * 0.42) - boxPad; // right col width
 
-  // ── Calculate blue box height (all content that goes inside it) ────────
+  // Pre-compute diag lines with the right-column width
+  doc.setFontSize(10);
+  const diagLines = doc.splitTextToSize(data.equipo.diagnostico || '', diagColW);
+
+  // ── Calculate blue box height using two-column bottom section ────────────
   function calcBlueBoxHeight(): number {
-    let h = 6;  // top padding inside box
-    // DATOS DEL CLIENTE
-    h += 6;     // title + gap
-    h += 5;     // nombre / teléfono row
+    let h = boxPad;   // top padding
+    h += 6;           // DATOS DEL CLIENTE title + gap
+    h += 5;           // nombre / teléfono row
     if (data.cliente.email) h += 5;
-    h += 3;     // gap before equipo section
-    // DATOS DEL EQUIPO
-    h += 6;     // title + gap
-    h += 5;     // tipo / marca / modelo row
-    h += 5;     // color / imei row
-    // Access block
+    h += 3;           // gap before DATOS DEL EQUIPO
+    h += 6;           // DATOS DEL EQUIPO title + gap
+    h += 5;           // tipo / marca / modelo row
+    h += 5;           // color / imei row
+    h += 4;           // gap before two-column section
+
+    // Left column height
     const tipo  = data.equipo.accesoTipo;
     const valor = data.equipo.accesoValor;
-    if (tipo === 'patron' && valor) h += 4 + 16 + 4; // label + 16mm grid + gap
-    else if (tipo === 'pin' || tipo === 'ninguno')    h += 5;
-    else if (!tipo && data.equipo.contraseña)         h += 5; // legacy
-    // Diagnóstico inside box
-    h += 6;                        // "Diagnóstico Inicial:" label + gap
-    h += diagLines.length * 5;     // text lines
-    h += 8;                        // bottom padding
-    return h + 4;                  // 4 mm safety margin
+    let leftH = 0;
+    if (tipo === 'patron' && valor) leftH = 5 + 16 + 4; // label + grid + gap
+    else if (tipo === 'pin' || tipo === 'ninguno')  leftH = 5;
+    else if (!tipo && data.equipo.contraseña)       leftH = 5; // legacy
+
+    // Right column height
+    const rightH = 5 + diagLines.length * 5; // "Diagnóstico:" label + lines
+
+    h += Math.max(leftH, rightH);
+    h += boxPad + 4;  // bottom padding + safety
+    return h;
   }
 
   const blueBoxHeight = calcBlueBoxHeight();
@@ -236,39 +242,37 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   if (data.equipo.imei) doc.text(`IMEI/Serie: ${data.equipo.imei}`, margin + 50, yPos);
   yPos += 5;
 
-  // Access method
+  yPos += 4; // gap before two-column section
+
+  // ── Left column: Acceso ────────────────────────────────────────────────
   {
     const tipo  = data.equipo.accesoTipo;
     const valor = data.equipo.accesoValor;
+    doc.setFont('times', 'normal');
+    doc.setFontSize(10);
     if (tipo === 'patron' && valor) {
-      doc.text('Acceso: Patrón', margin + 3, yPos);
-      yPos += 4;
-      const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
-      const gridSize = 16;
-      drawPatternGrid(doc, margin + 12, yPos + gridSize / 2, gridSize, patternArr);
-      yPos += gridSize + 4;
+      doc.text('Acceso: Patrón', margin + boxPad, yPos);
+      const patternY = yPos + 5;
+      const gridSize = 18;
+      drawPatternGrid(doc, margin + boxPad + 12, patternY + gridSize / 2, gridSize, valor.split('-').map(Number).filter(n => n >= 1 && n <= 9));
     } else if (tipo === 'pin') {
-      doc.text('Acceso: PIN registrado', margin + 3, yPos);
-      yPos += 5;
+      doc.text('Acceso: PIN registrado', margin + boxPad, yPos);
     } else if (tipo === 'ninguno') {
       doc.setFont('times', 'italic');
-      doc.text('Sin acceso registrado', margin + 3, yPos);
+      doc.text('Sin acceso registrado', margin + boxPad, yPos);
       doc.setFont('times', 'normal');
-      yPos += 5;
     } else if (!tipo && data.equipo.contraseña) {
-      doc.text(`Acceso: ${data.equipo.contraseña}`, margin + 3, yPos);
-      yPos += 5;
+      doc.text(`Acceso: ${data.equipo.contraseña}`, margin + boxPad, yPos);
     }
   }
 
-  // Diagnóstico inside the blue box
+  // ── Right column: Diagnóstico Inicial ──────────────────────────────
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
-  doc.text('Diagnóstico Inicial:', margin + 3, yPos);
-  yPos += 5;
+  doc.text('Diagnóstico Inicial:', diagColX, yPos);
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
-  doc.text(diagLines, margin + 3, yPos, { maxWidth: innerWidth, align: 'justify' });
+  doc.text(diagLines, diagColX, yPos + 5, { maxWidth: diagColW, align: 'justify' });
 
   // Jump to just after the blue box
   yPos = blueBoxY + blueBoxHeight + 8;
