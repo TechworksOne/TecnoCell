@@ -583,11 +583,12 @@ export default function RepairsPage() {
       modelo: r.recepcion.modelo ?? '',
       color: r.recepcion.color ?? '',
       imei: r.recepcion.imei ?? r.recepcion.imeiSerie,
-      contraseña: r.recepcion.contraseña ?? r.recepcion.patronContraseña,
+      accesoTipo: (r.recepcion.accesoTipo ?? 'ninguno') as 'ninguno' | 'pin' | 'patron',
+      accesoValor: r.recepcion.accesoValor ?? r.recepcion.patronContraseña ?? undefined,
       diagnostico: r.recepcion.diagnosticoInicial ?? '',
     },
     numeroReparacion: r.id,
-    fecha: r.recepcion.fechaRecepcion || new Date().toISOString().split('T')[0],
+    fecha: r.recepcion.fechaRecepcion || new Date().toISOString(),
   });
   const handleGeneratePDF = (r: Repair) => generarPDFRecepcion(buildPayload(r), false);
   const handlePreviewPDF  = (r: Repair) => generarPDFRecepcion(buildPayload(r), true);

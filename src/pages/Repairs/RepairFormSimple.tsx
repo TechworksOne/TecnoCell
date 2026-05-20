@@ -223,7 +223,8 @@ export default function RepairFormSimple() {
         modelo: equipmentData.modelo,
         color: equipmentData.color,
         imei: equipmentData.imei,
-        contrasena: equipmentData.contrasena,
+        accesoTipo: 'ninguno',
+        contraseña: equipmentData.contrasena || undefined,
         diagnostico: equipmentData.diagnostico,
       },
     }, false);

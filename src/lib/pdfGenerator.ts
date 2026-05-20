@@ -70,19 +70,60 @@ function drawPatternGrid(doc: jsPDF, cx: number, cy: number, size: number, patte
 }
 
 /**
+ * Formats a date string (ISO, yyyy-mm-dd, or dd/mm/yyyy) to dd/mm/yyyy.
+ */
+function formatFechaPDF(fecha: string): string {
+  if (!fecha) return '';
+  if (fecha.includes('T') || fecha.includes('Z')) {
+    const d = new Date(fecha);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+  if (fecha.includes('/')) return fecha;
+  const parts = fecha.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return fecha;
+}
+
+/**
+ * Sanitizes a string to be safe for use in a file name.
+ */
+function sanitizeFileName(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s_-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+}
+
+/**
  * Calculates the height needed for the client+equipment box.
  */
 function calcBoxHeight(data: RecepcionEquipoData): number {
-  // Base: "DATOS DEL CLIENTE" title(6) + name+phone row(5) + email(5 if present) + gap(3)
-  //       + "DATOS DEL EQUIPO" title(6) + tipo/marca/modelo row(5) + color/imei row(5)
-  //       + access row if needed (for pin: 5; for patron: grid ~22; for ninguno: 0) + padding(10)
-  let h = 6 + 5 + 3 + 6 + 5 + 5 + 10; // 40 base
+  // Exact rendering path:
+  //   +6  first padding inside box
+  //   +6  after DATOS DEL CLIENTE title
+  //   +5  name+phone row
+  //   +5  email row (if present)
+  //   +3  gap before DATOS DEL EQUIPO
+  //   +6  after DATOS DEL EQUIPO title
+  //   +5  tipo/marca/modelo row
+  //   +5  color/imei row
+  //   +access block
+  //   +5  final padding
+  let h = 6 + 6 + 5 + 3 + 6 + 5 + 5 + 5; // 41 base
   if (data.cliente.email) h += 5;
   const tipo = data.equipo.accesoTipo;
-  if (tipo === 'pin') h += 5;
-  else if (tipo === 'patron') h += 22;
-  else if (!tipo && data.equipo.contraseña) h += 5; // legacy
-  return h;
+  if (tipo === 'pin' || tipo === 'ninguno') h += 5;
+  else if (tipo === 'patron') {
+    const valor = data.equipo.accesoValor;
+    h += valor ? (4 + 16 + 4) : 5; // label+grid+gap OR fallback text
+  } else if (!tipo && data.equipo.contraseña) h += 5; // legacy
+  return h + 3; // 3 mm safety margin
 }
 
 export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean = false) => {
@@ -174,23 +215,28 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   }
   yPos += 5;
 
-  // Access method rendering
+  // Access method rendering (page 1)
   {
     const tipo = data.equipo.accesoTipo;
     const valor = data.equipo.accesoValor;
     if (tipo === 'patron' && valor) {
-      doc.text('Patrón de acceso:', margin + 3, yPos);
+      doc.text('Acceso: Patrón', margin + 3, yPos);
       yPos += 4;
       const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
-      const gridSize = 16; // mm
+      const gridSize = 16;
       drawPatternGrid(doc, margin + 12, yPos + gridSize / 2, gridSize, patternArr);
       yPos += gridSize + 4;
     } else if (tipo === 'pin') {
       doc.text('Acceso: PIN registrado', margin + 3, yPos);
       yPos += 5;
+    } else if (tipo === 'ninguno') {
+      doc.setFont('times', 'italic');
+      doc.text('Sin acceso registrado', margin + 3, yPos);
+      doc.setFont('times', 'normal');
+      yPos += 5;
     } else if (!tipo && data.equipo.contraseña) {
       // legacy
-      doc.text(`Contraseña/Patrón: ${data.equipo.contraseña}`, margin + 3, yPos);
+      doc.text(`Acceso: ${data.equipo.contraseña}`, margin + 3, yPos);
       yPos += 5;
     }
   }
@@ -401,7 +447,7 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
     const tipo = data.equipo.accesoTipo;
     const valor = data.equipo.accesoValor;
     if (tipo === 'patron' && valor) {
-      doc.text('Patrón de acceso:', margin + 3, yPos);
+      doc.text('Acceso: Patrón', margin + 3, yPos);
       yPos += 4;
       const patternArr = valor.split('-').map(Number).filter(n => n >= 1 && n <= 9);
       const gridSize = 16;
@@ -410,8 +456,13 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
     } else if (tipo === 'pin') {
       doc.text('Acceso: PIN registrado', margin + 3, yPos);
       yPos += 5;
+    } else if (tipo === 'ninguno') {
+      doc.setFont('times', 'italic');
+      doc.text('Sin acceso registrado', margin + 3, yPos);
+      doc.setFont('times', 'normal');
+      yPos += 5;
     } else if (!tipo && data.equipo.contraseña) {
-      doc.text(`Contraseña/Patrón: ${data.equipo.contraseña}`, margin + 3, yPos);
+      doc.text(`Acceso: ${data.equipo.contraseña}`, margin + 3, yPos);
       yPos += 5;
     }
   }
@@ -492,7 +543,7 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   doc.setFont('times', 'bold');
   doc.text('Recibido por TECNOCELL', firma2X + firmaWidth / 2, firmaY + 5, { align: 'center' });
   doc.setFont('times', 'normal');
-  doc.text(`Fecha: ${data.fecha}`, firma2X + firmaWidth / 2, firmaY + 10, { align: 'center' });
+  doc.text(`Fecha: ${formatFechaPDF(data.fecha)}`, firma2X + firmaWidth / 2, firmaY + 10, { align: 'center' });
 
   // Footer
   doc.setFontSize(8);
@@ -504,6 +555,7 @@ export const generarPDFRecepcion = (data: RecepcionEquipoData, preview: boolean 
   if (preview) {
     window.open(doc.output('bloburl'), '_blank');
   } else {
-    doc.save(`Recepcion_${data.numeroReparacion}_${data.cliente.nombre.replace(/\s/g, '_')}.pdf`);
+    const sanitizedName = sanitizeFileName(data.cliente.nombre);
+    doc.save(`${sanitizedName}_${data.numeroReparacion}.pdf`);
   }
 };
