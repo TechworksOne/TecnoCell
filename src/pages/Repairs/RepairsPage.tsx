@@ -256,16 +256,39 @@ function ModalCancelar({
   onClose,
   onSuccess,
 }: { repair: Repair; onClose: () => void; onSuccess: (id: string) => void }) {
-  const [motivo, setMotivo] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const montoAnticipo = repair.recepcion.montoAnticipo ?? 0;
+  const metodo        = repair.recepcion.metodoAnticipo ?? 'efectivo';
+  const tieneAnticipo = montoAnticipo > 0;
+
+  const [motivo,           setMotivo]           = useState('');
+  const [devolucion,       setDevolucion]       = useState<boolean | null>(null); // null = sin elegir
+  const [montoDevolucion,  setMontoDevolucion]  = useState(montoAnticipo);
+  const [motivoRetencion,  setMotivoRetencion]  = useState('');
+  const [saving,           setSaving]           = useState(false);
+  const [error,            setError]            = useState('');
+
+  const montoRetenido = tieneAnticipo && devolucion ? Math.max(0, montoAnticipo - montoDevolucion) : montoAnticipo;
 
   const handleCancelar = async () => {
-    if (!motivo.trim()) { setError('El motivo es requerido'); return; }
+    setError('');
+    if (!motivo.trim()) { setError('El motivo de cancelación es requerido'); return; }
+    if (tieneAnticipo && devolucion === null) { setError('Indica si se devuelve dinero al cliente'); return; }
+    if (tieneAnticipo && devolucion && montoDevolucion > montoAnticipo) {
+      setError(`No se puede devolver más del anticipo recibido (Q${montoAnticipo.toFixed(2)})`);
+      return;
+    }
+    if (montoRetenido > 0 && !motivoRetencion.trim()) {
+      setError('El motivo de retención es requerido cuando se retiene parte del anticipo');
+      return;
+    }
     try {
       setSaving(true);
-      setError('');
-      await cancelarReparacion(repair.id, motivo.trim());
+      await cancelarReparacion(repair.id, {
+        motivo:          motivo.trim(),
+        devolucion:      tieneAnticipo ? (devolucion ?? false) : false,
+        montoDevolucion: tieneAnticipo && devolucion ? montoDevolucion : 0,
+        motivoRetencion: motivoRetencion.trim() || undefined,
+      });
       onSuccess(repair.id);
       onClose();
     } catch (e: any) {
@@ -275,43 +298,150 @@ function ModalCancelar({
     }
   };
 
+  const labelCls = 'block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5';
+  const inputCls = 'w-full px-3 py-2 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40';
+
+  const metodoPago: Record<string, string> = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia',
+    tarjeta: 'Tarjeta',
+    tarjeta_bac: 'Tarjeta BAC',
+    tarjeta_neonet: 'Tarjeta Neonet',
+    tarjeta_otra: 'Otra tarjeta',
+  };
+
   return (
     <Modal open onClose={onClose} title={`Cancelar Reparación — ${repair.id}`}>
       <div className="space-y-4 text-sm">
+
+        {/* Advertencia */}
         <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800">
           <AlertTriangle size={16} className="text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-red-700 dark:text-red-300 font-semibold text-xs">¿Confirmas la cancelación?</p>
+            <p className="text-red-700 dark:text-red-300 font-semibold text-xs">Esta acción no se puede deshacer</p>
             <p className="text-red-600/80 dark:text-red-400/80 text-xs mt-0.5">
-              Esta acción no se puede deshacer. La reparación quedará bloqueada para nuevos pagos y gestión de flujo.
+              La reparación quedará bloqueada para nuevos pagos y gestión de flujo.
             </p>
           </div>
         </div>
 
+        {/* Datos básicos */}
         <p className="text-slate-500 dark:text-slate-400 text-xs">
           Cliente: <span className="text-slate-800 dark:text-slate-200 font-medium">{repair.clienteNombre}</span>
           {' · '}{[repair.recepcion.marca, repair.recepcion.modelo].filter(Boolean).join(' ')}
         </p>
 
+        {/* Sección anticipo */}
+        {tieneAnticipo ? (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">Anticipo recibido</span>
+              <span className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Q{montoAnticipo.toFixed(2)}
+                <span className="text-xs font-normal ml-1 text-amber-700 dark:text-amber-400">({metodoPago[metodo] ?? metodo})</span>
+              </span>
+            </div>
+
+            {/* ¿Devolver? */}
+            <div>
+              <p className={labelCls}>¿Se devuelve dinero al cliente? *</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setDevolucion(true); setMontoDevolucion(montoAnticipo); setMotivoRetencion(''); }}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${devolucion === true ? 'bg-green-600 text-white border-green-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                >
+                  Sí, devolver
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDevolucion(false); setMontoDevolucion(0); }}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${devolucion === false ? 'bg-red-600 text-white border-red-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                >
+                  No devolver
+                </button>
+              </div>
+            </div>
+
+            {/* Monto a devolver */}
+            {devolucion === true && (
+              <div>
+                <label className={labelCls}>Monto a devolver (máx Q{montoAnticipo.toFixed(2)})</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={montoAnticipo}
+                  step={0.01}
+                  value={montoDevolucion}
+                  onChange={e => setMontoDevolucion(Math.min(montoAnticipo, Math.max(0, Number(e.target.value) || 0)))}
+                  className={inputCls + ' resize-none'}
+                />
+              </div>
+            )}
+
+            {/* Resumen devolución / retención */}
+            {devolucion !== null && (
+              <div className="flex gap-3 text-xs">
+                <div className="flex-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 text-center">
+                  <p className="text-slate-500 dark:text-slate-400">A devolver</p>
+                  <p className="font-bold text-green-700 dark:text-green-400 mt-0.5">
+                    Q{(devolucion ? montoDevolucion : 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 text-center">
+                  <p className="text-slate-500 dark:text-slate-400">Retenido</p>
+                  <p className={`font-bold mt-0.5 ${montoRetenido > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>
+                    Q{montoRetenido.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Motivo retención */}
+            {montoRetenido > 0 && (
+              <div>
+                <label className={labelCls}>Motivo de retención * (Q{montoRetenido.toFixed(2)} retenidos)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ej: Diagnóstico ya realizado, costo de gestión..."
+                  value={motivoRetencion}
+                  onChange={e => { setMotivoRetencion(e.target.value); setError(''); }}
+                  className={inputCls + ' resize-none'}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+            Sin anticipo registrado — no hay devolución de dinero.
+          </div>
+        )}
+
+        {/* Motivo de cancelación */}
         <div>
-          <label className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Motivo de cancelación *</label>
+          <label className={labelCls}>Motivo de cancelación *</label>
           <textarea
             rows={3}
             placeholder="Ej: Cliente desistió de la reparación..."
             value={motivo}
             onChange={e => { setMotivo(e.target.value); setError(''); }}
-            className="w-full px-3 py-2 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+            className={inputCls + ' resize-none'}
           />
         </div>
 
+        {/* Error */}
         {error && (
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs">
             <AlertTriangle size={13} /> {error}
           </div>
         )}
 
+        {/* Acciones */}
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
             No cancelar
           </button>
           <button

@@ -334,9 +334,19 @@ export const registrarPagoSaldo = async (
 };
 
 // ========== CANCELAR REPARACIÓN ==========
-export const cancelarReparacion = async (id: string, motivo: string): Promise<void> => {
+export interface CancelarReparacionPayload {
+  motivo: string;
+  devolucion: boolean;
+  montoDevolucion: number;
+  motivoRetencion?: string;
+}
+
+export const cancelarReparacion = async (
+  id: string,
+  payload: CancelarReparacionPayload
+): Promise<void> => {
   try {
-    await api.patch(`/reparaciones/${id}/cancelar`, { motivo });
+    await api.patch(`/reparaciones/${id}/cancelar`, payload);
   } catch (error) {
     console.error('Error al cancelar reparación:', error);
     throw error;

@@ -112,6 +112,9 @@ export interface Repair {
   // Cancelación
   fechaCancelacion?: string;
   motivoCancelacion?: string;
+  devolucionMonto?: number;
+  montoRetenido?: number;
+  motivoRetencion?: string;
 
   // Auditoría
   createdAt: string;

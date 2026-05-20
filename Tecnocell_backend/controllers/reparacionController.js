@@ -958,17 +958,31 @@ exports.cancelarReparacion = async (req, res) => {
   try {
     await connection.beginTransaction();
     const { id } = req.params;
-    const { motivo } = req.body;
+    const {
+      motivo,
+      devolucion       = false,   // ¿se devuelve dinero al cliente?
+      montoDevolucion  = 0,       // cuánto se devuelve
+      motivoRetencion  = '',      // requerido si monto_retenido > 0
+    } = req.body;
     const usuario = req.user?.username || req.user?.name || req.user?.nombre || 'Usuario';
 
+    // ── Validaciones básicas ─────────────────────────────────────────────
     const motivoLimpio = String(motivo || '').trim();
     if (!motivoLimpio) {
       await connection.rollback();
       return res.status(400).json({ success: false, message: 'El motivo de cancelación es requerido' });
     }
 
+    const devolver         = Boolean(devolucion);
+    const montoDev         = devolver ? Math.max(0, Number(montoDevolucion) || 0) : 0;
+    const motivoRetLimpio  = String(motivoRetencion || '').trim();
+
+    // ── Cargar reparación ────────────────────────────────────────────────
     const [[rep]] = await connection.query(
-      'SELECT id, estado FROM reparaciones WHERE id = ?', [id]
+      `SELECT id, estado, cliente_nombre, monto_anticipo, metodo_anticipo,
+              cuenta_bancaria_anticipo_id
+         FROM reparaciones WHERE id = ?`,
+      [id]
     );
     if (!rep) {
       await connection.rollback();
@@ -983,108 +997,161 @@ exports.cancelarReparacion = async (req, res) => {
       return res.status(409).json({ success: false, message: 'No se puede cancelar una reparación ya entregada' });
     }
 
+    const montoAnticipo = Number(rep.monto_anticipo) || 0;
+
+    // ── Validaciones de devolución ───────────────────────────────────────
+    if (devolver && montoDev > montoAnticipo) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `No se puede devolver más del anticipo recibido (Q${montoAnticipo.toFixed(2)})`
+      });
+    }
+    const montoRetenido = montoAnticipo - montoDev;
+    if (montoRetenido > 0 && !motivoRetLimpio) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'El motivo de retención es requerido cuando se retiene parte del anticipo'
+      });
+    }
+
     const estadoAnterior = rep.estado;
     const fechaHoy = new Date().toISOString().split('T')[0];
 
-    await connection.query(
-      `UPDATE reparaciones
-         SET estado = 'CANCELADA', fecha_cancelacion = ?, motivo_cancelacion = ?, updated_by = ?
-       WHERE id = ?`,
-      [fechaHoy, motivoLimpio, usuario, id]
-    );
+    // ── Buscar movimiento de anticipo (INGRESO) vinculado ────────────────
+    let anticipoMovId = null;
+    let devolucionMovId = null;
+    const notasAnticipo = [];
 
-    // ── Manejo de anticipos en Caja/Bancos ─────────────────────────────────
-    // Buscar movimientos de anticipo vinculados a esta reparación
+    // Caja chica: anticipo en efectivo
     const [movsCaja] = await connection.query(
       `SELECT * FROM caja_chica
        WHERE referencia_tipo = 'REPARACION' AND referencia_id = ?
-         AND categoria = 'ANTICIPO_REPARACION'
-         AND tipo_movimiento = 'INGRESO'`,
+         AND categoria = 'ANTICIPO_REPARACION' AND tipo_movimiento = 'INGRESO'
+       ORDER BY id DESC LIMIT 1`,
       [id]
     );
+
+    // Banco: anticipo por transferencia / tarjeta
     const [movsBanco] = await connection.query(
       `SELECT * FROM movimientos_bancarios
        WHERE referencia_tipo = 'REPARACION' AND referencia_id = ?
-         AND categoria = 'ANTICIPO_REPARACION'
-         AND tipo_movimiento = 'INGRESO'`,
+         AND categoria = 'ANTICIPO_REPARACION' AND tipo_movimiento = 'INGRESO'
+       ORDER BY id DESC LIMIT 1`,
       [id]
     );
 
-    // Verificar si ya existe devolución para evitar duplicados
-    const [devCajaExistente] = await connection.query(
-      `SELECT id FROM caja_chica
-       WHERE referencia_tipo = 'REPARACION' AND referencia_id = ?
-         AND categoria = 'DEVOLUCION_ANTICIPO_REPARACION' AND tipo_movimiento = 'EGRESO'
-       LIMIT 1`,
-      [id]
-    );
-    const [devBancoExistente] = await connection.query(
-      `SELECT id FROM movimientos_bancarios
-       WHERE referencia_tipo = 'REPARACION' AND referencia_id = ?
-         AND categoria = 'DEVOLUCION_ANTICIPO_REPARACION' AND tipo_movimiento = 'EGRESO'
-       LIMIT 1`,
-      [id]
-    );
-
-    const notasAnticipo = [];
-
-    // Procesar movimientos de caja chica
+    // ── Procesar anticipo en Caja Chica ──────────────────────────────────
     for (const mov of movsCaja) {
+      anticipoMovId = mov.id;
       if (mov.estado === 'PENDIENTE') {
-        // Anular el anticipo pendiente → ya no puede confirmarse
+        // El anticipo nunca llegó a confirmarse → anular
         await connection.query(
           `UPDATE caja_chica SET estado = 'ANULADO' WHERE id = ?`,
           [mov.id]
         );
         notasAnticipo.push(`Anticipo en caja anulado (Q${Number(mov.monto).toFixed(2)})`);
-      } else if (mov.estado === 'CONFIRMADO' && devCajaExistente.length === 0) {
-        // Anticipo ya confirmado → crear devolución pendiente (el usuario la confirma)
-        const conceptoDev = `Devolución de anticipo por cancelación de reparación ${id}`;
-        await connection.query(
+      } else if (mov.estado === 'CONFIRMADO' && devolver && montoDev > 0) {
+        // Anticipo confirmado + hay devolución → registrar EGRESO de devolución
+        const concepto = `Devolución de anticipo reparación ${id} - ${rep.cliente_nombre}`;
+        const observ   = [
+          `Cancelación: ${motivoLimpio}`,
+          montoRetenido > 0 ? `Monto retenido: Q${montoRetenido.toFixed(2)} — ${motivoRetLimpio}` : null,
+        ].filter(Boolean).join(' | ');
+
+        const [result] = await connection.query(
           `INSERT INTO caja_chica
-             (tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+             (tipo_movimiento, monto, concepto, categoria, estado, realizado_por,
+              observaciones, referencia_tipo, referencia_id)
            VALUES ('EGRESO', ?, ?, 'DEVOLUCION_ANTICIPO_REPARACION', 'PENDIENTE', ?, ?, 'REPARACION', ?)`,
-          [mov.monto, conceptoDev, usuario, `Cancelación: ${motivoLimpio}`, id]
+          [montoDev, concepto, usuario, observ, id]
         );
-        notasAnticipo.push(`Devolución de anticipo (caja) registrada como pendiente (Q${Number(mov.monto).toFixed(2)})`);
+        devolucionMovId = result.insertId;
+        notasAnticipo.push(`Egreso por devolución de anticipo (caja) Q${montoDev.toFixed(2)} — PENDIENTE de confirmar`);
+      } else if (mov.estado === 'CONFIRMADO' && (!devolver || montoDev === 0)) {
+        notasAnticipo.push(`Anticipo en caja confirmado; sin devolución al cliente (Q${montoAnticipo.toFixed(2)} retenido)`);
       }
     }
 
-    // Procesar movimientos bancarios
+    // ── Procesar anticipo en Banco ───────────────────────────────────────
     for (const mov of movsBanco) {
+      anticipoMovId = mov.id;
       if (mov.estado === 'PENDIENTE') {
         await connection.query(
           `UPDATE movimientos_bancarios SET estado = 'ANULADO' WHERE id = ?`,
           [mov.id]
         );
         notasAnticipo.push(`Anticipo bancario anulado (Q${Number(mov.monto).toFixed(2)})`);
-      } else if (mov.estado === 'CONFIRMADO' && devBancoExistente.length === 0) {
-        const conceptoDev = `Devolución de anticipo por cancelación de reparación ${id}`;
-        await connection.query(
+      } else if (mov.estado === 'CONFIRMADO' && devolver && montoDev > 0) {
+        const concepto = `Devolución de anticipo reparación ${id} - ${rep.cliente_nombre}`;
+        const observ   = [
+          `Cancelación: ${motivoLimpio}`,
+          montoRetenido > 0 ? `Monto retenido: Q${montoRetenido.toFixed(2)} — ${motivoRetLimpio}` : null,
+        ].filter(Boolean).join(' | ');
+
+        const [result] = await connection.query(
           `INSERT INTO movimientos_bancarios
-             (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones, referencia_tipo, referencia_id)
+             (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por,
+              observaciones, referencia_tipo, referencia_id)
            VALUES (?, 'EGRESO', ?, ?, 'DEVOLUCION_ANTICIPO_REPARACION', 'PENDIENTE', ?, ?, 'REPARACION', ?)`,
-          [mov.cuenta_id, mov.monto, conceptoDev, usuario, `Cancelación: ${motivoLimpio}`, id]
+          [mov.cuenta_id, montoDev, concepto, usuario, observ, id]
         );
-        notasAnticipo.push(`Devolución de anticipo (banco) registrada como pendiente (Q${Number(mov.monto).toFixed(2)})`);
+        devolucionMovId = result.insertId;
+        notasAnticipo.push(`Egreso por devolución de anticipo (banco) Q${montoDev.toFixed(2)} — PENDIENTE de confirmar`);
+      } else if (mov.estado === 'CONFIRMADO' && (!devolver || montoDev === 0)) {
+        notasAnticipo.push(`Anticipo bancario confirmado; sin devolución al cliente (Q${montoAnticipo.toFixed(2)} retenido)`);
       }
     }
 
-    const notaHistorial = [
+    // ── UPDATE reparaciones con trazabilidad completa ────────────────────
+    await connection.query(
+      `UPDATE reparaciones
+         SET estado                  = 'CANCELADA',
+             fecha_cancelacion       = ?,
+             motivo_cancelacion      = ?,
+             devolucion_monto        = ?,
+             monto_retenido          = ?,
+             motivo_retencion        = ?,
+             anticipo_movimiento_id  = ?,
+             devolucion_movimiento_id = ?,
+             updated_by              = ?
+       WHERE id = ?`,
+      [
+        fechaHoy,
+        motivoLimpio,
+        montoDev,
+        montoRetenido,
+        motivoRetLimpio || null,
+        anticipoMovId,
+        devolucionMovId,
+        usuario,
+        id,
+      ]
+    );
+
+    // ── Historial ────────────────────────────────────────────────────────
+    const partes = [
       `Reparación cancelada. Motivo: ${motivoLimpio}`,
-      ...notasAnticipo
-    ].join(' | ');
+      devolver && montoDev > 0
+        ? `Devolución: Q${montoDev.toFixed(2)}`
+        : 'Sin devolución al cliente',
+      montoRetenido > 0
+        ? `Retenido: Q${montoRetenido.toFixed(2)} — ${motivoRetLimpio}`
+        : null,
+      ...notasAnticipo,
+    ].filter(Boolean);
 
     await connection.query(
       `INSERT INTO reparaciones_historial
-        (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
+         (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion)
        VALUES (?, 'CANCELADA', ?, ?, 'CANCELACION', ?, ?)`,
       [
         id,
-        notaHistorial,
+        partes.join(' | '),
         usuario,
         estadoAnterior,
-        `Cancelada desde estado ${estadoAnterior}. Motivo: ${motivoLimpio}`
+        `Cancelada desde ${estadoAnterior}. Motivo: ${motivoLimpio}`,
       ]
     );
 
@@ -1092,7 +1159,14 @@ exports.cancelarReparacion = async (req, res) => {
     res.json({
       success: true,
       message: 'Reparación cancelada exitosamente',
-      data: { accionesAnticipo: notasAnticipo }
+      data: {
+        devolucionMonto:     montoDev,
+        montoRetenido,
+        motivoRetencion:     motivoRetLimpio || null,
+        anticipoMovimientoId: anticipoMovId,
+        devolucionMovimientoId: devolucionMovId,
+        accionesAnticipo:    notasAnticipo,
+      },
     });
   } catch (error) {
     await connection.rollback();
