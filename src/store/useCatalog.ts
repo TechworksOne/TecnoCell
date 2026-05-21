@@ -184,17 +184,29 @@ export const useCatalog = create<CatalogState>((set, get) => ({
       if (updates.aplica_serie !== undefined) productData.aplica_serie = updates.aplica_serie ? true : false;
       if (updates.active !== undefined) productData.activo = updates.active;
       
+      // Solo incluir imagenes si es una imagen NUEVA en base64.
+      // Si es una URL existente (http:// o /uploads/), no enviar imagenes
+      // para que el backend conserve las actuales sin borrarlas.
       if (updates.images && updates.images.length > 0) {
-        productData.imagenes = updates.images.map((url, index) => ({
-          url: typeof url === 'string' ? url : url,
-          orden: index,
-          descripcion: `Imagen ${index + 1}`
-        }));
-      } else if (updates.image) {
+        const hasNew = updates.images.some(
+          (u) => typeof u === 'string' && (u as string).startsWith('data:')
+        );
+        if (hasNew) {
+          productData.imagenes = updates.images.map((url, index) => ({
+            url: typeof url === 'string' ? url : url,
+            orden: index,
+            descripcion: `Imagen ${index + 1}`,
+          }));
+        }
+      } else if (
+        updates.image &&
+        typeof updates.image === 'string' &&
+        updates.image.startsWith('data:')
+      ) {
         productData.imagenes = [{
           url: updates.image,
           orden: 0,
-          descripcion: 'Imagen 1'
+          descripcion: 'Imagen 1',
         }];
       }
 

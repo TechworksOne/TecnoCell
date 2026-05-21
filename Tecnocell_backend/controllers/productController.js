@@ -332,10 +332,10 @@ exports.createProduct = async (req, res) => {
 // Actualizar producto
 exports.updateProduct = async (req, res) => {
   const connection = await db.getConnection();
-  
+
   try {
     await connection.beginTransaction();
-    
+
     const { id } = req.params;
     const {
       sku,
@@ -349,15 +349,46 @@ exports.updateProduct = async (req, res) => {
       stock_minimo,
       aplica_serie,
       activo,
-      imagenes
     } = req.body;
-    
+
     console.log('🔄 Actualizando producto ID:', id);
-    console.log('📦 Datos recibidos:', req.body);
-    
+    console.log('📦 Body:', req.body);
+    console.log('📎 Archivos:', req.files?.length || 0);
+
+    // ── Normalizar imagenes ───────────────────────────────────────────────
+    // Puede llegar como:
+    //   - undefined          → no tocar imágenes actuales
+    //   - array JS           → usar directamente (JSON body con base64)
+    //   - string JSON        → parsear (FormData con JSON serializado)
+    //   - string simple      → base64 o URL sin wrapper de objeto
+    // Los archivos multer (req.files) tienen prioridad si están presentes.
+    let imagenesArr;
+
+    if (req.files && req.files.length > 0) {
+      // FormData con archivos reales: construir rutas relativas
+      imagenesArr = req.files.map((f, i) => ({
+        url: `/uploads/productos/${id}/${f.filename}`,
+        orden: i,
+        descripcion: `Imagen ${i + 1}`,
+      }));
+    } else if (req.body.imagenes !== undefined) {
+      if (Array.isArray(req.body.imagenes)) {
+        imagenesArr = req.body.imagenes;
+      } else if (typeof req.body.imagenes === 'string') {
+        try {
+          const parsed = JSON.parse(req.body.imagenes);
+          imagenesArr = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          // String simple (base64 o URL)
+          imagenesArr = [{ url: req.body.imagenes }];
+        }
+      }
+    }
+    // Si imagenesArr sigue undefined → no se tocan las imágenes actuales
+
     const updates = [];
     const values = [];
-    
+
     if (sku !== undefined) { updates.push('sku = ?'); values.push(sku); }
     if (nombre !== undefined) { updates.push('nombre = ?'); values.push(nombre); }
     if (descripcion !== undefined) { updates.push('descripcion = ?'); values.push(descripcion); }
@@ -367,22 +398,21 @@ exports.updateProduct = async (req, res) => {
     if (precio_venta !== undefined) { updates.push('precio_venta = ?'); values.push(precio_venta); }
     if (stock !== undefined) { updates.push('stock = ?'); values.push(stock); }
     if (stock_minimo !== undefined) { updates.push('stock_minimo = ?'); values.push(stock_minimo); }
-    if (aplica_serie !== undefined) { 
-      const aplicaSerieValue = aplica_serie ? 1 : 0;
-      updates.push('aplica_serie = ?'); 
-      values.push(aplicaSerieValue); 
+    if (aplica_serie !== undefined) {
+      updates.push('aplica_serie = ?');
+      values.push(aplica_serie ? 1 : 0);
     }
     if (activo !== undefined) { updates.push('activo = ?'); values.push(activo); }
-    
-    if (updates.length === 0 && !imagenes) {
+
+    if (updates.length === 0 && !imagenesArr) {
       await connection.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No hay datos para actualizar' 
+      return res.status(400).json({
+        success: false,
+        message: 'No hay datos para actualizar',
       });
     }
-    
-    // Actualizar producto si hay cambios
+
+    // Actualizar campos del producto
     if (updates.length > 0) {
       values.push(id);
       await connection.query(
@@ -390,19 +420,22 @@ exports.updateProduct = async (req, res) => {
         values
       );
     }
-    
-    // Actualizar imágenes si se enviaron
-    if (imagenes !== undefined) {
-      if (imagenes.length > 3) {
+
+    // Actualizar imágenes solo si se enviaron nuevas
+    if (imagenesArr !== undefined) {
+      if (imagenesArr.length > 3) {
         await connection.rollback();
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Máximo 3 imágenes permitidas por producto' 
+        return res.status(400).json({
+          success: false,
+          message: 'Máximo 3 imágenes permitidas por producto',
         });
       }
-      
-      // Eliminar imágenes existentes (y sus archivos físicos)
-      const [oldImages] = await connection.query('SELECT url FROM producto_imagenes WHERE producto_id = ?', [id]);
+
+      // Borrar registros e imágenes físicas anteriores
+      const [oldImages] = await connection.query(
+        'SELECT url FROM producto_imagenes WHERE producto_id = ?',
+        [id]
+      );
       for (const old of oldImages) {
         if (old.url && old.url.startsWith('/uploads/')) {
           const filePath = path.join(__dirname, '..', old.url);
@@ -410,10 +443,10 @@ exports.updateProduct = async (req, res) => {
         }
       }
       await connection.query('DELETE FROM producto_imagenes WHERE producto_id = ?', [id]);
-      
+
       // Insertar nuevas imágenes
-      for (let i = 0; i < imagenes.length; i++) {
-        const imagen = imagenes[i];
+      for (let i = 0; i < imagenesArr.length; i++) {
+        const imagen = imagenesArr[i];
         let urlFinal = imagen.url || imagen;
         if (typeof urlFinal === 'string' && urlFinal.startsWith('data:')) {
           urlFinal = saveBase64Image(urlFinal, id, i);
@@ -426,20 +459,20 @@ exports.updateProduct = async (req, res) => {
         }
       }
     }
-    
+
     await connection.commit();
-    
+
     res.json({
       success: true,
-      message: 'Producto actualizado exitosamente'
+      message: 'Producto actualizado exitosamente',
     });
   } catch (error) {
     await connection.rollback();
     console.error('Error al actualizar producto:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Error al actualizar producto',
-      error: error.message 
+      error: error.message,
     });
   } finally {
     connection.release();
