@@ -86,6 +86,38 @@ const EVENTO_EMOJI: Record<string, string> = {
   otro:         '📌',
 };
 
+// ─── Modal de confirmación genérico ─────────────────────────────────────────────────
+interface ModalConfirmProps {
+  mensaje: string;
+  labelConfirm?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+function ModalConfirm({ mensaje, labelConfirm = 'Eliminar', onConfirm, onCancel }: ModalConfirmProps) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-xs rounded-2xl shadow-2xl p-6 space-y-4"
+           style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/30 flex items-center justify-center">
+            <Trash2 size={18} className="text-red-500" />
+          </div>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{mensaje}</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onCancel}
+            className="flex-1 px-4 py-2 text-sm rounded-xl border"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-sec)' }}>Cancelar</button>
+          <button onClick={onConfirm}
+            className="flex-1 px-4 py-2 text-sm rounded-xl font-medium text-white bg-red-500 hover:bg-red-600 transition-colors">
+            {labelConfirm}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal Evento (notas, citas, recordatorios) ───────────────────────────────
 interface ModalEventoProps {
   evento?: AgendaEvento;
@@ -101,6 +133,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
   const [tipo, setTipo] = useState<TipoEvento>(evento?.tipo ?? 'nota');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const TIPOS: { value: TipoEvento; label: string; emoji: string; color: string }[] = [
     { value: 'nota',         label: 'Nota',         emoji: '📝', color: '#F59E0B' },
@@ -190,7 +223,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
         </div>
         <div className="flex items-center justify-between p-5 border-t gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           {evento ? (
-            <button onClick={handleDelete} disabled={saving}
+            <button onClick={() => setConfirmDelete(true)} disabled={saving}
               className="text-sm text-red-500 hover:text-red-600 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">
               <Trash2 size={14} /> Eliminar
             </button>
@@ -207,6 +240,14 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
         </div>
       </div>
     </div>
+    {confirmDelete && (
+      <ModalConfirm
+        mensaje="¿Eliminar este evento?"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    )}
+  </div>
   );
 }
 
@@ -268,6 +309,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
   const [nota, setNota] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (entrega?.fecha_entrega_programada) {
