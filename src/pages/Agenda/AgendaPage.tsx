@@ -356,6 +356,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
   if (!entrega) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
         className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
@@ -437,7 +438,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
         <div className="flex items-center justify-between p-5 border-t gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
           {entrega.fecha_entrega_programada && (
             <button
-              onClick={handleRemove}
+              onClick={() => setConfirmDelete(true)}
               disabled={saving}
               className="text-sm text-red-500 hover:text-red-600 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20"
             >
@@ -464,6 +465,15 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
         </div>
       </div>
     </div>
+    {confirmDelete && (
+      <ModalConfirm
+        mensaje="¿Quitar la fecha de entrega programada?"
+        labelConfirm="Quitar fecha"
+        onConfirm={handleRemove}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    )}
+    </>
   );
 }
 
