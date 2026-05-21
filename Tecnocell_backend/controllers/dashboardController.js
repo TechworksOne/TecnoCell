@@ -1,6 +1,23 @@
 const pool = require('../config/database');
 
+// ── Role helpers ──────────────────────────────────────────────────────────────
+function resolveRole(user) {
+  const list   = Array.isArray(user.roles) ? user.roles : [];
+  const legacy = String(user.role || '').toLowerCase().trim();
+  if (list.includes('ADMINISTRADOR') || legacy === 'admin' || legacy === 'administrador') return 'admin';
+  if (list.includes('TECNICO')       || legacy === 'tecnico')                             return 'tecnico';
+  if (list.includes('VENTAS')        || legacy === 'ventas')                              return 'ventas';
+  return 'ventas'; // empleado sin rol específico → sin datos sensibles
+}
+
 exports.getDashboardStats = async (req, res) => {
+  // Solo admin puede ver este endpoint completo.
+  // Técnicos deben usar /dashboard/tecnico; ventas debe usar /dashboard.
+  const callerRole = resolveRole(req.user);
+  if (callerRole === 'tecnico') {
+    return res.status(403).json({ error: 'Acceso denegado. Endpoint exclusivo para administradores.' });
+  }
+
   try {
     const connection = await pool.getConnection();
 
@@ -121,12 +138,18 @@ exports.getDashboardStats = async (req, res) => {
       }
     };
 
-    res.json(stats);
+    // Datos sensibles solo para admin — nunca enviar ganancias/costos a otros roles
+    if (callerRole !== 'admin') {
+      delete stats.ganancias;
+      delete stats.gastos;
+    }
+
+    res.json({ dashboardType: 'admin', ...stats });
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al cargar estadísticas del dashboard',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -135,6 +158,11 @@ exports.getDashboardStats = async (req, res) => {
 // Dashboard técnico — estadísticas filtradas por técnico autenticado
 // ═══════════════════════════════════════════════════════════════════════════
 exports.getTecnicoDashboardStats = async (req, res) => {
+  // Solo técnicos pueden acceder
+  if (resolveRole(req.user) !== 'tecnico') {
+    return res.status(403).json({ error: 'Acceso denegado. Endpoint exclusivo para técnicos.' });
+  }
+
   try {
     const connection = await pool.getConnection();
 
@@ -261,6 +289,7 @@ exports.getTecnicoDashboardStats = async (req, res) => {
     estadosBD.forEach(row => { estados[row.estado] = row.total; });
 
     res.json({
+      dashboardType: 'tecnico',
       tecnico: tecnicoNombre,
       stats: {
         asignadas:            totalAsignadas.total  || 0,
@@ -281,7 +310,78 @@ exports.getTecnicoDashboardStats = async (req, res) => {
     console.error('Error loading tecnico dashboard stats:', error);
     res.status(500).json({
       error: 'Error al cargar estadísticas del técnico',
-      details: error.message
+      details: error.message,
     });
   }
+};
+
+// ── Dashboard de Ventas (sin datos financieros sensibles) ─────────────────────
+exports.getVentasDashboard = async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [[ventasHoy]] = await connection.query(`
+      SELECT COUNT(*) as cantidad, COALESCE(SUM(total), 0) as monto
+      FROM ventas
+      WHERE DATE(created_at) = CURDATE() AND estado IN ('PAGADA', 'PARCIAL')
+    `);
+
+    const [[ventasMes]] = await connection.query(`
+      SELECT COUNT(*) as cantidad, COALESCE(SUM(total), 0) as monto
+      FROM ventas
+      WHERE MONTH(created_at) = MONTH(CURDATE())
+        AND YEAR(created_at)  = YEAR(CURDATE())
+        AND estado IN ('PAGADA', 'PARCIAL')
+    `);
+
+    const [[cotizaciones]] = await connection.query(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) as abiertas
+      FROM cotizaciones
+    `);
+
+    const [[reparacionesActivas]] = await connection.query(`
+      SELECT COUNT(*) as total FROM reparaciones
+      WHERE estado NOT IN ('ENTREGADA', 'CANCELADA')
+    `);
+
+    const [[stockBajo]] = await connection.query(`
+      SELECT COUNT(*) as total FROM productos
+      WHERE stock > 0 AND stock <= stock_minimo AND activo = 1
+    `);
+
+    const [[clientesHoy]] = await connection.query(`
+      SELECT COUNT(DISTINCT cliente_id) as total
+      FROM ventas
+      WHERE DATE(created_at) = CURDATE() AND estado IN ('PAGADA', 'PARCIAL')
+    `);
+
+    connection.release();
+
+    // NO se incluyen: ganancia, utilidad, margen, costo, saldo
+    res.json({
+      dashboardType: 'ventas',
+      ventasHoy:    { cantidad: ventasHoy.cantidad    || 0, total: Math.round((ventasHoy.monto    || 0) / 100) },
+      ventasMes:    { cantidad: ventasMes.cantidad    || 0, total: Math.round((ventasMes.monto    || 0) / 100) },
+      cotizaciones: { total: cotizaciones.total       || 0, abiertas: cotizaciones.abiertas || 0 },
+      reparaciones: { activas: reparacionesActivas.total || 0 },
+      stockBajo:    stockBajo.total   || 0,
+      clientesHoy:  clientesHoy.total || 0,
+    });
+  } catch (error) {
+    console.error('Error loading ventas dashboard stats:', error);
+    res.status(500).json({
+      error: 'Error al cargar estadísticas de ventas',
+      details: error.message,
+    });
+  }
+};
+
+// ── Dispatcher unificado: detecta rol y devuelve el dashboard correcto ─────────
+exports.getDashboard = async (req, res) => {
+  const role = resolveRole(req.user);
+  if (role === 'tecnico') return exports.getTecnicoDashboardStats(req, res);
+  if (role === 'ventas')  return exports.getVentasDashboard(req, res);
+  return exports.getDashboardStats(req, res); // admin
 };

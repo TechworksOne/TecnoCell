@@ -417,7 +417,7 @@ export function RepuestosPage() {
           <option value="available">Disponible</option>
           <option value="low">Stock bajo</option>
           <option value="out">Sin stock</option>
-        </Select>
+        </Select>z
         {hasFilters && (
           <Button variant="ghost" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setCategoryFilter('all'); setStockFilter('all'); }} className="text-sm text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 whitespace-nowrap shrink-0">
             Limpiar

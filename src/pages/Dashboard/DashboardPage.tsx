@@ -68,6 +68,16 @@ interface TecnicoData {
   actividad:    ActividadRow[];
 }
 
+interface VentasStats {
+  dashboardType: 'ventas';
+  ventasHoy:    { cantidad: number; total: number };
+  ventasMes:    { cantidad: number; total: number };
+  cotizaciones: { total: number; abiertas: number };
+  reparaciones: { activas: number };
+  stockBajo:    number;
+  clientesHoy:  number;
+}
+
 // ─── Helpers de color por estado ──────────────────────────────────────────────
 
 const BRAND      = "#48B9E6";
@@ -558,7 +568,123 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DASHBOARD PRINCIPAL (admin / empleado)
+// DASHBOARD VENTAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function VentasDashboard({ stats, time, userName }: { stats: VentasStats; time: Date; userName?: string }) {
+  const navigate = useNavigate();
+
+  const quickActions = [
+    { icon: ShoppingCart, label: "Nueva Venta",      color: "bg-emerald-500", path: "/ventas/nueva" },
+    { icon: FileText,     label: "Cotización",       color: "bg-blue-500",    path: "/cotizaciones" },
+    { icon: Users,        label: "Nuevo Cliente",    color: "bg-indigo-500",  path: "/clientes" },
+    { icon: Wrench,       label: "Nueva Reparación", color: "bg-violet-500",  path: "/reparaciones" },
+  ];
+
+  return (
+    <div className="space-y-5 max-w-screen-2xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">
+            <Zap size={11} /> Panel de Ventas
+          </span>
+          <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">Dashboard</h1>
+          <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
+            Bienvenido{userName ? `, ${userName}` : ''} — Operaciones comerciales del día
+          </p>
+        </div>
+        <ClockWidget time={time} />
+      </div>
+
+      {/* KPI Cards — montos de ventas (no ganancia ni costo) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard
+          label="Ventas Hoy"
+          value={formatMoney(stats.ventasHoy.total)}
+          footnote={`${stats.ventasHoy.cantidad} transacciones`}
+          footnoteIcon={<TrendingUp size={11} />}
+          icon={<ShoppingCart size={17} />}
+          gradient="bg-gradient-to-br from-emerald-500 to-green-600"
+        />
+        <KpiCard
+          label="Ventas del Mes"
+          value={formatMoney(stats.ventasMes.total)}
+          footnote={`${stats.ventasMes.cantidad} transacciones`}
+          icon={<Activity size={17} />}
+          gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+        />
+        <KpiCard
+          label="Cotizaciones Abiertas"
+          value={stats.cotizaciones.abiertas}
+          footnote={`${stats.cotizaciones.total} totales`}
+          icon={<FileText size={17} />}
+          gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+        />
+        <KpiCard
+          label="Clientes Atendidos Hoy"
+          value={stats.clientesHoy}
+          footnote="clientes únicos"
+          icon={<Users size={17} />}
+          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
+        />
+      </div>
+
+      {/* Stat cards operativas */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          label="Reparaciones Activas"
+          value={stats.reparaciones.activas}
+          sub="en proceso"
+          icon={<Wrench size={17} className="text-violet-600" />}
+          iconBg="bg-violet-50 dark:bg-violet-950/30"
+          footer={<span className="text-[#5E7184] dark:text-[#B8C2D1]">Flujo de reparaciones</span>}
+          onClick={() => navigate("/flujo-reparaciones")}
+        />
+        <StatCard
+          label="Cotizaciones Pendientes"
+          value={stats.cotizaciones.abiertas}
+          sub="sin respuesta al cliente"
+          icon={<FileText size={17} className="text-amber-600" />}
+          iconBg="bg-amber-50 dark:bg-amber-950/30"
+          footer={<span className="text-amber-600 dark:text-amber-400">Pendientes de seguimiento</span>}
+          onClick={() => navigate("/cotizaciones")}
+        />
+        <StatCard
+          label="Stock Bajo"
+          value={stats.stockBajo}
+          sub="productos bajo mínimo"
+          icon={<AlertTriangle size={17} className="text-orange-500" />}
+          iconBg="bg-orange-50 dark:bg-orange-950/30"
+          footer={<span className="text-orange-600">Requieren reposición</span>}
+          onClick={() => navigate("/productos")}
+        />
+      </div>
+
+      {/* Acciones rápidas */}
+      <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm px-5 py-4">
+        <p className="text-[10px] font-bold text-[#5E7184] dark:text-[#7F8A99] uppercase tracking-widest mb-3">
+          Acciones Rápidas
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {quickActions.map(({ icon: Icon, label, color, path }, i) => (
+            <button
+              key={i}
+              onClick={() => navigate(path)}
+              className={`${color} text-white flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 hover:opacity-90 hover:shadow-lg transition-all`}
+            >
+              <Icon size={17} />
+              <span className="text-[10px] font-semibold leading-tight text-center">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD PRINCIPAL (admin)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) {
@@ -843,20 +969,18 @@ function getStoredAuthToken(): string | null {
 }
 
 export default function DashboardPage() {
-  const authState = useAuth();
-  const role = (authState as any)?.role;
-  const roles = (authState as any)?.roles;
+  const { user } = useAuth();
 
-  const normalizedRoles = Array.isArray(roles)
-    ? roles.map(normalizeRole)
-    : [normalizeRole(role)];
-
-  const isTecnico =
-    normalizedRoles.includes("tecnico") ||
-    normalizedRoles.includes("technician");
+  // Detectar rol usando array RBAC (user.roles) y campo legado (user.role)
+  const userRoles: string[] = user?.roles ?? [];
+  const legacyRole          = (user?.role ?? '').toLowerCase();
+  const isAdminUser   = userRoles.includes('ADMINISTRADOR') || legacyRole === 'admin';
+  const isTecnicoUser = userRoles.includes('TECNICO')       || legacyRole === 'tecnico';
+  const isVentasUser  = userRoles.includes('VENTAS')        || legacyRole === 'ventas';
 
   const [adminStats,  setAdminStats]  = useState<DashboardStats | null>(null);
   const [tecnicoData, setTecnicoData] = useState<TecnicoData | null>(null);
+  const [ventasStats, setVentasStats] = useState<VentasStats | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -873,58 +997,53 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      const token =
-        (authState as any)?.token ||
-        (authState as any)?.accessToken ||
-        getStoredAuthToken();
+      const token = getStoredAuthToken();
 
       if (!token) {
         if (!mounted) return;
-
         setError("Sesión no válida. Vuelve a iniciar sesión.");
-        setAdminStats({
-          ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
-          productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
-          reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0 },
-          cotizaciones: { total: 0, abiertas: 0 },
-          gastos:       { mes: 0 },
-          ganancias:    { hoy: 0, mes: 0 },
-        });
+        if (isAdminUser) {
+          setAdminStats({
+            ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
+            productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
+            reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0 },
+            cotizaciones: { total: 0, abiertas: 0 },
+            gastos:       { mes: 0 },
+            ganancias:    { hoy: 0, mes: 0 },
+          });
+        }
         setLoading(false);
         return;
       }
 
-      const endpoint = isTecnico ? "/dashboard/tecnico" : "/dashboard/stats";
-
       try {
-        const res = await fetch(`${API_URL}${endpoint}`, {
+        // Endpoint unificado: el backend detecta el rol y devuelve el dashboard correcto
+        const res = await fetch(`${API_URL}/dashboard`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
-        if (!res.ok) {
-          throw new Error(`Error ${res.status}: ${res.statusText}`);
-        }
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
 
         const data = await res.json();
 
         if (!mounted) return;
 
-        if (isTecnico) {
+        if (data.dashboardType === 'tecnico') {
           setTecnicoData(data as TecnicoData);
+        } else if (data.dashboardType === 'ventas') {
+          setVentasStats(data as VentasStats);
         } else {
+          // admin
           setAdminStats(data as DashboardStats);
         }
       } catch (err) {
         console.error("Dashboard fetch error:", err);
-
         if (!mounted) return;
-
         setError("No se pudieron cargar las estadísticas. Verifica la sesión o permisos.");
-
-        if (!isTecnico) {
+        if (isAdminUser) {
           setAdminStats({
             ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
             productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
@@ -935,18 +1054,13 @@ export default function DashboardPage() {
           });
         }
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
     loadDashboard();
-
-    return () => {
-      mounted = false;
-    };
-  }, [authState, isTecnico]);
+    return () => { mounted = false; };
+  }, [user]);
 
   if (loading) {
     return (
@@ -977,11 +1091,7 @@ export default function DashboardPage() {
     </div>
   );
 
-  if (isTecnico) {
-    if (!tecnicoData) {
-      return <>{errorBanner}</>;
-    }
-
+  if (isTecnicoUser && tecnicoData) {
     return (
       <>
         {errorBanner}
@@ -990,14 +1100,23 @@ export default function DashboardPage() {
     );
   }
 
-  if (!adminStats) {
-    return <>{errorBanner}</>;
+  if (isVentasUser && ventasStats) {
+    return (
+      <>
+        {errorBanner}
+        <VentasDashboard stats={ventasStats} time={currentTime} userName={user?.name} />
+      </>
+    );
   }
 
-  return (
-    <>
-      {errorBanner}
-      <AdminDashboard stats={adminStats} time={currentTime} />
-    </>
-  );
+  if (adminStats) {
+    return (
+      <>
+        {errorBanner}
+        <AdminDashboard stats={adminStats} time={currentTime} />
+      </>
+    );
+  }
+
+  return <>{errorBanner}</>;
 }
