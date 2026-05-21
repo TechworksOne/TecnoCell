@@ -47,9 +47,9 @@ const routes = [
 
   // ── Operación ──────────────────────────────────────────────────────────────
   { path: "/productos",            element: PR(ADMIN_VENTAS,  <ProductsPage />) },
-  { path: "/repuestos",            element: PR(ADMIN_TECNICO, <RepuestosPage />) },
-  { path: "/repuestos/nuevo",      element: PR(ADMIN_TECNICO, <RepuestoForm />) },
-  { path: "/repuestos/editar/:id", element: PR(ADMIN_TECNICO, <RepuestoForm />) },
+  { path: "/repuestos",            element: PR(ALL_ROLES, <RepuestosPage />) },
+  { path: "/repuestos/nuevo",      element: PR(ALL_ROLES, <RepuestoForm />) },
+  { path: "/repuestos/editar/:id", element: PR(ALL_ROLES, <RepuestoForm />) },
   { path: "/compras",              element: PR(ADMIN,         <PurchasesPage />) },
   { path: "/compras/nueva",        element: PR(ADMIN,         <PurchaseFormPage />) },
   { path: "/cotizaciones",                element: PR(ADMIN_VENTAS, <QuotesPage />) },
@@ -64,15 +64,15 @@ const routes = [
   { path: "/reparaciones",            element: PR(ALL_ROLES,     <RepairsPage />) },
   { path: "/reparaciones/nueva",      element: PR(ALL_ROLES,     <RepairFormSimple />) },
   { path: "/reparaciones/:id/editar", element: PR(ALL_ROLES,     <RepairFormSimple />) },
-  { path: "/flujo-reparaciones",      element: PR(ADMIN_TECNICO, <FlujoReparacionesPage />) },
-  { path: "/flujo-reparaciones/:id",  element: PR(ADMIN_TECNICO, <FlujoReparacionDetailPage />) },
+  { path: "/flujo-reparaciones",      element: PR(ALL_ROLES, <FlujoReparacionesPage />) },
+  { path: "/flujo-reparaciones/:id",  element: PR(ALL_ROLES, <FlujoReparacionDetailPage />) },
   { path: "/ordenes-trabajo",         element: PR(ADMIN_TECNICO, <OrdenesTrabajoPage />) },
   { path: "/agenda",                  element: PR(ADMIN_TECNICO, <AgendaPage />) },
   { path: "/pago-tarjeta",            element: PR(ADMIN_VENTAS,  <CardPaymentPage />) },
 
   // ── Administración ─────────────────────────────────────────────────────────
   { path: "/clientes",       element: PR(ADMIN_VENTAS, <CustomersPage />) },
-  { path: "/caja-bancos",    element: PR(ADMIN,        <CajaBancosPage />) },
+  { path: "/caja-bancos",    element: PR(ALL_ROLES,    <CajaBancosPage />) },
   { path: "/deudores",       element: PR(ADMIN,        <DeudoresPage />) },
   { path: "/proveedores",    element: PR(ADMIN,        <SuppliersPage />) },
   { path: "/stickers-garantia", element: PR(ADMIN,     <StickersGarantiaPage />) },
