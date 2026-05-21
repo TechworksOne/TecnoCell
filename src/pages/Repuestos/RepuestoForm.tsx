@@ -167,6 +167,7 @@ export default function RepuestoForm({
   }, [selectedTipoId, selectedMarcaId]);
 
   useEffect(() => {
+    if (!open) return;
     if (isEditing && id) {
       const repuesto = getRepuestoById(id);
       if (repuesto) {
@@ -194,8 +195,31 @@ export default function RepuestoForm({
         toast.add("Repuesto no encontrado", "error");
         onClose();
       }
+    } else {
+      // Nuevo repuesto: limpiar todo
+      setFormData({
+        nombre: "",
+        tipo: "",
+        marca: "",
+        linea: "",
+        modelo: "",
+        compatibilidad: [],
+        condicion: "Original",
+        color: "",
+        notas: "",
+        precio: 0,
+        precioCosto: 0,
+        proveedor: "",
+        stock: 0,
+        stockMinimo: 1,
+        imagenes: [],
+        tags: [],
+        activo: true,
+      });
+      setImageItems([]);
+      hasChanges.current = false;
     }
-  }, [id, isEditing, getRepuestoById, toast, onClose]);
+  }, [open, id, isEditing, getRepuestoById, toast, onClose]);
 
   useEffect(() => {
     const checkForChanges = () => {
