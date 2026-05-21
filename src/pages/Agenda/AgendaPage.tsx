@@ -164,6 +164,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
            style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
@@ -247,7 +248,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
         onCancel={() => setConfirmDelete(false)}
       />
     )}
-  </div>
+    </>
   );
 }
 
