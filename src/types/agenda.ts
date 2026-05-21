@@ -18,3 +18,18 @@ export interface EntregaAgenda {
 }
 
 export type FiltroAgenda = 'hoy' | 'semana' | 'mes' | 'pendientes' | 'todas';
+
+export type TipoEvento = 'nota' | 'cita' | 'recordatorio' | 'otro';
+
+export interface AgendaEvento {
+  id: number;
+  titulo: string;
+  fecha: string;        // YYYY-MM-DD
+  hora?: string | null; // HH:MM:SS
+  descripcion?: string | null;
+  tipo: TipoEvento;
+  color?: string | null;
+  creado_por?: string | null;
+  created_at: string;
+  updated_at: string;
+}

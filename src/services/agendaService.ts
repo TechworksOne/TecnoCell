@@ -52,6 +52,8 @@ export interface ReparacionPendiente {
   estado: string;
 }
 
+import type { AgendaEvento } from '../types/agenda';
+
 export const searchReparacionesPendientes = async (search?: string): Promise<ReparacionPendiente[]> => {
   const response = await api.get('/reparaciones', {
     params: { search: search || undefined, limit: 20 },
@@ -66,4 +68,32 @@ export const searchReparacionesPendientes = async (search?: string): Promise<Rep
       modelo: r.modelo ?? undefined,
       estado: r.estado,
     }));
+};
+
+// ─── Eventos libres de la agenda ─────────────────────────────────────────────
+export interface AgendaEventoPayload {
+  titulo: string;
+  fecha: string;
+  hora?: string;
+  descripcion?: string;
+  tipo?: 'nota' | 'cita' | 'recordatorio' | 'otro';
+}
+
+export const getEventos = async (params?: { fecha_inicio?: string; fecha_fin?: string }): Promise<AgendaEvento[]> => {
+  const response = await api.get('/agenda/eventos', { params });
+  return response.data.data as AgendaEvento[];
+};
+
+export const createEvento = async (payload: AgendaEventoPayload): Promise<AgendaEvento> => {
+  const response = await api.post('/agenda/eventos', payload);
+  return response.data.data as AgendaEvento;
+};
+
+export const updateEvento = async (id: number, payload: AgendaEventoPayload): Promise<AgendaEvento> => {
+  const response = await api.put(`/agenda/eventos/${id}`, payload);
+  return response.data.data as AgendaEvento;
+};
+
+export const deleteEvento = async (id: number): Promise<void> => {
+  await api.delete(`/agenda/eventos/${id}`);
 };

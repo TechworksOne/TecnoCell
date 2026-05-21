@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar, ChevronLeft, ChevronRight, RefreshCw,
   Wrench, Phone, User, Smartphone, Eye, X, Clock,
-  CheckCircle2, AlertCircle, Ban, List, Search,
+  CheckCircle2, AlertCircle, Ban, List, Search, Plus, FileText, Pencil, Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getEntregas, patchFechaEntrega, deleteFechaEntrega, searchReparacionesPendientes, type ReparacionPendiente } from '../../services/agendaService';
-import type { EntregaAgenda, FiltroAgenda } from '../../types/agenda';
+import { getEntregas, patchFechaEntrega, deleteFechaEntrega, searchReparacionesPendientes, type ReparacionPendiente, getEventos, createEvento, updateEvento, deleteEvento } from '../../services/agendaService';
+import type { EntregaAgenda, FiltroAgenda, AgendaEvento, TipoEvento } from '../../types/agenda';
 import PageHeader from '../../components/common/PageHeader';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -71,6 +71,189 @@ const isVencida = (entrega: EntregaAgenda): boolean => {
   const d = new Date(String(entrega.fecha_entrega_programada).replace(' ', 'T'));
   return d < new Date();
 };
+
+// ─── Colores y emojis por tipo de evento ────────────────────────────────────────────
+const EVENTO_COLORES: Record<string, string> = {
+  nota:         '#F59E0B',
+  cita:         '#8B5CF6',
+  recordatorio: '#F97316',
+  otro:         '#6B7280',
+};
+const EVENTO_EMOJI: Record<string, string> = {
+  nota:         '📝',
+  cita:         '📅',
+  recordatorio: '⏰',
+  otro:         '📌',
+};
+
+// ─── Modal Evento (notas, citas, recordatorios) ───────────────────────────────
+interface ModalEventoProps {
+  evento?: AgendaEvento;
+  fechaInicial?: string;
+  onClose: () => void;
+  onSaved: () => void;
+}
+function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProps) {
+  const [titulo, setTitulo] = useState(evento?.titulo ?? '');
+  const [fecha, setFecha] = useState(evento?.fecha ?? fechaInicial ?? toLocalDateStr(new Date()));
+  const [hora, setHora] = useState(evento?.hora ? String(evento.hora).substring(0, 5) : '');
+  const [descripcion, setDescripcion] = useState(evento?.descripcion ?? '');
+  const [tipo, setTipo] = useState<TipoEvento>(evento?.tipo ?? 'nota');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const TIPOS: { value: TipoEvento; label: string; emoji: string; color: string }[] = [
+    { value: 'nota',         label: 'Nota',         emoji: '📝', color: '#F59E0B' },
+    { value: 'cita',         label: 'Cita',         emoji: '📅', color: '#8B5CF6' },
+    { value: 'recordatorio', label: 'Recordatorio', emoji: '⏰', color: '#F97316' },
+    { value: 'otro',         label: 'Otro',         emoji: '📌', color: '#6B7280' },
+  ];
+  const colorActual = TIPOS.find(t => t.value === tipo)?.color ?? '#F59E0B';
+
+  const handleSave = async () => {
+    if (!titulo.trim()) { setError('El título es obligatorio'); return; }
+    if (!fecha) { setError('La fecha es obligatoria'); return; }
+    setError(''); setSaving(true);
+    try {
+      const payload = { titulo: titulo.trim(), fecha, hora: hora || undefined, descripcion: descripcion.trim() || undefined, tipo };
+      if (evento) await updateEvento(evento.id, payload);
+      else await createEvento(payload);
+      onSaved(); onClose();
+    } catch { setError('Error al guardar. Intenta de nuevo.'); }
+    finally { setSaving(false); }
+  };
+  const handleDelete = async () => {
+    if (!evento || !window.confirm('¿Eliminar este evento?')) return;
+    setSaving(true);
+    try { await deleteEvento(evento.id); onSaved(); onClose(); }
+    catch { setError('Error al eliminar.'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+           style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: colorActual }} />
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+              {evento ? 'Editar evento' : 'Nuevo evento'}
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-sec)' }}>Tipo</label>
+            <div className="flex gap-2 flex-wrap">
+              {TIPOS.map(t => (
+                <button key={t.value} onClick={() => setTipo(t.value)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all"
+                  style={{
+                    background: tipo === t.value ? `${t.color}20` : 'var(--color-bg)',
+                    borderColor: tipo === t.value ? t.color : 'var(--color-border)',
+                    color: tipo === t.value ? t.color : 'var(--color-text-sec)',
+                  }}>{t.emoji} {t.label}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Título *</label>
+            <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} autoFocus
+              placeholder="Ej: Reunión con proveedor, recordatorio de pago..."
+              className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+              style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Fecha *</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+                style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Hora (opcional)</label>
+              <input type="time" value={hora} onChange={e => setHora(e.target.value)}
+                className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+                style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Descripción (opcional)</label>
+            <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={3}
+              placeholder="Detalles adicionales..."
+              className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+              style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
+          </div>
+          {error && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle size={14} /> {error}</p>}
+        </div>
+        <div className="flex items-center justify-between p-5 border-t gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+          {evento ? (
+            <button onClick={handleDelete} disabled={saving}
+              className="text-sm text-red-500 hover:text-red-600 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">
+              <Trash2 size={14} /> Eliminar
+            </button>
+          ) : <div />}
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm rounded-xl border"
+              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-sec)' }}>Cancelar</button>
+            <button onClick={handleSave} disabled={saving || !titulo.trim() || !fecha}
+              className="px-4 py-2 text-sm rounded-xl font-medium text-white disabled:opacity-50"
+              style={{ background: colorActual }}>
+              {saving ? 'Guardando...' : (evento ? 'Guardar cambios' : 'Crear evento')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal selección de tipo al hacer clic en un día ────────────────────────────────
+interface ModalDayChoiceProps {
+  fecha: string;
+  onProgramarEntrega: () => void;
+  onNuevoEvento: () => void;
+  onClose: () => void;
+}
+function ModalDayChoice({ fecha, onProgramarEntrega, onNuevoEvento, onClose }: ModalDayChoiceProps) {
+  const d = new Date(fecha + 'T12:00:00');
+  const label = d.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden"
+           style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <Calendar size={16} style={{ color: '#48B9E6' }} />
+            <span className="text-sm font-semibold capitalize" style={{ color: 'var(--color-text)' }}>{label}</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"><X size={16} /></button>
+        </div>
+        <div className="p-2 space-y-1">
+          <p className="text-xs px-3 py-1" style={{ color: 'var(--color-text-muted)' }}>¿Qué quieres agendar?</p>
+          <button onClick={onProgramarEntrega}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-[rgba(72,185,230,0.08)] transition-colors text-left">
+            <span className="text-xl">🔧</span>
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>Entrega de reparación</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Programar fecha de entrega al cliente</p>
+            </div>
+          </button>
+          <button onClick={onNuevoEvento}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-[rgba(245,158,11,0.08)] transition-colors text-left">
+            <span className="text-xl">📝</span>
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>Nota o evento libre</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Cita, recordatorio, nota personal...</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Modal Programar Entrega ──────────────────────────────────────────────────
 interface ModalProgramarProps {
@@ -567,17 +750,23 @@ function TarjetaEntrega({ entrega, compact, onVerReparacion, onEditar }: Tarjeta
 // ─── Vista de lista (agrupada por día) ────────────────────────────────────────
 interface VistaListaProps {
   entregas: EntregaAgenda[];
+  eventos: AgendaEvento[];
   onVerReparacion: (id: string) => void;
   onEditar: (e: EntregaAgenda) => void;
+  onEditarEvento: (e: AgendaEvento) => void;
 }
 
-function VistaLista({ entregas, onVerReparacion, onEditar }: VistaListaProps) {
-  // Agrupar por fecha local (YYYY-MM-DD)
-  const grupos: Record<string, EntregaAgenda[]> = {};
+function VistaLista({ entregas, eventos, onVerReparacion, onEditar, onEditarEvento }: VistaListaProps) {
+  // Agrupar entregas y eventos por fecha local (YYYY-MM-DD)
+  const grupos: Record<string, { entregas: EntregaAgenda[]; eventos: AgendaEvento[] }> = {};
   for (const e of entregas) {
     const key = toLocalDateStr(new Date(String(e.fecha_entrega_programada).replace(' ', 'T')));
-    if (!grupos[key]) grupos[key] = [];
-    grupos[key].push(e);
+    if (!grupos[key]) grupos[key] = { entregas: [], eventos: [] };
+    grupos[key].entregas.push(e);
+  }
+  for (const ev of eventos) {
+    if (!grupos[ev.fecha]) grupos[ev.fecha] = { entregas: [], eventos: [] };
+    grupos[ev.fecha].eventos.push(ev);
   }
 
   const keys = Object.keys(grupos).sort();
@@ -586,12 +775,67 @@ function VistaLista({ entregas, onVerReparacion, onEditar }: VistaListaProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: 'var(--color-text-muted)' }}>
         <Calendar size={40} style={{ opacity: 0.3 }} />
-        <p className="text-sm">No hay entregas programadas para este período.</p>
+        <p className="text-sm">No hay entregas ni eventos para este período.</p>
       </div>
     );
   }
 
   const today = toLocalDateStr(new Date());
+
+  return (
+    <div className="space-y-6">
+      {keys.map(key => {
+        const d = new Date(key + 'T12:00:00');
+        const esHoy = key === today;
+        const esPasado = key < today;
+        const totalItems = grupos[key].entregas.length + grupos[key].eventos.length;
+
+        return (
+          <div key={key}>
+            {/* Encabezado de día */}
+            <div className="flex items-center gap-3 mb-3">
+              <div
+                className={`flex flex-col items-center justify-center rounded-xl w-12 h-12 shrink-0 ${
+                  esHoy ? 'text-white' : ''
+                }`}
+                style={{
+                  background: esHoy ? '#48B9E6' : esPasado ? 'var(--color-bg)' : 'var(--color-bg-card)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <span className="text-xl font-bold leading-none">{d.getDate()}</span>
+                <span className="text-xs uppercase">
+                  {d.toLocaleDateString('es-GT', { month: 'short' })}
+                </span>
+              </div>
+              <div>
+                <p className="font-semibold" style={{ color: esHoy ? '#48B9E6' : 'var(--color-text)' }}>
+                  {esHoy ? 'Hoy — ' : ''}{d.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  {totalItems} {totalItems === 1 ? 'elemento' : 'elementos'}
+                </p>
+              </div>
+              {esPasado && !esHoy && (
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                  Pasado
+                </span>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {grupos[key].entregas.map(e => (
+                <TarjetaEntrega key={e.id} entrega={e} onVerReparacion={onVerReparacion} onEditar={onEditar} />
+              ))}
+              {grupos[key].eventos.map(ev => (
+                <EventoCard key={`ev-${ev.id}`} evento={ev} onEditar={onEditarEvento} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
   return (
     <div className="space-y-6">
@@ -623,44 +867,20 @@ function VistaLista({ entregas, onVerReparacion, onEditar }: VistaListaProps) {
                   {esHoy ? 'Hoy — ' : ''}{d.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {grupos[key].length} {grupos[key].length === 1 ? 'entrega' : 'entregas'}
-                </p>
-              </div>
-              {esPasado && !esHoy && (
-                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                  Pasado
-                </span>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {grupos[key].map(e => (
-                <TarjetaEntrega
-                  key={e.id}
-                  entrega={e}
-                  onVerReparacion={onVerReparacion}
-                  onEditar={onEditar}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Vista mensual (calendario) ───────────────────────────────────────────────
 interface VistaMensualProps {
   year: number;
   month: number; // 0-based
   entregas: EntregaAgenda[];
+  eventos: AgendaEvento[];
   onVerReparacion: (id: string) => void;
   onEditar: (e: EntregaAgenda) => void;
+  onEditarEvento: (e: AgendaEvento) => void;
   onDayClick?: (dateStr: string) => void;
 }
 
-function VistaMensual({ year, month, entregas, onVerReparacion, onEditar, onDayClick }: VistaMensualProps) {
-  // Construir mapa día → entregas
+function VistaMensual({ year, month, entregas, eventos, onVerReparacion, onEditar, onEditarEvento, onDayClick }: VistaMensualProps) {
+  // Mapa de reparaciones por día
   const mapa: Record<number, EntregaAgenda[]> = {};
   for (const e of entregas) {
     const d = new Date(String(e.fecha_entrega_programada).replace(' ', 'T'));
@@ -669,6 +889,12 @@ function VistaMensual({ year, month, entregas, onVerReparacion, onEditar, onDayC
       if (!mapa[day]) mapa[day] = [];
       mapa[day].push(e);
     }
+  }
+  // Mapa de eventos por día (YYYY-MM-DD)
+  const mapaEv: Record<string, AgendaEvento[]> = {};
+  for (const ev of eventos) {
+    if (!mapaEv[ev.fecha]) mapaEv[ev.fecha] = [];
+    mapaEv[ev.fecha].push(ev);
   }
 
   const firstDay = firstOfMonth(year, month);
@@ -725,30 +951,52 @@ function VistaMensual({ year, month, entregas, onVerReparacion, onEditar, onDayC
                 {day}
               </div>
 
-              {/* Eventos */}
-              <div className="space-y-0.5">
-                {items.slice(0, 3).map(e => {
-                  const vencida = isVencida(e);
-                  const entregada = e.estado === 'ENTREGADA';
-                  const color = entregada ? '#22c55e' : vencida ? '#ef4444' : '#48B9E6';
-                  return (
-                    <button
-                      key={e.id}
-                      onClick={(ev) => { ev.stopPropagation(); onEditar(e); }}
-                      className="w-full text-left text-xs px-1.5 py-0.5 rounded truncate leading-tight"
-                      style={{ background: `${color}22`, color, fontWeight: 600, fontSize: '10px' }}
-                      title={`${e.id} — ${e.cliente_nombre}`}
-                    >
-                      {e.id.replace('REP', '')} {e.cliente_nombre.split(' ')[0]}
-                    </button>
-                  );
-                })}
-                {items.length > 3 && (
-                  <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>
-                    +{items.length - 3} más
-                  </p>
-                )}
-              </div>
+              {/* Eventos del día */}
+              {(() => {
+                const dateStr = toLocalDateStr(new Date(year, month, day));
+                const repItems = mapa[day] ?? [];
+                const evItems  = mapaEv[dateStr] ?? [];
+                const maxSlots = 3;
+                const repSlots = Math.min(repItems.length, maxSlots);
+                const evSlots  = Math.min(evItems.length, maxSlots - repSlots);
+                const remaining = repItems.length + evItems.length - repSlots - evSlots;
+                return (
+                  <div className="space-y-0.5">
+                    {repItems.slice(0, repSlots).map(e => {
+                      const vencida = isVencida(e);
+                      const entregada = e.estado === 'ENTREGADA';
+                      const color = entregada ? '#22c55e' : vencida ? '#ef4444' : '#48B9E6';
+                      return (
+                        <button key={e.id}
+                          onClick={(ev) => { ev.stopPropagation(); onEditar(e); }}
+                          className="w-full text-left text-xs px-1.5 py-0.5 rounded truncate leading-tight"
+                          style={{ background: `${color}22`, color, fontWeight: 600, fontSize: '10px' }}
+                          title={`${e.id} — ${e.cliente_nombre}`}>
+                          {e.id.replace('REP', '')} {e.cliente_nombre.split(' ')[0]}
+                        </button>
+                      );
+                    })}
+                    {evItems.slice(0, evSlots).map(ev => {
+                      const color = EVENTO_COLORES[ev.tipo] ?? '#6B7280';
+                      const emoji = EVENTO_EMOJI[ev.tipo] ?? '📌';
+                      return (
+                        <button key={`ev-${ev.id}`}
+                          onClick={(e) => { e.stopPropagation(); onEditarEvento(ev); }}
+                          className="w-full text-left text-xs px-1.5 py-0.5 rounded truncate leading-tight"
+                          style={{ background: `${color}22`, color, fontWeight: 600, fontSize: '10px' }}
+                          title={ev.titulo}>
+                          {emoji} {ev.titulo}
+                        </button>
+                      );
+                    })}
+                    {remaining > 0 && (
+                      <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>
+                        +{remaining} más
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -770,6 +1018,9 @@ export default function AgendaPage() {
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [modalEntrega, setModalEntrega] = useState<EntregaAgenda | null>(null);
   const [modalNueva, setModalNueva] = useState<string | null>(null); // YYYY-MM-DD del día clickeado
+  const [eventos, setEventos] = useState<AgendaEvento[]>([]);
+  const [modalEvento, setModalEvento] = useState<{ evento?: AgendaEvento; fechaInicial?: string } | null>(null);
+  const [modalDayChoice, setModalDayChoice] = useState<string | null>(null);
 
   // ─── Calcular rango de fechas según filtro ──────────────────────────────────
   const getRango = useCallback((): { inicio: string; fin: string } => {
@@ -802,15 +1053,18 @@ export default function AgendaPage() {
     setLoading(true);
     try {
       const { inicio, fin } = getRango();
-      const data = await getEntregas({
-        fecha_inicio: inicio || undefined,
-        fecha_fin: fin || undefined,
-        // Si filtro=pendientes, excluir canceladas/entregadas
-        estado: filtro === 'pendientes'
-          ? 'RECIBIDA,EN_DIAGNOSTICO,EN_PROCESO,EN_REPARACION,ESPERANDO_PIEZA,ESPERANDO_AUTORIZACION,COMPLETADA,STAND_BY,AUTORIZADA'
-          : undefined,
-      });
+      const [data, evs] = await Promise.all([
+        getEntregas({
+          fecha_inicio: inicio || undefined,
+          fecha_fin: fin || undefined,
+          estado: filtro === 'pendientes'
+            ? 'RECIBIDA,EN_DIAGNOSTICO,EN_PROCESO,EN_REPARACION,ESPERANDO_PIEZA,ESPERANDO_AUTORIZACION,COMPLETADA,STAND_BY,AUTORIZADA'
+            : undefined,
+        }),
+        getEventos({ fecha_inicio: inicio || undefined, fecha_fin: fin || undefined }),
+      ]);
       setEntregas(data);
+      setEventos(evs);
     } catch (err) {
       console.error('[AgendaPage] cargar error', err);
     } finally {
@@ -837,11 +1091,19 @@ export default function AgendaPage() {
   const totalPendientes = entregas.filter(e => e.estado !== 'ENTREGADA' && e.estado !== 'CANCELADA').length;
   const totalEntregadas = entregas.filter(e => e.estado === 'ENTREGADA').length;
   const totalVencidas   = entregas.filter(isVencida).length;
+  const totalEventos    = eventos.length;
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <PageHeader title="Agenda de entregas" subtitle="Reparaciones con fecha de entrega programada">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setModalEvento({})}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+            style={{ background: '#F59E0B' }}
+          >
+            <Plus size={15} /> Nuevo evento
+          </button>
           <button
             onClick={cargar}
             disabled={loading}
@@ -855,11 +1117,12 @@ export default function AgendaPage() {
       </PageHeader>
 
       {/* ── Estadísticas rápidas ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Pendientes', value: totalPendientes, icon: <Clock size={18} />, color: '#48B9E6' },
+          { label: 'Pendientes', value: totalPendientes, icon: <Clock size={18} />,        color: '#48B9E6' },
           { label: 'Entregadas', value: totalEntregadas, icon: <CheckCircle2 size={18} />, color: '#22c55e' },
-          { label: 'Vencidas',   value: totalVencidas,   icon: <AlertCircle size={18} />, color: '#ef4444' },
+          { label: 'Vencidas',   value: totalVencidas,   icon: <AlertCircle size={18} />,  color: '#ef4444' },
+          { label: 'Eventos',    value: totalEventos,    icon: <FileText size={18} />,      color: '#F59E0B' },
         ].map(stat => (
           <div
             key={stat.label}
@@ -944,22 +1207,26 @@ export default function AgendaPage() {
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-2" style={{ color: 'var(--color-text-muted)' }}>
             <RefreshCw size={20} className="animate-spin" />
-            <span>Cargando entregas...</span>
+            <span>Cargando...</span>
           </div>
         ) : vistaCalendario && filtro === 'mes' ? (
           <VistaMensual
             year={calYear}
             month={calMonth}
             entregas={entregas}
+            eventos={eventos}
             onVerReparacion={id => navigate(`/flujo-reparaciones/${id}`)}
             onEditar={setModalEntrega}
-            onDayClick={setModalNueva}
+            onEditarEvento={ev => setModalEvento({ evento: ev })}
+            onDayClick={setModalDayChoice}
           />
         ) : (
           <VistaLista
             entregas={entregas}
+            eventos={eventos}
             onVerReparacion={id => navigate(`/flujo-reparaciones/${id}`)}
             onEditar={setModalEntrega}
+            onEditarEvento={ev => setModalEvento({ evento: ev })}
           />
         )}
       </div>
@@ -970,6 +1237,9 @@ export default function AgendaPage() {
           { color: '#48B9E6', label: 'Pendiente de entrega' },
           { color: '#22c55e', label: 'Entregada' },
           { color: '#ef4444', label: 'Vencida (fecha pasada)' },
+          { color: '#F59E0B', label: 'Nota/evento' },
+          { color: '#8B5CF6', label: 'Cita' },
+          { color: '#F97316', label: 'Recordatorio' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full" style={{ background: l.color }} />
@@ -995,6 +1265,22 @@ export default function AgendaPage() {
           fechaInicial={modalNueva}
           onClose={() => setModalNueva(null)}
           onSaved={cargar}
+        />
+      )}
+      {modalEvento !== null && (
+        <ModalEvento
+          evento={modalEvento.evento}
+          fechaInicial={modalEvento.fechaInicial}
+          onClose={() => setModalEvento(null)}
+          onSaved={cargar}
+        />
+      )}
+      {modalDayChoice && (
+        <ModalDayChoice
+          fecha={modalDayChoice}
+          onProgramarEntrega={() => { setModalNueva(modalDayChoice); setModalDayChoice(null); }}
+          onNuevoEvento={() => { setModalEvento({ fechaInicial: modalDayChoice }); setModalDayChoice(null); }}
+          onClose={() => setModalDayChoice(null)}
         />
       )}
     </div>

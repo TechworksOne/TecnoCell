@@ -130,3 +130,100 @@ exports.deleteFechaEntrega = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error al eliminar fecha de entrega' });
   }
 };
+
+// ─── Auto-crear tabla agenda_eventos si no existe ─────────────────────────────
+const ensureEventosTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS agenda_eventos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      titulo VARCHAR(200) NOT NULL,
+      fecha DATE NOT NULL,
+      hora TIME DEFAULT NULL,
+      descripcion TEXT DEFAULT NULL,
+      tipo ENUM('nota','cita','recordatorio','otro') NOT NULL DEFAULT 'nota',
+      color VARCHAR(20) DEFAULT NULL,
+      creado_por VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+};
+
+// ─── GET /api/agenda/eventos ──────────────────────────────────────────────────
+exports.getEventos = async (req, res) => {
+  try {
+    await ensureEventosTable();
+    const { fecha_inicio, fecha_fin } = req.query;
+    let query = 'SELECT * FROM agenda_eventos WHERE 1=1';
+    const params = [];
+    if (fecha_inicio) { query += ' AND fecha >= ?'; params.push(fecha_inicio); }
+    if (fecha_fin)    { query += ' AND fecha <= ?'; params.push(fecha_fin); }
+    query += ' ORDER BY fecha ASC, COALESCE(hora, "00:00:00") ASC';
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('[agendaController] getEventos error:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener eventos' });
+  }
+};
+
+// ─── POST /api/agenda/eventos ─────────────────────────────────────────────────
+exports.createEvento = async (req, res) => {
+  try {
+    await ensureEventosTable();
+    const { titulo, fecha, hora, descripcion, tipo, creado_por } = req.body;
+    if (!titulo || !fecha) {
+      return res.status(400).json({ success: false, message: 'titulo y fecha son obligatorios' });
+    }
+    const [result] = await db.query(
+      'INSERT INTO agenda_eventos (titulo, fecha, hora, descripcion, tipo, creado_por) VALUES (?, ?, ?, ?, ?, ?)',
+      [titulo.trim(), fecha, hora || null, descripcion?.trim() || null, tipo || 'nota',
+       creado_por || req.user?.name || req.user?.email || null]
+    );
+    const [rows] = await db.query('SELECT * FROM agenda_eventos WHERE id = ?', [result.insertId]);
+    res.status(201).json({ success: true, data: rows[0] });
+  } catch (error) {
+    console.error('[agendaController] createEvento error:', error);
+    res.status(500).json({ success: false, message: 'Error al crear evento' });
+  }
+};
+
+// ─── PUT /api/agenda/eventos/:id ──────────────────────────────────────────────
+exports.updateEvento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, fecha, hora, descripcion, tipo } = req.body;
+    if (!titulo || !fecha) {
+      return res.status(400).json({ success: false, message: 'titulo y fecha son obligatorios' });
+    }
+    const [check] = await db.query('SELECT id FROM agenda_eventos WHERE id = ?', [id]);
+    if (check.length === 0) {
+      return res.status(404).json({ success: false, message: 'Evento no encontrado' });
+    }
+    await db.query(
+      'UPDATE agenda_eventos SET titulo=?, fecha=?, hora=?, descripcion=?, tipo=? WHERE id=?',
+      [titulo.trim(), fecha, hora || null, descripcion?.trim() || null, tipo || 'nota', id]
+    );
+    const [rows] = await db.query('SELECT * FROM agenda_eventos WHERE id = ?', [id]);
+    res.json({ success: true, data: rows[0] });
+  } catch (error) {
+    console.error('[agendaController] updateEvento error:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar evento' });
+  }
+};
+
+// ─── DELETE /api/agenda/eventos/:id ──────────────────────────────────────────
+exports.deleteEvento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [check] = await db.query('SELECT id FROM agenda_eventos WHERE id = ?', [id]);
+    if (check.length === 0) {
+      return res.status(404).json({ success: false, message: 'Evento no encontrado' });
+    }
+    await db.query('DELETE FROM agenda_eventos WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Evento eliminado' });
+  } catch (error) {
+    console.error('[agendaController] deleteEvento error:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar evento' });
+  }
+};
