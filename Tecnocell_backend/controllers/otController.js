@@ -2,24 +2,50 @@
 // Gestiona la asignación de reparaciones a técnicos
 const db = require('../config/database');
 
+// Estados que ya no son trabajo activo
+const ESTADOS_INACTIVOS = ['CANCELADA', 'ENTREGADA'];
+
 // ── Helper: verificar si el usuario es admin ───────────────────────────────
 function isAdmin(user) {
   const roles = Array.isArray(user.roles) ? user.roles : [];
   return roles.includes('ADMINISTRADOR') || user.role === 'admin';
 }
 
+// ── Columnas SELECT reutilizables ──────────────────────────────────────────
+const OT_SELECT = `
+  r.id,
+  r.cliente_nombre,
+  r.cliente_telefono,
+  r.tipo_equipo,
+  r.marca,
+  r.modelo,
+  r.estado,
+  r.prioridad,
+  r.fecha_ingreso,
+  r.fecha_entrega_programada,
+  r.tecnico_asignado_id,
+  r.asignado_por,
+  r.asignado_en,
+  CONCAT(COALESCE(pt.nombres,''), ' ', COALESCE(pt.apellidos,'')) AS tecnico_nombre,
+  ut.username AS tecnico_username,
+  CONCAT(COALESCE(pa.nombres,''), ' ', COALESCE(pa.apellidos,'')) AS asignado_por_nombre,
+  ua.username AS asignado_por_username
+`;
+
 // ── GET /api/ot ────────────────────────────────────────────────────────────
-// Admin: devuelve todas las OT
-// Técnico: devuelve solo las reparaciones asignadas a él
+// Admin : todas las OT ACTIVAS (estado NOT IN CANCELADA, ENTREGADA)
+// Técnico: SOLO sus OT activas asignadas (no ve las de otros ni sin asignar)
 exports.getOrdenesTrabajo = async (req, res) => {
   try {
-    const { estado, tecnico_id, fecha_inicio, fecha_fin, busqueda, limit = 200 } = req.query;
+    const { estado, tecnico_id, busqueda, limit = 200 } = req.query;
     const userIsAdmin = isAdmin(req.user);
 
     const params = [];
-    let where = 'WHERE 1=1';
 
-    // Restricción por rol
+    // Base: solo estados activos
+    let where = `WHERE r.estado NOT IN ('CANCELADA','ENTREGADA')`;
+
+    // Restricción de rol: técnico solo ve sus propias reparaciones asignadas
     if (!userIsAdmin) {
       where += ' AND r.tecnico_asignado_id = ?';
       params.push(req.user.id);
@@ -30,17 +56,15 @@ exports.getOrdenesTrabajo = async (req, res) => {
       where += ' AND r.estado = ?';
       params.push(estado);
     }
-    if (tecnico_id && userIsAdmin) {
-      where += ' AND r.tecnico_asignado_id = ?';
-      params.push(parseInt(tecnico_id, 10));
-    }
-    if (fecha_inicio) {
-      where += ' AND r.asignado_en >= ?';
-      params.push(fecha_inicio);
-    }
-    if (fecha_fin) {
-      where += ' AND r.asignado_en <= ?';
-      params.push(fecha_fin + ' 23:59:59');
+    if (tecnico_id !== undefined && userIsAdmin) {
+      const tid = parseInt(tecnico_id, 10);
+      if (tid === 0) {
+        // Sin asignar
+        where += ' AND r.tecnico_asignado_id IS NULL';
+      } else if (!isNaN(tid)) {
+        where += ' AND r.tecnico_asignado_id = ?';
+        params.push(tid);
+      }
     }
     if (busqueda) {
       where += ` AND (
@@ -57,23 +81,7 @@ exports.getOrdenesTrabajo = async (req, res) => {
     params.push(parseInt(limit, 10));
 
     const [rows] = await db.query(
-      `SELECT
-         r.id,
-         r.cliente_nombre,
-         r.cliente_telefono,
-         r.tipo_equipo,
-         r.marca,
-         r.modelo,
-         r.estado,
-         r.prioridad,
-         r.fecha_ingreso,
-         r.tecnico_asignado_id,
-         r.asignado_por,
-         r.asignado_en,
-         CONCAT(COALESCE(pt.nombres,''), ' ', COALESCE(pt.apellidos,'')) AS tecnico_nombre,
-         ut.username AS tecnico_username,
-         CONCAT(COALESCE(pa.nombres,''), ' ', COALESCE(pa.apellidos,'')) AS asignado_por_nombre,
-         ua.username AS asignado_por_username
+      `SELECT ${OT_SELECT}
        FROM reparaciones r
        LEFT JOIN users ut ON ut.id = r.tecnico_asignado_id
        LEFT JOIN user_profiles pt ON pt.user_id = r.tecnico_asignado_id
@@ -88,6 +96,170 @@ exports.getOrdenesTrabajo = async (req, res) => {
     res.json({ success: true, data: rows });
   } catch (error) {
     console.error('getOrdenesTrabajo error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── GET /api/ot/historial ──────────────────────────────────────────────────
+// Devuelve OTs canceladas y entregadas (historial).
+// Admin: todas. Técnico: solo las de él.
+exports.getHistorialOT = async (req, res) => {
+  try {
+    const { busqueda, tecnico_id, limit = 100 } = req.query;
+    const userIsAdmin = isAdmin(req.user);
+    const params = [];
+
+    let where = `WHERE r.estado IN ('CANCELADA','ENTREGADA')`;
+
+    // Técnico solo ve su propio historial
+    if (!userIsAdmin) {
+      where += ' AND r.tecnico_asignado_id = ?';
+      params.push(req.user.id);
+    } else if (tecnico_id !== undefined) {
+      const tid = parseInt(tecnico_id, 10);
+      if (!isNaN(tid) && tid > 0) {
+        where += ' AND r.tecnico_asignado_id = ?';
+        params.push(tid);
+      }
+    }
+
+    if (busqueda) {
+      where += ` AND (
+        r.cliente_nombre LIKE ? OR
+        r.cliente_telefono LIKE ? OR
+        r.marca LIKE ? OR
+        r.modelo LIKE ? OR
+        r.id LIKE ?
+      )`;
+      const like = `%${busqueda}%`;
+      params.push(like, like, like, like, like);
+    }
+
+    params.push(parseInt(limit, 10));
+
+    const [rows] = await db.query(
+      `SELECT ${OT_SELECT}
+       FROM reparaciones r
+       LEFT JOIN users ut ON ut.id = r.tecnico_asignado_id
+       LEFT JOIN user_profiles pt ON pt.user_id = r.tecnico_asignado_id
+       LEFT JOIN users ua ON ua.id = r.asignado_por
+       LEFT JOIN user_profiles pa ON pa.user_id = r.asignado_por
+       ${where}
+       ORDER BY r.updated_at DESC
+       LIMIT ?`,
+      params
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('getHistorialOT error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── GET /api/ot/resumen ────────────────────────────────────────────────────
+// Dashboard: conteos para tarjetas KPI.
+// Admin: conteos globales + carga por técnico.
+// Técnico: solo sus propios conteos.
+exports.getResumenOT = async (req, res) => {
+  try {
+    const userIsAdmin = isAdmin(req.user);
+
+    if (userIsAdmin) {
+      // Conteos por estado (solo activos)
+      const [stateCounts] = await db.query(
+        `SELECT estado, COUNT(*) AS total
+         FROM reparaciones
+         WHERE estado NOT IN ('CANCELADA','ENTREGADA')
+         GROUP BY estado`
+      );
+
+      // Conteo sin asignar
+      const [[sinAsignarRow]] = await db.query(
+        `SELECT COUNT(*) AS total
+         FROM reparaciones
+         WHERE tecnico_asignado_id IS NULL
+           AND estado NOT IN ('CANCELADA','ENTREGADA')`
+      );
+
+      // Carga por técnico
+      const [techRows] = await db.query(
+        `SELECT
+           r.tecnico_asignado_id AS id,
+           TRIM(CONCAT(COALESCE(pt.nombres,''), ' ', COALESCE(pt.apellidos,''))) AS nombre,
+           ut.username,
+           COUNT(*) AS total_activas,
+           SUM(CASE WHEN r.estado = 'EN_REPARACION'   THEN 1 ELSE 0 END) AS en_reparacion,
+           SUM(CASE WHEN r.estado = 'ESPERANDO_PIEZA' THEN 1 ELSE 0 END) AS esperando_pieza,
+           SUM(CASE WHEN r.estado = 'COMPLETADA'      THEN 1 ELSE 0 END) AS listas,
+           SUM(CASE WHEN r.estado = 'EN_DIAGNOSTICO'  THEN 1 ELSE 0 END) AS en_diagnostico
+         FROM reparaciones r
+         JOIN users ut ON ut.id = r.tecnico_asignado_id
+         LEFT JOIN user_profiles pt ON pt.user_id = r.tecnico_asignado_id
+         WHERE r.tecnico_asignado_id IS NOT NULL
+           AND r.estado NOT IN ('CANCELADA','ENTREGADA')
+         GROUP BY r.tecnico_asignado_id, pt.nombres, pt.apellidos, ut.username
+         ORDER BY total_activas DESC`
+      );
+
+      const porEstado = {};
+      stateCounts.forEach(r => { porEstado[r.estado] = Number(r.total); });
+
+      const tecnicos = techRows.map(t => ({
+        id: t.id,
+        nombre: (t.nombre && t.nombre.trim() !== '') ? t.nombre : t.username,
+        username: t.username,
+        total_activas:  Number(t.total_activas  || 0),
+        en_reparacion:  Number(t.en_reparacion  || 0),
+        esperando_pieza: Number(t.esperando_pieza || 0),
+        listas:         Number(t.listas         || 0),
+        en_diagnostico: Number(t.en_diagnostico || 0),
+      }));
+
+      return res.json({
+        success: true,
+        data: {
+          porEstado,
+          sinAsignar: Number(sinAsignarRow?.total ?? 0),
+          tecnicos,
+        },
+      });
+    } else {
+      // Técnico: sus propios conteos
+      const userId = req.user.id;
+
+      const [stateCounts] = await db.query(
+        `SELECT estado, COUNT(*) AS total
+         FROM reparaciones
+         WHERE tecnico_asignado_id = ?
+           AND estado NOT IN ('CANCELADA','ENTREGADA')
+         GROUP BY estado`,
+        [userId]
+      );
+
+      const [[vencidasRow]] = await db.query(
+        `SELECT COUNT(*) AS total
+         FROM reparaciones
+         WHERE tecnico_asignado_id = ?
+           AND estado NOT IN ('CANCELADA','ENTREGADA')
+           AND fecha_entrega_programada IS NOT NULL
+           AND fecha_entrega_programada < NOW()`,
+        [userId]
+      );
+
+      const porEstado = {};
+      stateCounts.forEach(r => { porEstado[r.estado] = Number(r.total); });
+
+      return res.json({
+        success: true,
+        data: {
+          porEstado,
+          vencidas: Number(vencidasRow?.total ?? 0),
+        },
+      });
+    }
+  } catch (error) {
+    console.error('getResumenOT error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

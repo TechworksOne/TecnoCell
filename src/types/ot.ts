@@ -18,6 +18,7 @@ export interface OrdenTrabajo {
   estado: RepairStatus;
   prioridad: 'BAJA' | 'MEDIA' | 'ALTA';
   fecha_ingreso: string;
+  fecha_entrega_programada?: string | null;
 
   // Asignación técnica
   tecnico_asignado_id: number | null;
@@ -34,3 +35,31 @@ export interface OrdenTrabajo {
 export interface AsignarTecnicoPayload {
   tecnico_id: number;
 }
+
+// ── Dashboard: carga por técnico ───────────────────────────────────────────
+export interface CargaTecnico {
+  id: number;
+  nombre: string;
+  username: string;
+  total_activas: number;
+  en_reparacion: number;
+  esperando_pieza: number;
+  listas: number;
+  en_diagnostico: number;
+}
+
+// ── Dashboard: resumen para administrador ─────────────────────────────────
+export interface ResumenAdmin {
+  porEstado: Partial<Record<string, number>>;
+  sinAsignar: number;
+  tecnicos: CargaTecnico[];
+}
+
+// ── Dashboard: resumen para técnico ───────────────────────────────────────
+export interface ResumenTecnico {
+  porEstado: Partial<Record<string, number>>;
+  vencidas: number;
+}
+
+export type ResumenOT = ResumenAdmin | ResumenTecnico;
+

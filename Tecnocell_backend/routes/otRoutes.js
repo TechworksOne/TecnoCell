@@ -7,10 +7,16 @@ const { verifyToken } = require('../middleware/authMiddleware');
 // Todas las rutas requieren autenticación
 router.use(verifyToken);
 
-// GET /api/ot — listado de órdenes de trabajo
-router.get('/', otController.getOrdenesTrabajo);
+// GET /api/ot/resumen  — KPI cards del dashboard (activas, por estado, carga técnico)
+router.get('/resumen',   otController.getResumenOT);
+
+// GET /api/ot/historial — OTs canceladas y entregadas
+router.get('/historial', otController.getHistorialOT);
 
 // GET /api/ot/tecnicos — lista de usuarios disponibles para asignar OT
-router.get('/tecnicos', otController.getTecnicos);
+router.get('/tecnicos',  otController.getTecnicos);
+
+// GET /api/ot — listado de OTs activas
+router.get('/',          otController.getOrdenesTrabajo);
 
 module.exports = router;
