@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { EntregaAgenda } from '../types/agenda';
+import type { EntregaAgenda, AgendaEvento } from '../types/agenda';
 import API_URL from './config';
 
 const api = axios.create({ baseURL: API_URL });
@@ -52,8 +52,6 @@ export interface ReparacionPendiente {
   estado: string;
 }
 
-import type { AgendaEvento } from '../types/agenda';
-
 export const searchReparacionesPendientes = async (search?: string): Promise<ReparacionPendiente[]> => {
   const response = await api.get('/reparaciones', {
     params: { search: search || undefined, limit: 20 },
@@ -77,7 +75,21 @@ export interface AgendaEventoPayload {
   hora?: string;
   descripcion?: string;
   tipo?: 'nota' | 'cita' | 'recordatorio' | 'otro';
+  para_rol?: string;
+  para_usuario_id?: number;
+  para_usuario_nombre?: string;
 }
+
+export interface UsuarioSimple {
+  id: number;
+  nombre: string;
+  roles: string[];
+}
+
+export const getUsuariosParaAgenda = async (): Promise<UsuarioSimple[]> => {
+  const response = await api.get('/agenda/usuarios');
+  return response.data.data as UsuarioSimple[];
+};
 
 export const getEventos = async (params?: { fecha_inicio?: string; fecha_fin?: string }): Promise<AgendaEvento[]> => {
   const response = await api.get('/agenda/eventos', { params });

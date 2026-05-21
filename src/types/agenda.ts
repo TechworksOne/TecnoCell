@@ -30,6 +30,10 @@ export interface AgendaEvento {
   tipo: TipoEvento;
   color?: string | null;
   creado_por?: string | null;
+  creado_por_id?: number | null;
+  para_rol?: string | null;
+  para_usuario_id?: number | null;
+  para_usuario_nombre?: string | null;
   created_at: string;
   updated_at: string;
 }
