@@ -837,36 +837,6 @@ function VistaLista({ entregas, eventos, onVerReparacion, onEditar, onEditarEven
   );
 }
 
-  return (
-    <div className="space-y-6">
-      {keys.map(key => {
-        const d = new Date(key + 'T12:00:00');
-        const esHoy = key === today;
-        const esPasado = key < today;
-
-        return (
-          <div key={key}>
-            {/* Encabezado de día */}
-            <div className="flex items-center gap-3 mb-3">
-              <div
-                className={`flex flex-col items-center justify-center rounded-xl w-12 h-12 shrink-0 ${
-                  esHoy ? 'text-white' : ''
-                }`}
-                style={{
-                  background: esHoy ? '#48B9E6' : esPasado ? 'var(--color-bg)' : 'var(--color-bg-card)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                <span className="text-xl font-bold leading-none">{d.getDate()}</span>
-                <span className="text-xs uppercase">
-                  {d.toLocaleDateString('es-GT', { month: 'short' })}
-                </span>
-              </div>
-              <div>
-                <p className="font-semibold" style={{ color: esHoy ? '#48B9E6' : 'var(--color-text)' }}>
-                  {esHoy ? 'Hoy — ' : ''}{d.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
 // ─── Vista mensual (calendario) ───────────────────────────────────────────────
 interface VistaMensualProps {
   year: number;
