@@ -116,7 +116,13 @@ export default function Topbar() {
               {user?.name}
             </p>
             <p className="text-xs mt-0.5 capitalize" style={{ color: "var(--color-text-sec)", fontSize: 10 }}>
-              {user?.role === "admin" ? "Administrador" : user?.role === "tecnico" ? "Técnico" : "Empleado"}
+              {(() => {
+                const roles = user?.roles ?? [];
+                if (roles.includes('ADMINISTRADOR') || user?.role === 'admin') return 'Administrador';
+                if (roles.includes('TECNICO')       || user?.role === 'tecnico') return 'T\u00e9cnico';
+                if (roles.includes('VENTAS')        || user?.role === 'ventas') return 'Ventas';
+                return 'Empleado';
+              })()}
             </p>
           </div>
         </div>

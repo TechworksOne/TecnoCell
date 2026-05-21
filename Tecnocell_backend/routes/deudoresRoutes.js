@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const deudoresController = require('../controllers/deudoresController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
 
-router.use(verifyToken);
+// Deudores: exclusivo para administradores
+const soloAdmin = [verifyToken, verifyRole('ADMINISTRADOR', 'admin')];
 
-router.get('/',                          deudoresController.getDeudores);
-router.get('/resumen',                   deudoresController.getResumen);
-router.get('/buscar/reparaciones',       deudoresController.searchReparaciones);
-router.get('/:id',                       deudoresController.getDeudorById);
-router.post('/',                         deudoresController.createDeudor);
-router.post('/:id/pago',                 deudoresController.registrarPago);
-router.post('/:id/anular',               deudoresController.anularDeudor);
+router.get('/',                    ...soloAdmin, deudoresController.getDeudores);
+router.get('/resumen',             ...soloAdmin, deudoresController.getResumen);
+router.get('/buscar/reparaciones', ...soloAdmin, deudoresController.searchReparaciones);
+router.get('/:id',                 ...soloAdmin, deudoresController.getDeudorById);
+router.post('/',                   ...soloAdmin, deudoresController.createDeudor);
+router.post('/:id/pago',           ...soloAdmin, deudoresController.registrarPago);
+router.post('/:id/anular',         ...soloAdmin, deudoresController.anularDeudor);
 
 module.exports = router;

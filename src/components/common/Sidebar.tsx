@@ -54,7 +54,13 @@ export default function Sidebar() {
   const { isOpen, toggle } = useSidebar();
   const { user } = useAuth();
 
-  const isAdmin = user?.roles?.includes("ADMINISTRADOR") || user?.role === "admin";
+  // Calcular roles efectivos (RBAC + campo legado para compatibilidad)
+  const userRoles: string[] = user?.roles ?? [];
+  const legacyRole = (user?.role ?? '').toLowerCase();
+  const effectiveRoles = new Set(userRoles);
+  if (legacyRole === 'admin' || legacyRole === 'administrador') effectiveRoles.add('ADMINISTRADOR');
+  if (legacyRole === 'tecnico')                                  effectiveRoles.add('TECNICO');
+  if (legacyRole === 'ventas' || legacyRole === 'employee')      effectiveRoles.add('VENTAS');
 
   return (
     <aside
@@ -106,7 +112,7 @@ export default function Sidebar() {
         style={{ padding: isOpen ? "8px 10px 20px" : "8px 7px 20px" }}
       >
         {GROUPS.map((group, gi) => {
-          const visible = group.items.filter(item => !item.adminOnly || isAdmin);
+          const visible = group.items.filter(item => !item.roles || item.roles.some(r => effectiveRoles.has(r)));
           if (visible.length === 0) return null;
 
           return (

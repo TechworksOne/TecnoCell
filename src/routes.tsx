@@ -1,3 +1,4 @@
+import React from "react";
 import DashboardPage from "./pages/Dashboard/DashboardPage";
 import FelPage from "./pages/InvoicesFel/FelPage";
 import LoginPage from "./pages/Login/LoginPage";
@@ -31,41 +32,56 @@ import OrdenesTrabajoPage from "./pages/OrdenesTrabajo/OrdenesTrabajoPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import { ROLES } from "./lib/permissions";
 
-const ADMIN = [ROLES.ADMINISTRADOR];
+const ADMIN         = [ROLES.ADMINISTRADOR];
+const ADMIN_TECNICO = [ROLES.ADMINISTRADOR, ROLES.TECNICO];
+const ADMIN_VENTAS  = [ROLES.ADMINISTRADOR, ROLES.VENTAS];
+const ALL_ROLES     = [ROLES.ADMINISTRADOR, ROLES.TECNICO, ROLES.VENTAS];
+
+const PR = (roles: string[], child: React.ReactElement) => (
+  <ProtectedRoute roles={roles}>{child}</ProtectedRoute>
+);
 
 const routes = [
-  { path: "/login", element: <LoginPage /> },
+  { path: "/login",     element: <LoginPage /> },
   { path: "/dashboard", element: <DashboardPage /> },
-  { path: "/productos", element: <ProductsPage /> },
-  { path: "/repuestos", element: <RepuestosPage /> },
-  { path: "/repuestos/nuevo", element: <RepuestoForm /> },
-  { path: "/repuestos/editar/:id", element: <RepuestoForm /> },
-  { path: "/compras", element: <ProtectedRoute roles={ADMIN}><PurchasesPage /></ProtectedRoute> },
-  { path: "/compras/nueva", element: <ProtectedRoute roles={ADMIN}><PurchaseFormPage /></ProtectedRoute> },
-  { path: "/cotizaciones", element: <QuotesPage /> },
-  { path: "/cotizaciones/nueva", element: <QuoteFormPage /> },
-  { path: "/cotizaciones/:id/editar", element: <QuoteFormPage /> },
-  { path: "/cotizaciones/:id", element: <QuoteDetailPage /> },
-  { path: "/ventas", element: <SalesPageNew /> },
-  { path: "/ventas/nueva", element: <SaleNewPage /> },
-  { path: "/ventas/:id", element: <SaleDetailPage /> },
-  { path: "/reparaciones", element: <RepairsPage /> },
-  { path: "/reparaciones/nueva", element: <RepairFormSimple /> },
-  { path: "/reparaciones/:id/editar", element: <RepairFormSimple /> },
-  { path: "/flujo-reparaciones", element: <FlujoReparacionesPage /> },
-  { path: "/flujo-reparaciones/:id", element: <FlujoReparacionDetailPage /> },
-  { path: "/ordenes-trabajo", element: <OrdenesTrabajoPage /> },
-  { path: "/agenda", element: <AgendaPage /> },
-  { path: "/pago-tarjeta", element: <CardPaymentPage /> },
-  { path: "/clientes", element: <CustomersPage /> },
-  { path: "/proveedores", element: <ProtectedRoute roles={ADMIN}><SuppliersPage /></ProtectedRoute> },
-  { path: "/caja-bancos", element: <CajaBancosPage /> },
-  { path: "/deudores", element: <DeudoresPage /> },
-  { path: "/stickers-garantia", element: <ProtectedRoute roles={ADMIN}><StickersGarantiaPage /></ProtectedRoute> },
-  { path: "/admin-usuarios", element: <ProtectedRoute roles={ADMIN}><AdminUsuariosPage /></ProtectedRoute> },
-  { path: "/fel", element: <FelPage /> },
-  { path: "/reportes", element: <ProtectedRoute roles={ADMIN}><ReportesPage /></ProtectedRoute> },
-  { path: "/usuarios", element: <UsersPage /> },
+
+  // ── Operación ──────────────────────────────────────────────────────────────
+  { path: "/productos",            element: PR(ADMIN_VENTAS,  <ProductsPage />) },
+  { path: "/repuestos",            element: PR(ADMIN_TECNICO, <RepuestosPage />) },
+  { path: "/repuestos/nuevo",      element: PR(ADMIN_TECNICO, <RepuestoForm />) },
+  { path: "/repuestos/editar/:id", element: PR(ADMIN_TECNICO, <RepuestoForm />) },
+  { path: "/compras",              element: PR(ADMIN,         <PurchasesPage />) },
+  { path: "/compras/nueva",        element: PR(ADMIN,         <PurchaseFormPage />) },
+  { path: "/cotizaciones",                element: PR(ADMIN_VENTAS, <QuotesPage />) },
+  { path: "/cotizaciones/nueva",          element: PR(ADMIN_VENTAS, <QuoteFormPage />) },
+  { path: "/cotizaciones/:id/editar",     element: PR(ADMIN_VENTAS, <QuoteFormPage />) },
+  { path: "/cotizaciones/:id",            element: PR(ADMIN_VENTAS, <QuoteDetailPage />) },
+  { path: "/ventas",       element: PR(ADMIN_VENTAS, <SalesPageNew />) },
+  { path: "/ventas/nueva", element: PR(ADMIN_VENTAS, <SaleNewPage />) },
+  { path: "/ventas/:id",   element: PR(ADMIN_VENTAS, <SaleDetailPage />) },
+
+  // ── Servicio técnico ───────────────────────────────────────────────────────
+  { path: "/reparaciones",            element: PR(ALL_ROLES,     <RepairsPage />) },
+  { path: "/reparaciones/nueva",      element: PR(ALL_ROLES,     <RepairFormSimple />) },
+  { path: "/reparaciones/:id/editar", element: PR(ALL_ROLES,     <RepairFormSimple />) },
+  { path: "/flujo-reparaciones",      element: PR(ADMIN_TECNICO, <FlujoReparacionesPage />) },
+  { path: "/flujo-reparaciones/:id",  element: PR(ADMIN_TECNICO, <FlujoReparacionDetailPage />) },
+  { path: "/ordenes-trabajo",         element: PR(ADMIN_TECNICO, <OrdenesTrabajoPage />) },
+  { path: "/agenda",                  element: PR(ADMIN_TECNICO, <AgendaPage />) },
+  { path: "/pago-tarjeta",            element: PR(ADMIN_VENTAS,  <CardPaymentPage />) },
+
+  // ── Administración ─────────────────────────────────────────────────────────
+  { path: "/clientes",       element: PR(ADMIN_VENTAS, <CustomersPage />) },
+  { path: "/caja-bancos",    element: PR(ADMIN,        <CajaBancosPage />) },
+  { path: "/deudores",       element: PR(ADMIN,        <DeudoresPage />) },
+  { path: "/proveedores",    element: PR(ADMIN,        <SuppliersPage />) },
+  { path: "/stickers-garantia", element: PR(ADMIN,     <StickersGarantiaPage />) },
+  { path: "/admin-usuarios", element: PR(ADMIN,        <AdminUsuariosPage />) },
+  { path: "/reportes",       element: PR(ADMIN,        <ReportesPage />) },
+  { path: "/usuarios",       element: PR(ADMIN,        <UsersPage />) },
+
+  // ── Sin restricción de rol (solo autenticación) ────────────────────────────
+  { path: "/fel",    element: <FelPage /> },
   { path: "/perfil", element: <ProfilePage /> },
 ];
 

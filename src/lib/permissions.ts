@@ -11,6 +11,9 @@ export const ADMIN_ONLY_ROUTES = [
   '/stickers-garantia',
   '/proveedores',
   '/admin-usuarios',
+  '/reportes',
+  '/caja-bancos',
+  '/deudores',
 ];
 
 /** Verifica si el usuario tiene el rol indicado */

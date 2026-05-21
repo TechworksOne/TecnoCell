@@ -9,6 +9,17 @@ interface Props {
   roles?: string[];
 }
 
+/** Normaliza roles RBAC + campo role legado para compatibilidad hacia atrás */
+function getEffectiveRoles(user: { roles?: string[]; role?: string } | null): string[] {
+  const rbac    = Array.isArray(user?.roles) ? user!.roles : [];
+  const legacy  = (user?.role ?? '').toLowerCase();
+  const set     = new Set(rbac);
+  if (legacy === 'admin' || legacy === 'administrador') set.add('ADMINISTRADOR');
+  if (legacy === 'tecnico')                             set.add('TECNICO');
+  if (legacy === 'ventas' || legacy === 'employee')     set.add('VENTAS');
+  return [...set];
+}
+
 export default function ProtectedRoute({ children, roles }: Props) {
   const { user, role } = useAuth();
   const location = useLocation();
@@ -19,7 +30,7 @@ export default function ProtectedRoute({ children, roles }: Props) {
   }
 
   // Verificar acceso por ruta/roles
-  const userRoles = user?.roles ?? [];
+  const userRoles = getEffectiveRoles(user);
   const canAccess = roles
     ? roles.some(r => userRoles.includes(r))
     : canAccessRoute(userRoles, location.pathname);

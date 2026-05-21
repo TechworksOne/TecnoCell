@@ -6,11 +6,13 @@ const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
 // Todas las rutas requieren autenticación
 router.use(verifyToken);
 
-// ========== CAJA CHICA ==========
-router.get('/caja-chica/saldo', cajaController.getSaldoCajaChica);
-router.get('/caja-chica/movimientos', cajaController.getMovimientosCajaChica);
-router.post('/caja-chica/movimiento', cajaController.registrarMovimientoCajaChica);
-router.put('/caja-chica/confirmar/:id', cajaController.confirmarMovimientoCajaChica);
+const soloAdmin = verifyRole('ADMINISTRADOR', 'admin');
+
+// ========== CAJA CHICA (solo admin) ==========
+router.get('/caja-chica/saldo',         soloAdmin, cajaController.getSaldoCajaChica);
+router.get('/caja-chica/movimientos',   soloAdmin, cajaController.getMovimientosCajaChica);
+router.post('/caja-chica/movimiento',   soloAdmin, cajaController.registrarMovimientoCajaChica);
+router.put('/caja-chica/confirmar/:id', soloAdmin, cajaController.confirmarMovimientoCajaChica);
 
 // ========== BANCOS ==========
 // GET /bancos devuelve datos filtrados según rol (no admin no recibe saldo_actual)
@@ -30,7 +32,7 @@ router.post('/retiro-banco', verifyRole('admin', 'ADMINISTRADOR'), cajaControlle
 router.post('/depositar-banco', verifyRole('admin', 'ADMINISTRADOR'), cajaController.depositarAlBanco);
 router.post('/transferencia-bancos', verifyRole('admin', 'ADMINISTRADOR'), cajaController.transferenciaBancos);
 
-// ========== TRANSFERENCIA CAJA CHICA → BANCO (cualquier usuario autenticado) ==========
-router.post('/transferir-caja-a-banco', cajaController.transferirCajaABanco);
+// ========== TRANSFERENCIA CAJA CHICA → BANCO (solo admin) ==========
+router.post('/transferir-caja-a-banco', soloAdmin, cajaController.transferirCajaABanco);
 
 module.exports = router;
