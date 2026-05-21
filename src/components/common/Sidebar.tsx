@@ -9,43 +9,45 @@ import { useSidebar } from "../../store/useSidebar";
 import { useAuth } from "../../store/useAuth";
 
 // ─── Grupos de navegación ──────────────────────────────────────────────────
+// roles: null = visible para todos los roles autenticados
+// roles: [...] = visible solo para los roles indicados
 const GROUPS = [
   {
     label: "Principal",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: <Home size={17} />, adminOnly: false },
+      { to: "/dashboard", label: "Dashboard", icon: <Home size={17} />, roles: null },
+      { to: "/perfil",    label: "Perfil",    icon: <User size={17} />, roles: null },
     ],
   },
   {
     label: "Operación",
     items: [
-      { to: "/productos",    label: "Productos",    icon: <Box size={17} />,         adminOnly: false },
-      { to: "/repuestos",    label: "Repuestos",    icon: <Settings size={17} />,    adminOnly: false },
-      { to: "/compras",      label: "Compras",      icon: <ShoppingBag size={17} />, adminOnly: true  },
-      { to: "/cotizaciones", label: "Cotizaciones", icon: <FileText size={17} />,    adminOnly: false },
-      { to: "/ventas",       label: "Ventas",       icon: <CreditCard size={17} />,  adminOnly: false },
+      { to: "/productos",    label: "Productos",    icon: <Box size={17} />,         roles: ["ADMINISTRADOR", "VENTAS"]                },
+      { to: "/repuestos",    label: "Repuestos",    icon: <Settings size={17} />,    roles: ["ADMINISTRADOR", "TECNICO"]               },
+      { to: "/compras",      label: "Compras",      icon: <ShoppingBag size={17} />, roles: ["ADMINISTRADOR"]                          },
+      { to: "/cotizaciones", label: "Cotizaciones", icon: <FileText size={17} />,    roles: ["ADMINISTRADOR", "VENTAS"]                },
+      { to: "/ventas",       label: "Ventas",       icon: <CreditCard size={17} />,  roles: ["ADMINISTRADOR", "VENTAS"]                },
     ],
   },
   {
     label: "Servicio técnico",
     items: [
-      { to: "/reparaciones",        label: "Reparaciones",      icon: <Wrench size={17} />,         adminOnly: false },
-      { to: "/flujo-reparaciones",  label: "Flujo Rep.",        icon: <GitBranch size={17} />,      adminOnly: false },
-      { to: "/ordenes-trabajo",     label: "Órdenes de Trabajo",icon: <ClipboardList size={17} />,   adminOnly: false },
-      { to: "/agenda",              label: "Agenda entregas",   icon: <CalendarDays size={17} />,    adminOnly: false },
-      { to: "/stickers-garantia",   label: "Stickers garantía", icon: <Tag size={17} />,             adminOnly: true  },
+      { to: "/reparaciones",       label: "Reparaciones",       icon: <Wrench size={17} />,        roles: ["ADMINISTRADOR", "TECNICO", "VENTAS"] },
+      { to: "/flujo-reparaciones", label: "Flujo Rep.",         icon: <GitBranch size={17} />,     roles: ["ADMINISTRADOR", "TECNICO"]           },
+      { to: "/ordenes-trabajo",    label: "Órdenes de Trabajo", icon: <ClipboardList size={17} />, roles: ["ADMINISTRADOR", "TECNICO"]           },
+      { to: "/agenda",             label: "Agenda entregas",    icon: <CalendarDays size={17} />,  roles: ["ADMINISTRADOR", "TECNICO"]           },
+      { to: "/stickers-garantia",  label: "Stickers garantía",  icon: <Tag size={17} />,           roles: ["ADMINISTRADOR"]                      },
     ],
   },
   {
     label: "Administración",
     items: [
-      { to: "/caja-bancos",    label: "Caja y Bancos",   icon: <Wallet size={17} />,    adminOnly: false },
-      { to: "/deudores",        label: "Deudores",         icon: <Receipt size={17} />,   adminOnly: false },
-      { to: "/reportes",       label: "Reportes",        icon: <BarChart3 size={17} />, adminOnly: true  },
-      { to: "/clientes",       label: "Clientes",        icon: <Users size={17} />,     adminOnly: false },
-      { to: "/proveedores",    label: "Proveedores",     icon: <Building2 size={17} />, adminOnly: true  },
-      { to: "/admin-usuarios", label: "Admin. usuarios", icon: <Shield size={17} />,    adminOnly: true  },
-      { to: "/perfil",         label: "Perfil",          icon: <User size={17} />,      adminOnly: false },
+      { to: "/caja-bancos",    label: "Caja y Bancos",   icon: <Wallet size={17} />,    roles: ["ADMINISTRADOR"]               },
+      { to: "/deudores",       label: "Deudores",        icon: <Receipt size={17} />,   roles: ["ADMINISTRADOR"]               },
+      { to: "/reportes",       label: "Reportes",        icon: <BarChart3 size={17} />, roles: ["ADMINISTRADOR"]               },
+      { to: "/clientes",       label: "Clientes",        icon: <Users size={17} />,     roles: ["ADMINISTRADOR", "VENTAS"]     },
+      { to: "/proveedores",    label: "Proveedores",     icon: <Building2 size={17} />, roles: ["ADMINISTRADOR"]               },
+      { to: "/admin-usuarios", label: "Admin. usuarios", icon: <Shield size={17} />,    roles: ["ADMINISTRADOR"]               },
     ],
   },
 ];
