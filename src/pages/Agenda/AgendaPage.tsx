@@ -765,8 +765,9 @@ function VistaLista({ entregas, eventos, onVerReparacion, onEditar, onEditarEven
     grupos[key].entregas.push(e);
   }
   for (const ev of eventos) {
-    if (!grupos[ev.fecha]) grupos[ev.fecha] = { entregas: [], eventos: [] };
-    grupos[ev.fecha].eventos.push(ev);
+    const evKey = String(ev.fecha).substring(0, 10);
+    if (!grupos[evKey]) grupos[evKey] = { entregas: [], eventos: [] };
+    grupos[evKey].eventos.push(ev);
   }
 
   const keys = Object.keys(grupos).sort();
@@ -863,8 +864,9 @@ function VistaMensual({ year, month, entregas, eventos, onVerReparacion, onEdita
   // Mapa de eventos por día (YYYY-MM-DD)
   const mapaEv: Record<string, AgendaEvento[]> = {};
   for (const ev of eventos) {
-    if (!mapaEv[ev.fecha]) mapaEv[ev.fecha] = [];
-    mapaEv[ev.fecha].push(ev);
+    const evKey = String(ev.fecha).substring(0, 10);
+    if (!mapaEv[evKey]) mapaEv[evKey] = [];
+    mapaEv[evKey].push(ev);
   }
 
   const firstDay = firstOfMonth(year, month);
