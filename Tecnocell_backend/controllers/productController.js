@@ -187,6 +187,11 @@ exports.getProductById = async (req, res) => {
 };
 
 // Crear nuevo producto con imágenes
+
+const campoProductoVacio = (value) => {
+  return value === undefined || value === null || String(value).trim() === '';
+};
+
 exports.createProduct = async (req, res) => {
   const connection = await db.getConnection();
   
@@ -230,7 +235,7 @@ exports.createProduct = async (req, res) => {
     });
     
     // Validaciones
-    if (!nombre || !categoria || !precio_costo || !precio_venta) {
+    if (campoProductoVacio(nombre) || campoProductoVacio(categoria) || campoProductoVacio(precio_costo) || campoProductoVacio(precio_venta)) {
       await connection.rollback();
       return res.status(400).json({ 
         success: false, 
