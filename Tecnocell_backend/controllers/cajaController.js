@@ -997,6 +997,67 @@ exports.depositarAlBanco = async (req, res) => {
   }
 };
 
+// ========== INGRESO MANUAL DIRECTO A BANCO ==========
+// Crea dinero directamente en una cuenta bancaria sin afectar caja chica.
+exports.ingresoBanco = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { cuenta_id, monto, concepto, observaciones, realizado_por, categoria } = req.body;
+
+    if (!cuenta_id || !monto || Number(monto) <= 0) {
+      conn.release();
+      return res.status(400).json({ success: false, message: 'cuenta_id y monto son requeridos' });
+    }
+    if (!concepto || !String(concepto).trim()) {
+      conn.release();
+      return res.status(400).json({ success: false, message: 'El concepto es requerido' });
+    }
+
+    const montoNum = Number(monto);
+
+    const [cuentas] = await conn.query(
+      'SELECT * FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+      [cuenta_id]
+    );
+
+    if (cuentas.length === 0) {
+      conn.release();
+      return res.status(404).json({ success: false, message: 'Cuenta bancaria no encontrada o inactiva' });
+    }
+
+    const cuenta = cuentas[0];
+    const usuario = realizado_por || 'Usuario';
+
+    await conn.beginTransaction();
+
+    // Solo ingreso al banco — no se descuenta de ningún lado
+    await conn.query(
+      `INSERT INTO movimientos_bancarios
+        (cuenta_id, tipo_movimiento, monto, concepto, categoria, estado, realizado_por, observaciones)
+       VALUES (?, 'INGRESO', ?, ?, ?, 'CONFIRMADO', ?, ?)`,
+      [cuenta_id, montoNum, concepto, categoria || 'Ingreso Manual', usuario, observaciones || null]
+    );
+
+    await conn.query(
+      'UPDATE cuentas_bancarias SET saldo_actual = saldo_actual + ? WHERE id = ?',
+      [montoNum, cuenta_id]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    res.status(201).json({
+      success: true,
+      message: `Ingreso de Q${montoNum.toFixed(2)} registrado en ${cuenta.nombre}`
+    });
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error en ingresoBanco:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // ========== TRANSFERENCIA ENTRE BANCOS ==========
 // Mueve dinero de una cuenta bancaria a otra dentro del sistema.
 exports.transferenciaBancos = async (req, res) => {

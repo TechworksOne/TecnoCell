@@ -30,6 +30,7 @@ router.delete('/bancos/:id', verifyRole('admin', 'ADMINISTRADOR'), cajaControlle
 // ========== OPERACIONES ENTRE CAJA Y BANCOS (solo admin) ==========
 router.post('/retiro-banco', verifyRole('admin', 'ADMINISTRADOR'), cajaController.retirarDeBanco);
 router.post('/depositar-banco', verifyRole('admin', 'ADMINISTRADOR'), cajaController.depositarAlBanco);
+router.post('/ingreso-banco',   cajaController.ingresoBanco);
 router.post('/transferencia-bancos', verifyRole('admin', 'ADMINISTRADOR'), cajaController.transferenciaBancos);
 
 // ========== TRANSFERENCIA CAJA CHICA → BANCO (todos los roles autenticados) ==========

@@ -144,7 +144,7 @@ export default function NuevaCompraModal({
       precio_unitario:
         tipo === "producto"
           ? product.precioProducto || 0
-          : product.precio_venta || 0,
+          : product.precioCosto || 0,
       aplica_serie: tipo === "producto" ? product.aplica_serie || false : false,
       series: [],
       tipo_item: tipo,

@@ -189,14 +189,16 @@ exports.createCompraRepuestos = async (req, res) => {
       // Actualizar inventario si está confirmada
       if (estado === 'CONFIRMADA' || estado === 'RECIBIDA') {
         const margen = 1.30; // 30% de ganancia
-        const precioPublicoCalculado = Math.round(item.precio_unitario * margen);
+        // precio_unitario viene en quetzales del frontend; la tabla repuestos almacena en centavos
+        const costoCentavos = Math.round(item.precio_unitario * 100);
+        const publicoCentavos = Math.round(item.precio_unitario * margen * 100);
         
         await connection.query(
           'UPDATE repuestos SET stock = stock + ?, precio_costo = ?, precio_publico = ? WHERE id = ?',
-          [item.cantidad, item.precio_unitario, precioPublicoCalculado, item.producto_id]
+          [item.cantidad, costoCentavos, publicoCentavos, item.producto_id]
         );
         
-        console.log(`✅ Repuesto ${item.producto_id}: +${item.cantidad} stock, Costo: Q${item.precio_unitario}, Público: Q${precioPublicoCalculado}`);
+        console.log(`✅ Repuesto ${item.producto_id}: +${item.cantidad} stock, Costo: Q${item.precio_unitario}, Público: Q${(item.precio_unitario * margen).toFixed(2)}`);
       }
     }
     

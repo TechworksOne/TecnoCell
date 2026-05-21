@@ -267,7 +267,7 @@ export default function CajaBancosPage() {
       } else if (tipoMovimiento === 'INGRESO_MANUAL') {
         if (ingresoDestino === 'banco') {
           if (!cuentaDestino) { alert('Selecciona una cuenta bancaria'); return; }
-          await axios.post(`${API_URL}/caja/depositar-banco`, {
+          await axios.post(`${API_URL}/caja/ingreso-banco`, {
             cuenta_id: parseInt(cuentaDestino),
             monto: montoNum,
             concepto,
