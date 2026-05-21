@@ -36,7 +36,7 @@ const GROUPS = [
       { to: "/reparaciones",       label: "Reparaciones",       icon: <Wrench size={17} />,        roles: ["ADMINISTRADOR", "TECNICO", "VENTAS"] },
       { to: "/flujo-reparaciones", label: "Flujo Rep.",         icon: <GitBranch size={17} />,     roles: null },
       { to: "/ordenes-trabajo",    label: "Órdenes de Trabajo", icon: <ClipboardList size={17} />, roles: ["ADMINISTRADOR", "TECNICO"]           },
-      { to: "/agenda",             label: "Agenda entregas",    icon: <CalendarDays size={17} />,  roles: ["ADMINISTRADOR", "TECNICO"]           },
+      { to: "/agenda",             label: "Agenda entregas",    icon: <CalendarDays size={17} />,  roles: null },
       { to: "/stickers-garantia",  label: "Stickers garantía",  icon: <Tag size={17} />,           roles: ["ADMINISTRADOR"]                      },
     ],
   },

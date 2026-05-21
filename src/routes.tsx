@@ -67,7 +67,7 @@ const routes = [
   { path: "/flujo-reparaciones",      element: PR(ALL_ROLES, <FlujoReparacionesPage />) },
   { path: "/flujo-reparaciones/:id",  element: PR(ALL_ROLES, <FlujoReparacionDetailPage />) },
   { path: "/ordenes-trabajo",         element: PR(ADMIN_TECNICO, <OrdenesTrabajoPage />) },
-  { path: "/agenda",                  element: PR(ADMIN_TECNICO, <AgendaPage />) },
+  { path: "/agenda",                  element: PR(ALL_ROLES, <AgendaPage />) },
   { path: "/pago-tarjeta",            element: PR(ADMIN_VENTAS,  <CardPaymentPage />) },
 
   // ── Administración ─────────────────────────────────────────────────────────
