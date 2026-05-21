@@ -5,8 +5,9 @@ import {
   CheckCircle2, AlertCircle, Ban, List, Search, Plus, FileText, Pencil, Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getEntregas, patchFechaEntrega, deleteFechaEntrega, searchReparacionesPendientes, type ReparacionPendiente, getEventos, createEvento, updateEvento, deleteEvento } from '../../services/agendaService';
+import { getEntregas, patchFechaEntrega, deleteFechaEntrega, searchReparacionesPendientes, type ReparacionPendiente, getEventos, createEvento, updateEvento, deleteEvento, getUsuariosParaAgenda, type UsuarioSimple } from '../../services/agendaService';
 import type { EntregaAgenda, FiltroAgenda, AgendaEvento, TipoEvento } from '../../types/agenda';
+import { useAuth } from '../../store/useAuth';
 import PageHeader from '../../components/common/PageHeader';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -126,6 +127,9 @@ interface ModalEventoProps {
   onSaved: () => void;
 }
 function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ADMINISTRADOR') ?? false;
+
   const [titulo, setTitulo] = useState(evento?.titulo ?? '');
   const [fecha, setFecha] = useState(evento?.fecha ?? fechaInicial ?? toLocalDateStr(new Date()));
   const [hora, setHora] = useState(evento?.hora ? String(evento.hora).substring(0, 5) : '');
@@ -135,6 +139,28 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // ── Visibilidad ──
+  const [visibilidad, setVisibilidad] = useState<'todos' | 'solo_yo' | 'rol' | 'usuario'>(() => {
+    if (!evento) return 'todos';
+    if (evento.para_usuario_id) return evento.para_usuario_id === user?.id ? 'solo_yo' : 'usuario';
+    if (evento.para_rol) return 'rol';
+    return 'todos';
+  });
+  const [paraRol, setParaRol] = useState(evento?.para_rol ?? '');
+  const [paraUsuarioId, setParaUsuarioId] = useState<number | null>(evento?.para_usuario_id ?? null);
+  const [usuariosLista, setUsuariosLista] = useState<UsuarioSimple[]>([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+
+  useEffect(() => {
+    if (visibilidad === 'usuario' && isAdmin && usuariosLista.length === 0) {
+      setLoadingUsuarios(true);
+      getUsuariosParaAgenda()
+        .then(data => setUsuariosLista(data))
+        .catch(() => {})
+        .finally(() => setLoadingUsuarios(false));
+    }
+  }, [visibilidad, isAdmin]);
+
   const TIPOS: { value: TipoEvento; label: string; emoji: string; color: string }[] = [
     { value: 'nota',         label: 'Nota',         emoji: '📝', color: '#F59E0B' },
     { value: 'cita',         label: 'Cita',         emoji: '📅', color: '#8B5CF6' },
@@ -143,25 +169,58 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
   ];
   const colorActual = TIPOS.find(t => t.value === tipo)?.color ?? '#F59E0B';
 
+  const buildVisibilityPayload = () => {
+    if (visibilidad === 'solo_yo') {
+      const nombre = [user?.perfil?.nombres, user?.perfil?.apellidos].filter(Boolean).join(' ') || user?.name || user?.username || '';
+      return { para_usuario_id: user!.id, para_usuario_nombre: nombre, para_rol: undefined };
+    }
+    if (visibilidad === 'rol' && paraRol) {
+      return { para_rol: paraRol, para_usuario_id: undefined, para_usuario_nombre: undefined };
+    }
+    if (visibilidad === 'usuario' && paraUsuarioId) {
+      const nombre = usuariosLista.find(u => u.id === paraUsuarioId)?.nombre ?? '';
+      return { para_usuario_id: paraUsuarioId, para_usuario_nombre: nombre, para_rol: undefined };
+    }
+    return { para_rol: undefined, para_usuario_id: undefined, para_usuario_nombre: undefined };
+  };
+
   const handleSave = async () => {
     if (!titulo.trim()) { setError('El título es obligatorio'); return; }
     if (!fecha) { setError('La fecha es obligatoria'); return; }
+    if (visibilidad === 'rol' && !paraRol) { setError('Selecciona un rol'); return; }
+    if (visibilidad === 'usuario' && !paraUsuarioId) { setError('Selecciona un usuario'); return; }
     setError(''); setSaving(true);
     try {
-      const payload = { titulo: titulo.trim(), fecha, hora: hora || undefined, descripcion: descripcion.trim() || undefined, tipo };
+      const payload = {
+        titulo: titulo.trim(), fecha,
+        hora: hora || undefined,
+        descripcion: descripcion.trim() || undefined,
+        tipo,
+        ...buildVisibilityPayload(),
+      };
       if (evento) await updateEvento(evento.id, payload);
       else await createEvento(payload);
       onSaved(); onClose();
     } catch { setError('Error al guardar. Intenta de nuevo.'); }
     finally { setSaving(false); }
   };
+
   const handleDelete = async () => {
-    if (!evento || !window.confirm('¿Eliminar este evento?')) return;
+    if (!evento) return;
     setSaving(true);
     try { await deleteEvento(evento.id); onSaved(); onClose(); }
     catch { setError('Error al eliminar.'); }
     finally { setSaving(false); }
   };
+
+  const VISIBILIDAD_OPTS: { value: 'todos' | 'solo_yo' | 'rol' | 'usuario'; label: string; emoji: string }[] = [
+    { value: 'todos',    label: 'Todos',      emoji: '🌐' },
+    { value: 'solo_yo',  label: 'Solo yo',    emoji: '🔒' },
+    ...(isAdmin ? [
+      { value: 'rol'     as const, label: 'Por rol',      emoji: '👥' },
+      { value: 'usuario' as const, label: 'Un usuario',   emoji: '👤' },
+    ] : []),
+  ];
 
   return (
     <>
@@ -178,6 +237,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
+          {/* Tipo */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-sec)' }}>Tipo</label>
             <div className="flex gap-2 flex-wrap">
@@ -192,6 +252,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
               ))}
             </div>
           </div>
+          {/* Título */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Título *</label>
             <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} autoFocus
@@ -199,6 +260,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
               className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
               style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
           </div>
+          {/* Fecha y hora */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Fecha *</label>
@@ -213,12 +275,50 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
                 style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
             </div>
           </div>
+          {/* Descripción */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-sec)' }}>Descripción (opcional)</label>
             <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={3}
               placeholder="Detalles adicionales..."
               className="w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400 resize-none"
               style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }} />
+          </div>
+          {/* Visible para */}
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-sec)' }}>Visible para</label>
+            <div className="flex gap-2 flex-wrap">
+              {VISIBILIDAD_OPTS.map(opt => (
+                <button key={opt.value} onClick={() => setVisibilidad(opt.value)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all"
+                  style={{
+                    background: visibilidad === opt.value ? '#48B9E620' : 'var(--color-bg)',
+                    borderColor: visibilidad === opt.value ? '#48B9E6' : 'var(--color-border)',
+                    color: visibilidad === opt.value ? '#48B9E6' : 'var(--color-text-sec)',
+                  }}>{opt.emoji} {opt.label}</button>
+              ))}
+            </div>
+            {visibilidad === 'rol' && isAdmin && (
+              <select value={paraRol} onChange={e => setParaRol(e.target.value)}
+                className="mt-2 w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+                style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                <option value="">— Seleccionar rol —</option>
+                <option value="ADMINISTRADOR">Administrador</option>
+                <option value="TECNICO">Técnico</option>
+                <option value="VENTAS">Ventas</option>
+              </select>
+            )}
+            {visibilidad === 'usuario' && isAdmin && (
+              loadingUsuarios
+                ? <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>Cargando usuarios…</p>
+                : <select value={paraUsuarioId ?? ''} onChange={e => setParaUsuarioId(Number(e.target.value) || null)}
+                    className="mt-2 w-full rounded-xl px-3 py-2 text-sm border outline-none focus:ring-2 focus:ring-sky-400"
+                    style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                    <option value="">— Seleccionar usuario —</option>
+                    {usuariosLista.map(u => (
+                      <option key={u.id} value={u.id}>{u.nombre}</option>
+                    ))}
+                  </select>
+            )}
           </div>
           {error && <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle size={14} /> {error}</p>}
         </div>

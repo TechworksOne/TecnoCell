@@ -78,7 +78,7 @@ export default function NuevaCompraModal({
   // Load catalogs when opened
   useEffect(() => {
     if (isOpen) {
-      loadProducts();
+      loadProducts(1, 9999);
       loadSuppliers();
       loadRepuestos();
     }

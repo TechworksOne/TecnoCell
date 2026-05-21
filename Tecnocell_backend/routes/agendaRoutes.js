@@ -9,6 +9,7 @@ router.use(verifyToken);
 router.get('/entregas', agendaController.getEntregas);
 
 // CRUD /api/agenda/eventos  — eventos y notas libres del calendario
+router.get('/usuarios',     agendaController.getUsuariosSimple);
 router.get('/eventos',      agendaController.getEventos);
 router.post('/eventos',     agendaController.createEvento);
 router.put('/eventos/:id',  agendaController.updateEvento);
