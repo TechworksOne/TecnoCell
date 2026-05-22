@@ -103,13 +103,15 @@ export default function ModalActualizarEstado({
   if (!isOpen) return null;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const nuevasImagenes = [...imagenes, ...files].slice(0, 10); // Máximo 10 imágenes
-    setImagenes(nuevasImagenes);
-
-    // Crear previews
-    const newPreviews = files.map(file => URL.createObjectURL(file));
-    setPreviews([...previews, ...newPreviews].slice(0, 10));
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+    e.target.value = '';
+    if (files.length === 0) return;
+    const disponibles = 10 - imagenes.length;
+    if (disponibles <= 0) return;
+    const toAdd = files.slice(0, disponibles);
+    setImagenes(prev => [...prev, ...toAdd]);
+    const newPreviews = toAdd.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
   };
 
   const removeImage = (index: number) => {
@@ -418,7 +420,6 @@ export default function ModalActualizarEstado({
               <input
                 type="file"
                 accept="image/*"
-                multiple
                 capture="environment"
                 onChange={handleImageChange}
                 className="hidden"
