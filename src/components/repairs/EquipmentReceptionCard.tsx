@@ -554,10 +554,12 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors mb-4">
             <input
               type="file"
-              multiple
               accept="image/*"
               capture="environment"
-              onChange={(e) => handlePhotoUpload(e.target.files)}
+              onChange={(e) => {
+                handlePhotoUpload(e.target.files);
+                e.currentTarget.value = '';
+              }}
               className="hidden"
               id="photo-upload"
             />

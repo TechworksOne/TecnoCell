@@ -101,15 +101,11 @@ export function StateChangeModal({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const fileUrls: string[] = [];
-      Array.from(files).forEach(file => {
-        const url = URL.createObjectURL(file);
-        fileUrls.push(url);
-      });
-      setFotos(prev => [...prev, ...fileUrls]);
-    }
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+    e.target.value = '';
+    if (files.length === 0) return;
+    const fileUrls = files.map(file => URL.createObjectURL(file));
+    setFotos(prev => [...prev, ...fileUrls]);
   };
 
   const removePhoto = (index: number) => {
@@ -444,7 +440,6 @@ export function StateChangeModal({
               <div className="mb-4">
                 <input
                   type="file"
-                  multiple
                   accept="image/*"
                   capture="environment"
                   onChange={handleFileUpload}
