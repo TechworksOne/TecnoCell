@@ -556,6 +556,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
               type="file"
               multiple
               accept="image/*"
+              capture="environment"
               onChange={(e) => handlePhotoUpload(e.target.files)}
               className="hidden"
               id="photo-upload"

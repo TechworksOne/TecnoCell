@@ -762,7 +762,7 @@ export default function ProductsPage() {
                 </div>
               )}
             </div>
-            <input type="file" accept="image/*" onChange={(e) => {
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
                 const reader = new FileReader();

@@ -647,7 +647,7 @@ export default function SaleFormModal({ isOpen, onClose, onSuccess, origenVenta,
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--color-text-sec)] mb-1">Comprobante (Imagen)</label>
-                  <input type="file" accept="image/*" onChange={handleComprobanteChange}
+                  <input type="file" accept="image/*" capture="environment" onChange={handleComprobanteChange}
                     className="block w-full text-sm text-[var(--color-text-sec)] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-[var(--color-border)] file:text-xs file:font-medium file:bg-[var(--color-surface-soft)] file:text-[var(--color-text-sec)]" />
                 </div>
                 {comprobanteUrl && <img src={comprobanteUrl} alt="Comprobante" className="h-32 rounded-lg border" style={{ borderColor: 'var(--color-border)' }} />}

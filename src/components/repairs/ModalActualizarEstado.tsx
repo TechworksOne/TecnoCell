@@ -419,6 +419,7 @@ export default function ModalActualizarEstado({
                 type="file"
                 accept="image/*"
                 multiple
+                capture="environment"
                 onChange={handleImageChange}
                 className="hidden"
                 id="image-upload"

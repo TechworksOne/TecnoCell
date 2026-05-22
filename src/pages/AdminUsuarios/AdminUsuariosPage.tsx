@@ -337,7 +337,7 @@ function ModalUsuario({
               <Avatar foto={form.fotoPreview} nombres={form.nombres || 'U'} apellidos={form.apellidos} size="lg" />
               <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-colors">
                 <Camera size={13} className="text-white" />
-                <input type="file" accept="image/*" onChange={handleFoto} className="hidden" />
+                <input type="file" accept="image/*" capture="environment" onChange={handleFoto} className="hidden" />
               </label>
             </div>
             <div>

@@ -1066,6 +1066,7 @@ export default function RepuestoForm({
                   id="image-upload"
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   multiple
+                  capture="environment"
                   className="hidden"
                   onChange={handleFileSelect}
                 />
