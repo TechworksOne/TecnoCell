@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Smartphone, Camera, Check, Lock, Palette, Shield, CreditCard, DollarSign, FileText } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Smartphone, Camera, Check, Lock, Palette, Shield, CreditCard, DollarSign, FileText, Upload } from 'lucide-react';
 import { EquipmentType } from '../../types/repair';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -32,6 +32,8 @@ const phoneModels = {
 
 export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirmed }: EquipmentReceptionCardProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (field: string, value: any) => {
     if (isConfirmed) return; // Bloquear si ya está confirmado
@@ -553,21 +555,40 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
         {!isConfirmed && (
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors mb-4">
             <input
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={(e) => {
-                handlePhotoUpload(e.target.files);
-                e.currentTarget.value = '';
-              }}
-              className="hidden"
-              id="photo-upload"
+              onChange={(e) => { handlePhotoUpload(e.target.files); e.currentTarget.value = ''; }}
+              className="sr-only"
             />
-            <label htmlFor="photo-upload" className="cursor-pointer">
-              <Camera size={40} className="mx-auto text-gray-400 mb-3" />
-              <p className="text-lg font-medium text-gray-600 mb-1">Click para subir fotos</p>
-              <p className="text-sm text-gray-400">JPG, PNG hasta 5MB cada una</p>
-            </label>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => { handlePhotoUpload(e.target.files); e.currentTarget.value = ''; }}
+              className="sr-only"
+            />
+            <Camera size={40} className="mx-auto text-gray-400 mb-3" />
+            <p className="text-sm text-gray-400 mb-3">JPG, PNG hasta 5MB cada una</p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Camera size={16} />
+                Tomar foto
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Upload size={16} />
+                Elegir galería
+              </button>
+            </div>
           </div>
         )}
         

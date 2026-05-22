@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Upload, Camera, AlertTriangle, Package } from 'lucide-react';
 import { RepairStatus, SubStage, StateChangeRequest } from '../../types/repair';
 import Button from '../ui/Button';
@@ -57,6 +57,8 @@ export function StateChangeModal({
   const [stickerUbicacion, setStickerUbicacion] = useState<'chasis' | 'bandeja_sim' | 'bateria' | 'otro'>('chasis');
   const [diferenciaReparacion, setDiferenciaReparacion] = useState<number>(0);
   const [showUpload, setShowUpload] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const isWaitingForPart = newState === 'ESPERANDO_PIEZA';
   const isCompleted = newState === 'COMPLETADA';
@@ -439,12 +441,38 @@ export function StateChangeModal({
             {showUpload && (
               <div className="mb-4">
                 <input
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
                   onChange={handleFileUpload}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="sr-only"
                 />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                />
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Camera size={16} />
+                    Tomar foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Upload size={16} />
+                    Elegir galería
+                  </button>
+                </div>
               </div>
             )}
 

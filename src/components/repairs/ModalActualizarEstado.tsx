@@ -1,6 +1,6 @@
 import { toBackendEstado } from "../../utils/estadoReparacion";
-import { X, Upload, Trash2, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Upload, Trash2, AlertCircle, Camera } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import API_URL from '../../services/config';
 import Button from '../ui/Button';
 import axios from 'axios';
@@ -38,6 +38,9 @@ export default function ModalActualizarEstado({
   const [repuestoSeleccionado, setRepuestoSeleccionado] = useState<any>(null);
   const [stickersDisponibles, setStickersDisponibles] = useState<any[]>([]);
   const [stickerSeleccionado, setStickerSeleccionado] = useState<any>(null);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -418,25 +421,40 @@ export default function ModalActualizarEstado({
             </label>
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
               <input
+                ref={cameraInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
                 onChange={handleImageChange}
-                className="hidden"
-                id="image-upload"
+                className="sr-only"
               />
-              <label
-                htmlFor="image-upload"
-                className="cursor-pointer flex flex-col items-center"
-              >
-                <Upload size={40} className="text-slate-400 mb-2" />
-                <p className="text-sm text-slate-600 mb-1">
-                  Haz clic para subir imágenes
-                </p>
-                <p className="text-xs text-slate-500">
-                  Máximo 10 imágenes (JPG, PNG)
-                </p>
-              </label>
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="sr-only"
+              />
+              <Upload size={40} className="text-slate-400 mb-2 mx-auto" />
+              <p className="text-xs text-slate-500 mb-3">Máximo 10 imágenes (JPG, PNG)</p>
+              <div className="flex gap-2 justify-center flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Camera size={16} />
+                  Tomar foto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Upload size={16} />
+                  Elegir galería
+                </button>
+              </div>
             </div>
 
             {/* Previews */}

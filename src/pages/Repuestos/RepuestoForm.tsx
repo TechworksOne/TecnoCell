@@ -106,6 +106,8 @@ export default function RepuestoForm({
 
   const [imageItems, setImageItems] = useState<ImageItem[]>([]);
   const blobUrlsRef = useRef<string[]>([]);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [newCompatible, setNewCompatible] = useState("");
   const [newTag, setNewTag] = useState("");
@@ -1062,20 +1064,38 @@ export default function RepuestoForm({
                   </p>
                 </div>
                 <input
+                  ref={cameraInputRef}
                   type="file"
-                  id="image-upload"
                   accept="image/*"
                   capture="environment"
-                  className="hidden"
+                  className="sr-only"
                   onChange={handleFileSelect}
                 />
-                <label
-                  htmlFor="image-upload"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold cursor-pointer bg-gradient-to-r from-[#48B9E6] to-[#2EA7D8] hover:from-[#2EA7D8] hover:to-[#2563EB] text-white transition-all shadow-sm"
-                >
-                  <Upload size={14} />
-                  Seleccionar imágenes
-                </label>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleFileSelect}
+                />
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold bg-gradient-to-r from-[#48B9E6] to-[#2EA7D8] hover:from-[#2EA7D8] hover:to-[#2563EB] text-white transition-all shadow-sm"
+                  >
+                    <Camera size={14} />
+                    Tomar foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold bg-[rgba(72,185,230,0.10)] dark:bg-[rgba(72,185,230,0.08)] text-[#48B9E6] hover:bg-[rgba(72,185,230,0.20)] border border-[rgba(72,185,230,0.25)] transition-all"
+                  >
+                    <Upload size={14} />
+                    Elegir galería
+                  </button>
+                </div>
               </div>
             </div>
 
