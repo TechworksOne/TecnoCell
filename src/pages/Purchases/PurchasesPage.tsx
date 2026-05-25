@@ -577,7 +577,11 @@ export default function PurchasesPage() {
       <NuevaCompraModal
         isOpen={showNuevaCompra}
         onClose={() => setShowNuevaCompra(false)}
-        onSuccess={loadCompras}
+        onSuccess={() => {
+          loadCompras();
+          loadProducts();
+          loadRepuestos();
+        }}
       />
     </div>
   );
