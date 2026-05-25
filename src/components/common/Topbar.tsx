@@ -1,12 +1,14 @@
-import { LogOut, Moon, Sun, User } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../store/useAuth";
+import { useSidebar } from "../../store/useSidebar";
 
 export default function Topbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { toggle } = useSidebar();
 
   const handleLogout = () => {
     logout();
@@ -24,8 +26,23 @@ export default function Topbar() {
         minHeight:    52,
       }}
     >
-      {/* Izquierda: branding TECNOCELL */}
+      {/* Izquierda: botón hamburguesa (mobile) + branding TECNOCELL */}
       <div className="flex items-center gap-3">
+        {/* Hamburguesa — solo visible en mobile */}
+        <button
+          onClick={toggle}
+          aria-label="Abrir menú"
+          className="md:hidden flex items-center justify-center rounded-xl shrink-0"
+          style={{
+            width: 34,
+            height: 34,
+            background: "var(--color-surface-soft)",
+            border: "1px solid var(--color-border)",
+            color: "var(--color-text-sec)",
+          }}
+        >
+          <Menu size={18} />
+        </button>
         <div
           className="shrink-0 flex items-center justify-center rounded-lg font-black text-white text-sm select-none"
           style={{

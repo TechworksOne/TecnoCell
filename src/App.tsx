@@ -48,11 +48,10 @@ export default function App() {
       <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
         <Sidebar />
         <div
-            style={{ marginLeft: isOpen ? 264 : 72, transition: "margin-left 280ms cubic-bezier(.4,0,.2,1)" }}
-            className="flex flex-col"
+            className={`flex flex-col transition-[margin-left] duration-[280ms] ease-[cubic-bezier(.4,0,.2,1)] ${isOpen ? 'md:ml-[264px]' : 'md:ml-[72px]'}`}
           >
           <Topbar />
-          <main className="p-6">
+          <main className="p-3 sm:p-6">
             <Routes>
               {routes.filter(r => r.path !== "/login").map((r) => (
                 <Route key={r.path} path={r.path} element={r.element} />

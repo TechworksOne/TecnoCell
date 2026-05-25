@@ -3,7 +3,8 @@ import {
   CreditCard, Wrench, Settings, ShoppingBag, Building2, GitBranch,
   Tag, Shield, Wallet, BarChart3, Receipt, CalendarDays, ClipboardList,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
 import { useSidebar } from "../../store/useSidebar";
 import { useAuth } from "../../store/useAuth";
@@ -56,6 +57,21 @@ const GROUPS = [
 export default function Sidebar() {
   const { isOpen, toggle } = useSidebar();
   const { user } = useAuth();
+  const location = useLocation();
+
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-cierre en navegación (solo mobile)
+  useEffect(() => {
+    if (isMobile && isOpen) toggle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Calcular roles efectivos (RBAC + campo legado para compatibilidad)
   const userRoles: string[] = user?.roles ?? [];
@@ -65,15 +81,30 @@ export default function Sidebar() {
   if (legacyRole === 'tecnico')                                  effectiveRoles.add('TECNICO');
   if (legacyRole === 'ventas' || legacyRole === 'employee')      effectiveRoles.add('VENTAS');
 
+  const sidebarWidth = isMobile ? 264 : (isOpen ? 264 : 72);
+  const sidebarTransform = isMobile && !isOpen ? 'translateX(-100%)' : 'translateX(0)';
+  // En mobile, el contenido siempre se muestra expandido (isOpen determina visibilidad)
+  const showExpanded = isMobile ? true : isOpen;
+
   return (
-    <aside
-      className="sidebar-bg flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
-      style={{
-        width: isOpen ? 264 : 72,
-        borderRight: "1px solid var(--color-border)",
-        transition: "width 280ms cubic-bezier(.4,0,.2,1)",
-      }}
-    >
+    <>
+      {/* Backdrop — solo mobile, solo cuando está abierto */}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={toggle}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className="sidebar-bg flex flex-col h-screen fixed left-0 top-0 z-40 overflow-hidden"
+        style={{
+          width: sidebarWidth,
+          borderRight: "1px solid var(--color-border)",
+          transition: "width 280ms cubic-bezier(.4,0,.2,1), transform 280ms cubic-bezier(.4,0,.2,1)",
+          transform: sidebarTransform,
+        }}
+      >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="shrink-0 flex items-center"
@@ -261,10 +292,11 @@ export default function Sidebar() {
             (e.currentTarget as HTMLElement).style.borderColor = "var(--color-border)";
           }}
         >
-          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {showExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

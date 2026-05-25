@@ -30,7 +30,7 @@ export default function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: config.id });
 
   return (
-    <div className="flex flex-col w-[272px] shrink-0">
+    <div className="flex flex-col w-[80vw] sm:w-[260px] lg:w-[272px] shrink-0">
       {/* ── Column header ── */}
       <div
         className={[

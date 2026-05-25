@@ -852,7 +852,7 @@ export default function RepairsPage() {
     <div className="space-y-4">
       {/* Toast notification */}
       {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+        <div className={`fixed bottom-20 sm:bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl text-sm font-semibold transition-all ${
           toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
         }`}>
           {toast.type === 'success' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
