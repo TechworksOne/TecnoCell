@@ -84,3 +84,9 @@ export const getSeriesByProducto = async (productoId: number, estado?: string) =
   });
   return response.data;
 };
+
+// Anular una compra (revierte el stock)
+export const anularCompra = async (id: number, motivo: string) => {
+  const response = await api.post(`/compras/${id}/anular`, { motivo });
+  return response.data;
+};

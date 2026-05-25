@@ -539,4 +539,64 @@ exports.getSeriesByProducto = async (req, res) => {
   }
 };
 
+// ========== ANULAR COMPRA ==========
+exports.anularCompra = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const { id } = req.params;
+    const { motivo = '' } = req.body;
+
+    // Obtener la compra
+    const [compras] = await connection.query('SELECT * FROM compras WHERE id = ?', [id]);
+    if (compras.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Compra no encontrada' });
+    }
+
+    const compra = compras[0];
+
+    if (compra.estado === 'CANCELADA') {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'La compra ya está anulada' });
+    }
+
+    // Obtener los items de la compra
+    const [items] = await connection.query('SELECT * FROM compra_items WHERE compra_id = ?', [id]);
+
+    // Revertir stock solo si la compra estaba confirmada/recibida
+    if (compra.estado === 'CONFIRMADA' || compra.estado === 'RECIBIDA') {
+      for (const item of items) {
+        if (compra.tipo === 'PRODUCTO') {
+          await connection.query(
+            'UPDATE productos SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+            [item.cantidad, item.producto_id]
+          );
+        } else if (compra.tipo === 'REPUESTO') {
+          await connection.query(
+            'UPDATE repuestos SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+            [item.cantidad, item.producto_id]
+          );
+        }
+      }
+    }
+
+    // Marcar como cancelada
+    await connection.query(
+      "UPDATE compras SET estado = 'CANCELADA', notas = CONCAT(COALESCE(notas,''), IF(notas IS NULL OR notas = '', '', ' | '), 'ANULADA: ', ?) WHERE id = ?",
+      [motivo || 'Sin motivo', id]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: 'Compra anulada y stock revertido correctamente' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error al anular compra:', error);
+    res.status(500).json({ success: false, message: 'Error al anular la compra', error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = exports;

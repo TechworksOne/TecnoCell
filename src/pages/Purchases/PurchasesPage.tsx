@@ -12,11 +12,13 @@ import {
   Wrench,
   X,
   RefreshCw,
+  Ban,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useCatalog } from "../../store/useCatalog";
 import { useRepuestosStore } from "../../store/useRepuestosStore";
-import { getAllCompras } from "../../services/purchaseService";
+import { getAllCompras, anularCompra } from "../../services/purchaseService";
+import { useToast } from "../../components/ui/Toast";
 import Modal from "../../components/ui/Modal";
 import NuevaCompraModal from "./NuevaCompraModal";
 
@@ -58,6 +60,10 @@ export default function PurchasesPage() {
   const [showNuevaCompra, setShowNuevaCompra] = useState(false);
   const [activeTab, setActiveTab] = useState<"inventario" | "historial">("inventario");
   const [inventarioTipo, setInventarioTipo] = useState<"productos" | "repuestos">("productos");
+  const [confirmAnular, setConfirmAnular] = useState<{ id: number; numero: string } | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState("");
+  const [anulando, setAnulando] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadProducts();
@@ -80,6 +86,24 @@ export default function PurchasesPage() {
   const handleViewDetails = (compraId: number) => {
     const compra = compras.find((c) => c.id === compraId);
     if (compra) { setSelectedCompra(compra); setShowDetailModal(true); }
+  };
+
+  const handleConfirmAnular = async () => {
+    if (!confirmAnular) return;
+    setAnulando(true);
+    try {
+      await anularCompra(confirmAnular.id, motivoAnulacion);
+      toast.add(`Compra ${confirmAnular.numero} anulada. Stock revertido.`, "success");
+      setConfirmAnular(null);
+      setMotivoAnulacion("");
+      loadCompras();
+      loadProducts();
+      loadRepuestos();
+    } catch (err: any) {
+      toast.add(err?.response?.data?.message || "Error al anular la compra", "error");
+    } finally {
+      setAnulando(false);
+    }
   };
 
   // ── Stock filter helper ───────────────────────────────────────────────────
@@ -476,7 +500,7 @@ export default function PurchasesPage() {
                 <p className="w-32 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Fecha</p>
                 <p className="w-28 text-right text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Total</p>
                 <p className="w-24 text-center text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-widest shrink-0">Estado</p>
-                <p className="w-16 shrink-0" />
+                <p className="w-24 shrink-0" />
               </div>
               {compras.map((compra) => {
                 const eb = getEstadoBadge(compra.estado);
@@ -505,7 +529,7 @@ export default function PurchasesPage() {
                     <div className="sm:w-24 flex sm:justify-center shrink-0">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${eb.cls}`}>{eb.label}</span>
                     </div>
-                    <div className="sm:w-16 flex justify-end shrink-0">
+                    <div className="sm:w-24 flex justify-end gap-1.5 shrink-0">
                       <button
                         onClick={() => handleViewDetails(compra.id)}
                         title="Ver detalle"
@@ -513,6 +537,15 @@ export default function PurchasesPage() {
                       >
                         <Eye size={14} />
                       </button>
+                      {compra.estado !== "CANCELADA" && (
+                        <button
+                          onClick={() => { setConfirmAnular({ id: compra.id, numero: compra.numero_compra }); setMotivoAnulacion(""); }}
+                          title="Anular compra"
+                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] hover:border-red-300 dark:hover:border-red-800 text-[#5E7184] dark:text-[#B8C2D1] hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        >
+                          <Ban size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -572,6 +605,60 @@ export default function PurchasesPage() {
             </p>
           </div>
         </Modal>
+      )}
+
+      {/* ── Confirm Anular Modal ──────────────────────────────────────── */}
+      {confirmAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-[#0D1526] rounded-2xl shadow-2xl w-full max-w-md border border-red-200 dark:border-red-900/50 overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
+              <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+                <Ban size={18} className="text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-red-800 dark:text-red-300">Anular Compra</h3>
+                <p className="text-xs text-red-600 dark:text-red-400">{confirmAnular.numero}</p>
+              </div>
+              <button onClick={() => setConfirmAnular(null)} className="ml-auto p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-[#14324A] dark:text-[#F8FAFC]">
+                Esta acción <span className="font-semibold">revertirá el stock</span> de todos los productos/repuestos incluidos en la compra y no se puede deshacer.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide mb-1.5">
+                  Motivo de anulación (opcional)
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={motivoAnulacion}
+                  onChange={(e) => setMotivoAnulacion(e.target.value)}
+                  placeholder="Ej: Error en datos, compra duplicada..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] bg-[#F8FDFF] dark:bg-[#060B14] text-sm text-[#14324A] dark:text-[#F8FAFC] placeholder:text-[#7F8A99] focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400"
+                  onKeyDown={(e) => e.key === 'Enter' && handleConfirmAnular()}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)]">
+              <button
+                onClick={() => setConfirmAnular(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.18)] text-sm font-medium text-[#5E7184] dark:text-[#B8C2D1] hover:bg-[#F8FDFF] dark:hover:bg-[#0A1220] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmAnular}
+                disabled={anulando}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                {anulando ? "Anulando..." : <><Ban size={14} /> Confirmar Anulación</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <NuevaCompraModal

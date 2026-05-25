@@ -642,8 +642,19 @@ function RepairCard({
           {/* Fecha + diagnóstico */}
           <div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 mb-0.5"><CalendarDays size={9} /> Ingreso</p>
-            <p className="text-sm text-slate-700 dark:text-slate-300">{safeDate(repair.fechaIngreso)}</p>
-            {repair.tecnicoAsignado && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Técnico: {repair.tecnicoAsignado}</p>}
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              {safeDate(repair.fechaIngreso)}
+              {repair.createdAt && (
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-1.5">
+                  {new Date(String(repair.createdAt).replace(' ', 'T')).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </p>
+            {repair.recepcion.userRecepcion && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                <span className="opacity-60">Creado por:</span> <span className="font-medium">{repair.recepcion.userRecepcion}</span>
+              </p>
+            )}
             {repair.recepcion.diagnosticoInicial ? (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-1 line-clamp-2 border-l-2 border-slate-300 dark:border-slate-600 pl-1.5">
                 {repair.recepcion.diagnosticoInicial}
@@ -665,7 +676,18 @@ function RepairCard({
             {/* OT: técnico asignado chip */}
             {repair.tecnicoAsignadoId ? (
               <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
-                <UserCheck size={9} /> T\u00e9cnico: {repair.tecnicoNombre?.trim() && repair.tecnicoNombre !== ' ' ? repair.tecnicoNombre : repair.tecnicoUsername}
+                <UserCheck size={9} /> {
+                  (repair.tecnicoNombre?.trim() && repair.tecnicoNombre.trim() !== '')
+                    ? repair.tecnicoNombre.trim()
+                    : repair.tecnicoUsername
+                    ? repair.tecnicoUsername
+                    : repair.tecnicoAsignado
+                    || 'Técnico asignado'
+                }
+              </p>
+            ) : repair.tecnicoAsignado ? (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                <UserCheck size={9} /> {repair.tecnicoAsignado}
               </p>
             ) : (
               <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
