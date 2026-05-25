@@ -22,6 +22,7 @@ import {
 } from '../../services/marcaLineaService';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { createReparacion } from '../../services/repairService';
+import { useAuth } from '../../store/useAuth';
 
 type Step = 'cliente' | 'equipo' | 'resumen';
 
@@ -49,6 +50,8 @@ interface Accesorios {
 
 export default function RepairFormSimple() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const authUserName = user?.username || user?.name || 'Sistema';
   const [currentStep, setCurrentStep] = useState<Step>('cliente');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({
@@ -263,7 +266,7 @@ export default function RepairFormSimple() {
           },
           fotosRecepcion: [],
           fechaRecepcion,
-          userRecepcion: 'Sistema',
+          userRecepcion: authUserName,
         },
         estado: 'RECIBIDA',
         prioridad: 'MEDIA',
@@ -279,7 +282,7 @@ export default function RepairFormSimple() {
           nota: 'Equipo recibido para diagnostico',
           fotos: [],
           timestamp: new Date().toISOString(),
-          user: 'Sistema',
+          user: authUserName,
         }],
       };
 

@@ -13,6 +13,7 @@ import equipoService from '../../services/equipoService';
 import type { EquipoMarca, EquipoModelo, TipoEquipo } from '../../types/equipo';
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { createReparacion } from '../../services/repairService';
+import { useAuth } from '../../store/useAuth';
 import PatternLock from './PatternLock';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -65,6 +66,8 @@ function hasDirtyData(
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Props) {
+  const { user } = useAuth();
+  const authUserName = user?.username || user?.name || 'Sistema';
   const [currentStep, setCurrentStep] = useState<Step>('cliente');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
   const [equipmentData, setEquipmentData] = useState<EquipmentData>(INITIAL_EQUIPMENT);
@@ -282,7 +285,7 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
           accesoriosRecibidos: { chip: false, estuche: false, memoriaSD: false, cargador: false },
           fotosRecepcion: [],
           fechaRecepcion,
-          userRecepcion: 'Sistema',
+          userRecepcion: authUserName,
         },
         estado: 'RECIBIDA',
         prioridad: 'MEDIA',
@@ -296,7 +299,7 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
           nota: 'Equipo recibido para diagnóstico',
           fotos: [],
           timestamp: new Date().toISOString(),
-          user: 'Sistema',
+          user: authUserName,
         }],
       };
 

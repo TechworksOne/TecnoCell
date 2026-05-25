@@ -61,13 +61,49 @@ exports.uploadMiddleware = upload.array('fotos', 10);
 const centavosAQuetzales = (centavos) => centavos / 100;
 const quetzalesACentavos = (quetzales) => Math.round(quetzales * 100);
 
+// Helper: obtener nombre del usuario autenticado
+// Primero intenta req.user.username (nuevo JWT), si no consulta la BD por id
+const getAuthUserName = async (req, connection) => {
+  // 1. Nuevo JWT incluye username y/o name directamente
+  if (req.user?.username) return req.user.username;
+  if (req.user?.name)     return req.user.name;
+  if (req.user?.nombre)   return req.user.nombre;
+
+  // 2. Fallback: buscar en BD usando el id del token
+  const userId = req.user?.id || req.user?.userId || req.user?.usuario_id;
+  if (userId) {
+    try {
+      const conn = connection || db;
+      const [rows] = await conn.query(
+        `SELECT u.username, u.name, p.nombres, p.apellidos
+         FROM users u
+         LEFT JOIN user_profiles p ON p.user_id = u.id
+         WHERE u.id = ? LIMIT 1`,
+        [userId]
+      );
+      if (rows.length) {
+        const r = rows[0];
+        if (r.username) return r.username;
+        const fullName = [r.nombres, r.apellidos].filter(Boolean).join(' ').trim();
+        if (fullName) return fullName;
+        if (r.name)    return r.name;
+      }
+    } catch (_) { /* ignorar error de lookup, usar fallback */ }
+  }
+
+  return 'Sistema';
+};
+
 // ========== CREAR REPARACIÓN ==========
 exports.createReparacion = async (req, res) => {
   const connection = await db.getConnection();
   
   try {
     await connection.beginTransaction();
-    
+
+    // Resolver nombre del usuario autenticado antes de los INSERTs
+    const authUserName = await getAuthUserName(req, connection);
+
     const {
       clienteNombre,
       clienteTelefono,
@@ -135,7 +171,7 @@ exports.createReparacion = async (req, res) => {
         manoObraCentavos, subtotalCentavos, impuestosCentavos, totalCentavos,
         anticipoCentavos, anticipoCentavos, metodoAnticipo,
         fechaIngreso || new Date().toISOString().split('T')[0], observaciones,
-        req.user?.username || req.user?.name || req.user?.nombre || 'Sistema'
+        authUserName
       ]
     );
     
@@ -183,7 +219,7 @@ exports.createReparacion = async (req, res) => {
       `INSERT INTO reparaciones_historial (
         reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [repairId, estado, notaInicial, 'Sistema', 'REPARACION_CREADA', null, 'Reparación registrada en el sistema']
+      [repairId, estado, notaInicial, authUserName, 'REPARACION_CREADA', null, 'Reparación registrada en el sistema']
     );
     
     const historialId = historialResult.insertId;

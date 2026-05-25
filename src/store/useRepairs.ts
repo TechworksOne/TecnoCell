@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Repair, RepairFormData, RepairStatus, RepairPriority, StateChangeRequest, StateHistoryEntry } from '../types/repair';
+import { useAuth } from './useAuth';
 
 interface RepairState {
   repairs: Repair[];
@@ -66,7 +67,7 @@ export const useRepairs = create<RepairState>((set, get) => ({
                 : "Reparación creada",
               fotos: [],
               timestamp: new Date().toISOString(),
-              user: "Sistema"
+              user: useAuth.getState().user?.username || useAuth.getState().user?.name || 'Sistema'
             }],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -163,7 +164,7 @@ export const useRepairs = create<RepairState>((set, get) => ({
       nota,
       fotos,
       timestamp: new Date().toISOString(),
-      user: "Usuario Actual", // En implementación real, obtener del auth
+      user: useAuth.getState().user?.username || useAuth.getState().user?.name || 'Sistema',
       piezaNecesaria,
       proveedor
     };
