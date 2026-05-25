@@ -7,6 +7,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import API_URL from '../../services/config';
 import Button from '../ui/Button';
 import axios from 'axios';
+import { PAYMENT_METHODS, isCardMethod } from '../../constants/paymentMethods';
+
+// Payment method value constants for convenience
+const PM_EFECTIVO     = 'EFECTIVO';
+const PM_TRANSFERENCIA = 'TRANSFERENCIA';
+const PM_TARJETA_BAC  = 'TARJETA_BAC';
+const PM_TARJETA_NEONET = 'TARJETA_NEONET';
+const PM_TARJETA_OTRA = 'TARJETA_OTRA';
 
 interface RepuestoUsado {
   repuestoId: number;
@@ -88,24 +96,32 @@ export default function ModalActualizarEstado({
   const busProductoTimerRef                       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Pago final ───────────────────────────────────────────────────────────────
-  const [montoPago, setMontoPago]   = useState('');
-  const [metodoPago, setMetodoPago] = useState('efectivo');
-  const [fechaPago, setFechaPago]   = useState(localToday());
-  const [observPago, setObservPago] = useState('');
+  const [montoPago, setMontoPago]       = useState('');
+  const [metodoPago, setMetodoPago]     = useState(PM_EFECTIVO);
+  const [fechaPago, setFechaPago]       = useState(localToday());
+  const [observPago, setObservPago]     = useState('');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState<string>('');
+  const [interesPorcentaje, setInteresPorcentaje] = useState<number>(0);
+  const [referenciaPago, setReferenciaPago]       = useState('');
+  const [cuentasBancarias, setCuentasBancarias]   = useState<any[]>([]);
 
   const cameraInputRef  = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // ── Computed financials ──────────────────────────────────────────────────────
-  const totalRep     = (reparacion as any).total || 0;
-  const anticipo     = (reparacion as any).recepcion?.montoAnticipo || 0;
-  const saldoPend    = Math.max(0, totalRep - anticipo);
-  const costoReps    = repuestosUsados.reduce((s, r) => s + r.subtotal, 0);
-  const costoReg     = regaliasUsadas.reduce((s, r) => s + r.subtotal, 0);
-  const pagoFinalNum = parseFloat(montoPago) || 0;
-  const totalPagado  = anticipo + pagoFinalNum;
-  const gananciaNeta = totalRep - costoReps - costoReg;
-  const estadoPago   =
+  const totalRep          = (reparacion as any).total || 0;
+  const anticipo          = (reparacion as any).recepcion?.montoAnticipo || 0;
+  const saldoPend         = Math.max(0, totalRep - anticipo);
+  const costoReps         = repuestosUsados.reduce((s, r) => s + r.subtotal, 0);
+  const costoReg          = regaliasUsadas.reduce((s, r) => s + r.subtotal, 0);
+  const pagoFinalNum      = parseFloat(montoPago) || 0;
+  const interesMontoNum   = isCardMethod(metodoPago) && interesPorcentaje > 0
+                              ? pagoFinalNum * interesPorcentaje / 100
+                              : 0;
+  const pagoConInteres    = pagoFinalNum + interesMontoNum;
+  const totalPagado       = anticipo + pagoConInteres;
+  const gananciaNeta      = totalRep - costoReps - costoReg;
+  const estadoPago        =
     totalPagado >= totalRep && totalRep > 0 ? 'pagado' :
     totalPagado  > 0                         ? 'parcial' : 'pendiente';
 
@@ -114,13 +130,17 @@ export default function ModalActualizarEstado({
     if (!isOpen) return;
     loadRepuestos();
     loadStickersDisponibles();
+    loadCuentasBancarias();
     // Reset COMPLETADA fields
     setRepuestosUsados([]);
     setRegaliasUsadas([]);
     setMontoPago('');
-    setMetodoPago('efectivo');
+    setMetodoPago(PM_EFECTIVO);
     setFechaPago(localToday());
     setObservPago('');
+    setCuentaBancariaId('');
+    setInteresPorcentaje(0);
+    setReferenciaPago('');
     setBusRepuesto('');
     setBusRegalia('');
     setRegaliaSel(null);
@@ -146,6 +166,15 @@ export default function ModalActualizarEstado({
       const token = sessionStorage.getItem('token');
       const res = await axios.get(`${API_URL}/stickers/disponibles`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.data.success) setStickersDisponibles(res.data.data);
+    } catch { /* silencioso */ }
+  };
+
+  const loadCuentasBancarias = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/caja/bancos`, { headers: { Authorization: `Bearer ${token}` } });
+      if (Array.isArray(res.data)) setCuentasBancarias(res.data);
+      else if (Array.isArray(res.data?.data)) setCuentasBancarias(res.data.data);
     } catch { /* silencioso */ }
   };
 
@@ -249,8 +278,19 @@ export default function ModalActualizarEstado({
           regaliasUsadas.map(r => ({ id: r.itemId, tipo: r.tipo, cantidad: r.cantidad, nota: r.nota, nombre: r.nombre }))
         ));
         if (pagoFinalNum > 0) {
+          if (metodoPago !== PM_EFECTIVO && !cuentaBancariaId) {
+            alert('Debes seleccionar una cuenta bancaria para pagos con transferencia o tarjeta');
+            setSaving(false);
+            return;
+          }
           fd.append('pagoFinal', JSON.stringify({
-            monto: pagoFinalNum, metodo: metodoPago, fecha: fechaPago, observacion: observPago,
+            monto:              pagoFinalNum,
+            metodo:             metodoPago,
+            fecha:              fechaPago,
+            observacion:        observPago,
+            cuenta_bancaria_id: cuentaBancariaId || null,
+            porcentaje_interes: interesPorcentaje,
+            referencia:         referenciaPago || null,
           }));
         }
         imagenes.forEach(img => fd.append('fotos', img));
@@ -580,18 +620,73 @@ export default function ModalActualizarEstado({
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Monto recibido (Q)</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Monto base (Q)</label>
                     <input type="number" step="0.01" min="0" value={montoPago} onChange={e => setMontoPago(e.target.value)} className={inputCls} placeholder="0.00" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Método de pago</label>
-                    <select value={metodoPago} onChange={e => setMetodoPago(e.target.value)} className={inputCls}>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="tarjeta">Tarjeta</option>
-                      <option value="otro">Otro</option>
+                    <select value={metodoPago} onChange={e => {
+                      setMetodoPago(e.target.value);
+                      setCuentaBancariaId('');
+                      setInteresPorcentaje(0);
+                    }} className={inputCls}>
+                      <option value={PM_EFECTIVO}>Efectivo</option>
+                      <option value={PM_TRANSFERENCIA}>Transferencia</option>
+                      <option value={PM_TARJETA_BAC}>Tarjeta BAC</option>
+                      <option value={PM_TARJETA_NEONET}>Tarjeta Neonet</option>
+                      <option value={PM_TARJETA_OTRA}>Tarjeta Otra</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Banco/Cuenta — visible para transferencia y tarjeta */}
+                {(metodoPago === PM_TRANSFERENCIA || isCardMethod(metodoPago)) && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      {metodoPago === PM_TRANSFERENCIA ? 'Cuenta bancaria destino' : 'POS / Cuenta bancaria'} *
+                    </label>
+                    <select value={cuentaBancariaId} onChange={e => setCuentaBancariaId(e.target.value)} className={inputCls}>
+                      <option value="">-- Seleccionar cuenta --</option>
+                      {cuentasBancarias.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.nombre}{c.numero_cuenta ? ` — ${c.numero_cuenta}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Interés tarjeta */}
+                {isCardMethod(metodoPago) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Recargo tarjeta (%)</label>
+                      <input type="number" step="0.01" min="0" max="50"
+                        value={interesPorcentaje === 0 ? '' : interesPorcentaje}
+                        onChange={e => setInteresPorcentaje(parseFloat(e.target.value) || 0)}
+                        className={inputCls} placeholder="0.00" />
+                    </div>
+                    {interesPorcentaje > 0 && pagoFinalNum > 0 && (
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Recargo calculado</label>
+                        <div className="px-3 py-2 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/30 rounded-lg text-sm font-semibold text-orange-700 dark:text-orange-400">
+                          + {fmtQ(interesMontoNum)} → Total: {fmtQ(pagoConInteres)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Referencia / últimos 4 dígitos */}
+                {(metodoPago !== PM_EFECTIVO) && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      {isCardMethod(metodoPago) ? 'Últimos 4 dígitos de la tarjeta' : 'Número de referencia'}
+                    </label>
+                    <input type="text" value={referenciaPago} onChange={e => setReferenciaPago(e.target.value)}
+                      className={inputCls} placeholder={isCardMethod(metodoPago) ? '1234' : 'REF-XXXX'} maxLength={50} />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Fecha de pago</label>
                     <input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} className={inputCls} />
@@ -620,12 +715,13 @@ export default function ModalActualizarEstado({
                     <ChevronRight size={16} /> Resumen Financiero
                   </h3>
                   {[
-                    { label: 'Total reparación',  val: fmtQ(totalRep),       cls: 'text-slate-700 dark:text-slate-200' },
-                    { label: 'Anticipo recibido', val: `+ ${fmtQ(anticipo)}`, cls: 'text-blue-600 dark:text-blue-400' },
-                    { label: 'Pago final',        val: `+ ${fmtQ(pagoFinalNum)}`, cls: 'text-emerald-600 dark:text-emerald-400' },
-                    { label: 'Total pagado',      val: fmtQ(totalPagado),    cls: 'font-bold text-slate-700 dark:text-slate-200' },
-                    { label: 'Costo repuestos',   val: `- ${fmtQ(costoReps)}`, cls: 'text-orange-600 dark:text-orange-400' },
-                    { label: 'Costo regalías',    val: `- ${fmtQ(costoReg)}`,  cls: 'text-purple-600 dark:text-purple-400' },
+                    { label: 'Total reparación',  val: fmtQ(totalRep),           cls: 'text-slate-700 dark:text-slate-200' },
+                    { label: 'Anticipo recibido', val: `+ ${fmtQ(anticipo)}`,     cls: 'text-blue-600 dark:text-blue-400' },
+                    { label: 'Pago final (base)', val: `+ ${fmtQ(pagoFinalNum)}`, cls: 'text-emerald-600 dark:text-emerald-400' },
+                    ...(interesMontoNum > 0 ? [{ label: `Recargo tarjeta (${interesPorcentaje}%)`, val: `+ ${fmtQ(interesMontoNum)}`, cls: 'text-orange-500 dark:text-orange-400' }] : []),
+                    { label: 'Total pagado',      val: fmtQ(totalPagado),         cls: 'font-bold text-slate-700 dark:text-slate-200' },
+                    { label: 'Costo repuestos',   val: `- ${fmtQ(costoReps)}`,    cls: 'text-orange-600 dark:text-orange-400' },
+                    { label: 'Costo regalías',    val: `- ${fmtQ(costoReg)}`,     cls: 'text-purple-600 dark:text-purple-400' },
                   ].map(r => (
                     <div key={r.label} className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-slate-400">{r.label}</span>

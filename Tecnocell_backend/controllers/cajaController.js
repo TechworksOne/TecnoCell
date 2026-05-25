@@ -652,6 +652,171 @@ exports.registrarMovimientoVenta = async (
   }
 };
 
+// ========== MOVIMIENTO FINANCIERO AL COMPLETAR REPARACIÓN ==========
+/**
+ * Registra el ingreso en caja/banco cuando se completa una reparación.
+ *
+ * @param {string}  reparacionId    - ID de la reparación (VARCHAR, ej: "REP1234")
+ * @param {string}  clienteNombre   - Nombre del cliente para el concepto
+ * @param {string}  metodoPago      - EFECTIVO | TRANSFERENCIA | TARJETA_BAC | TARJETA_NEONET | TARJETA_OTRA
+ * @param {number}  monto           - Monto en centavos
+ * @param {string}  usuarioNombre   - Nombre del usuario que completa
+ * @param {object}  connection      - Conexión de DB (si se usa dentro de una transacción)
+ * @param {number}  bancoId         - ID de cuenta bancaria (requerido si no es EFECTIVO)
+ * @param {string}  referencia      - Número de referencia/autorización
+ */
+exports.registrarMovimientoReparacion = async (
+  reparacionId,
+  clienteNombre,
+  metodoPago,
+  monto,
+  usuarioNombre,
+  connection = null,
+  bancoId = null,
+  referencia = null
+) => {
+  const dbConn = connection || db;
+
+  try {
+    const metodo = String(metodoPago || '').toUpperCase();
+    const montoQuetzales = Number(monto || 0) / 100;
+    const concepto = `Pago final reparación ${reparacionId}${clienteNombre ? ` - ${clienteNombre}` : ''}`;
+
+    const buscarPrimeraCuentaActiva = async () => {
+      const [cuentas] = await dbConn.query(
+        'SELECT id, nombre FROM cuentas_bancarias WHERE activa = TRUE ORDER BY id LIMIT 1'
+      );
+      return cuentas.length > 0 ? cuentas[0] : null;
+    };
+
+    const buscarCuentaPorPOS = async (tipoPOS) => {
+      let patrones = [];
+      if (tipoPOS === 'BAC')    patrones = ['%BAC%'];
+      else if (tipoPOS === 'NEONET') patrones = ['%NEONET%', '%Neonet%', '%Industrial%'];
+      if (!patrones.length) return null;
+      try {
+        const condiciones = patrones.map(() => '(nombre LIKE ? OR pos_asociado LIKE ?)').join(' OR ');
+        const params = patrones.flatMap(p => [p, p]);
+        const [rows] = await dbConn.query(
+          `SELECT id, nombre FROM cuentas_bancarias WHERE (${condiciones}) AND activa = TRUE ORDER BY id LIMIT 1`,
+          params
+        );
+        return rows.length > 0 ? rows[0] : null;
+      } catch (err) {
+        if (err.code === 'ER_BAD_FIELD_ERROR' || String(err.message).includes('pos_asociado')) {
+          const conds = patrones.map(() => 'nombre LIKE ?').join(' OR ');
+          const [rows] = await dbConn.query(
+            `SELECT id, nombre FROM cuentas_bancarias WHERE (${conds}) AND activa = TRUE ORDER BY id LIMIT 1`,
+            patrones
+          );
+          return rows.length > 0 ? rows[0] : null;
+        }
+        throw err;
+      }
+    };
+
+    const registrarEnBanco = async (cuenta, categoria = 'Reparación') => {
+      if (!cuenta || !cuenta.id) return false;
+
+      // Anti-duplicado: verificar si ya existe movimiento para esta reparación/cuenta
+      const [dup] = await dbConn.query(
+        `SELECT id FROM movimientos_bancarios
+         WHERE referencia_tipo = 'reparacion' AND referencia_id = ? AND cuenta_id = ?
+           AND tipo_movimiento = 'INGRESO' AND estado IN ('PENDIENTE','CONFIRMADO') LIMIT 1`,
+        [reparacionId, cuenta.id]
+      );
+      if (dup.length > 0) {
+        console.warn(`⚠️ Movimiento duplicado para reparacion_id=${reparacionId}, cuenta_id=${cuenta.id}. Se omite.`);
+        return false;
+      }
+
+      await dbConn.query(
+        `INSERT INTO movimientos_bancarios
+         (cuenta_id, tipo_movimiento, monto, concepto, venta_id, categoria, estado,
+          numero_referencia, realizado_por, referencia_tipo, referencia_id)
+         VALUES (?, 'INGRESO', ?, ?, NULL, ?, 'PENDIENTE', ?, ?, 'reparacion', ?)`,
+        [cuenta.id, montoQuetzales, concepto, categoria, referencia, usuarioNombre, reparacionId]
+      );
+      console.log(`✅ Movimiento banco registrado (${cuenta.nombre}, id=${cuenta.id}): Q${montoQuetzales} — ${concepto}`);
+      return true;
+    };
+
+    if (metodo === 'EFECTIVO') {
+      // Anti-duplicado
+      const [dup] = await dbConn.query(
+        `SELECT id FROM caja_chica
+         WHERE referencia_tipo = 'reparacion' AND referencia_id = ?
+           AND tipo_movimiento = 'INGRESO' AND estado IN ('PENDIENTE','CONFIRMADO') LIMIT 1`,
+        [reparacionId]
+      );
+      if (dup.length > 0) {
+        console.warn(`⚠️ Movimiento duplicado caja_chica para reparacion_id=${reparacionId}. Se omite.`);
+        return { success: true, skipped: true };
+      }
+      await dbConn.query(
+        `INSERT INTO caja_chica
+         (tipo_movimiento, monto, concepto, venta_id, categoria, estado, realizado_por, referencia_tipo, referencia_id)
+         VALUES ('INGRESO', ?, ?, NULL, 'Reparación', 'PENDIENTE', ?, 'reparacion', ?)`,
+        [montoQuetzales, concepto, usuarioNombre, reparacionId]
+      );
+      console.log(`✅ Movimiento caja_chica registrado: Q${montoQuetzales} — ${concepto}`);
+
+    } else if (metodo === 'TRANSFERENCIA') {
+      let cuenta = null;
+      if (bancoId) {
+        const [rows] = await dbConn.query(
+          'SELECT id, nombre FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+          [bancoId]
+        );
+        cuenta = rows.length > 0 ? rows[0] : null;
+      }
+      if (!cuenta) {
+        console.warn('⚠️ Banco no encontrado para transferencia, usando primera cuenta activa');
+        cuenta = await buscarPrimeraCuentaActiva();
+      }
+      if (!(await registrarEnBanco(cuenta, 'Transferencia'))) {
+        console.error('❌ No se encontró cuenta bancaria activa para TRANSFERENCIA');
+      }
+
+    } else if (metodo === 'TARJETA_BAC') {
+      let cuenta = await buscarCuentaPorPOS('BAC');
+      if (!cuenta) cuenta = await buscarPrimeraCuentaActiva();
+      if (!(await registrarEnBanco(cuenta, 'POS'))) {
+        console.error('❌ No se encontró cuenta bancaria activa para TARJETA_BAC');
+      }
+
+    } else if (metodo === 'TARJETA_NEONET') {
+      let cuenta = await buscarCuentaPorPOS('NEONET');
+      if (!cuenta) cuenta = await buscarPrimeraCuentaActiva();
+      if (!(await registrarEnBanco(cuenta, 'POS'))) {
+        console.error('❌ No se encontró cuenta bancaria activa para TARJETA_NEONET');
+      }
+
+    } else if (metodo === 'TARJETA_OTRA' || metodo === 'TARJETA') {
+      let cuenta = null;
+      if (bancoId) {
+        const [rows] = await dbConn.query(
+          'SELECT id, nombre FROM cuentas_bancarias WHERE id = ? AND activa = TRUE LIMIT 1',
+          [bancoId]
+        );
+        cuenta = rows.length > 0 ? rows[0] : null;
+      }
+      if (!cuenta) cuenta = await buscarPrimeraCuentaActiva();
+      if (!(await registrarEnBanco(cuenta, 'POS'))) {
+        console.error('❌ No se encontró cuenta bancaria activa para TARJETA_OTRA');
+      }
+
+    } else {
+      console.warn(`⚠️ Método de pago no reconocido para reparación: ${metodoPago}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error registrando movimiento de reparación:', error);
+    throw error;
+  }
+};
+
 // ========== REVERSA AUTOMÁTICA AL ANULAR VENTAS ==========
 // Esta función se llama desde ventaController.js cuando una venta se anula.
 // No borra movimientos anteriores. Crea un EGRESO para reversar el INGRESO original.

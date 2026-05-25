@@ -3,6 +3,17 @@ const db = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cajaController = require('./cajaController');
+
+// Métodos de pago válidos (igual que ventas)
+const VALID_METODOS_PAGO_REP = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'];
+function normalizarMetodoPago(m) {
+  if (!m) return null;
+  return VALID_METODOS_PAGO_REP.includes(m.toUpperCase()) ? m.toUpperCase() : null;
+}
+function esMetodoTarjeta(m) {
+  return ['TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'].includes(String(m || '').toUpperCase());
+}
 
 // Ruta base de uploads — siempre absoluta para ser compatible con Docker bind mount
 // Dentro del contenedor es /app/uploads (mapeado a /var/www/Tecnocell_storage/uploads en el host)
@@ -1347,16 +1358,52 @@ exports.completarReparacion = async (req, res) => {
     }
 
     // ── 4. Procesar pago final ────────────────────────────────────────────
-    let montoPagoFinalCentavos = 0;
+    let montoBaseCentavos      = 0;   // monto antes de interés
+    let interesMontoCentavos   = 0;   // monto del recargo tarjeta
+    let montoPagoFinalCentavos = 0;   // montoBase + interés (lo que el cliente paga)
     let metodoPagoFinal        = null;
     let fechaPagoFinal         = null;
     let observacionPagoFinal   = null;
+    let cuentaBancariaId       = null;
+    let porcentajeInteres      = 0;
+    let referenciaPago         = null;
 
     if (pagoFinalRaw && parseFloat(pagoFinalRaw.monto) > 0) {
-      montoPagoFinalCentavos = quetzalesACentavos(parseFloat(pagoFinalRaw.monto));
-      metodoPagoFinal        = pagoFinalRaw.metodo   || null;
-      fechaPagoFinal         = pagoFinalRaw.fecha     || new Date().toISOString().split('T')[0];
-      observacionPagoFinal   = pagoFinalRaw.observacion || null;
+      montoBaseCentavos  = quetzalesACentavos(parseFloat(pagoFinalRaw.monto));
+      metodoPagoFinal    = normalizarMetodoPago(pagoFinalRaw.metodo) || pagoFinalRaw.metodo || null;
+      fechaPagoFinal     = pagoFinalRaw.fecha      || new Date().toISOString().split('T')[0];
+      observacionPagoFinal = pagoFinalRaw.observacion || null;
+      cuentaBancariaId   = pagoFinalRaw.cuenta_bancaria_id ? parseInt(pagoFinalRaw.cuenta_bancaria_id, 10) : null;
+      porcentajeInteres  = parseFloat(pagoFinalRaw.porcentaje_interes) || 0;
+      referenciaPago     = pagoFinalRaw.referencia || null;
+
+      // Validaciones de método de pago
+      if (metodoPagoFinal && metodoPagoFinal !== 'EFECTIVO') {
+        if (!cuentaBancariaId) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'Debe seleccionar una cuenta bancaria para pagos con transferencia o tarjeta'
+          });
+        }
+        // Verificar que la cuenta bancaria existe y está activa
+        const [[cuenta]] = await connection.query(
+          'SELECT id, nombre FROM cuentas_bancarias WHERE id = ? AND activa = TRUE', [cuentaBancariaId]
+        );
+        if (!cuenta) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Cuenta bancaria ID ${cuentaBancariaId} no encontrada o inactiva`
+          });
+        }
+      }
+
+      // Calcular interés (solo para tarjeta)
+      if (esMetodoTarjeta(metodoPagoFinal) && porcentajeInteres > 0) {
+        interesMontoCentavos = Math.round(montoBaseCentavos * porcentajeInteres / 100);
+      }
+      montoPagoFinalCentavos = montoBaseCentavos + interesMontoCentavos;
     }
 
     const totalPagadoCentavos = (reparacion.monto_anticipo || 0) + montoPagoFinalCentavos;
@@ -1379,38 +1426,55 @@ exports.completarReparacion = async (req, res) => {
     // ── 6. Actualizar reparación ──────────────────────────────────────────
     await connection.query(
       `UPDATE reparaciones SET
-         estado                = 'COMPLETADA',
-         sticker_serie_interna = COALESCE(?, sticker_serie_interna),
-         sticker_ubicacion     = COALESCE(?, sticker_ubicacion),
-         monto_pago_final      = ?,
-         metodo_pago_final     = ?,
-         fecha_pago_final      = ?,
+         estado                 = 'COMPLETADA',
+         sticker_serie_interna  = COALESCE(?, sticker_serie_interna),
+         sticker_ubicacion      = COALESCE(?, sticker_ubicacion),
+         monto_pago_final       = ?,
+         metodo_pago_final      = ?,
+         fecha_pago_final       = ?,
          observacion_pago_final = ?,
-         estado_pago           = ?,
-         total_pagado          = ?,
-         ganancia_neta         = ?,
-         costo_repuestos_total = ?,
-         costo_regalias_total  = ?
+         estado_pago            = ?,
+         total_pagado           = ?,
+         ganancia_neta          = ?,
+         costo_repuestos_total  = ?,
+         costo_regalias_total   = ?,
+         cuenta_bancaria_id     = COALESCE(?, cuenta_bancaria_id),
+         porcentaje_interes     = ?,
+         interes_monto          = ?,
+         referencia_pago        = COALESCE(?, referencia_pago)
        WHERE id = ?`,
       [
         stickerNumero || null, stickerUbicacion || null,
         montoPagoFinalCentavos, metodoPagoFinal, fechaPagoFinal, observacionPagoFinal,
         estadoPago, totalPagadoCentavos, gananciaNeta,
         costoRepuestosTotal, costoRegaliasTotal,
+        cuentaBancariaId || null,
+        porcentajeInteres, interesMontoCentavos,
+        referenciaPago || null,
         id
       ]
     );
 
     // ── 7. Insertar historial ─────────────────────────────────────────────
     const notaHistorial = nota || 'Reparación completada';
+    let notaConPago = notaHistorial;
+    if (metodoPagoFinal && montoPagoFinalCentavos > 0) {
+      const metodoLabel = {
+        EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia',
+        TARJETA_BAC: 'Tarjeta BAC', TARJETA_NEONET: 'Tarjeta Neonet', TARJETA_OTRA: 'Tarjeta',
+      }[metodoPagoFinal] || metodoPagoFinal;
+      const montoDisplay = centavosAQuetzales(montoPagoFinalCentavos).toFixed(2);
+      notaConPago += `\n[Pago final: Q${montoDisplay} vía ${metodoLabel}${porcentajeInteres > 0 ? ` (interés ${porcentajeInteres}%)` : ''}]`;
+    }
+
     const [histResult] = await connection.query(
       `INSERT INTO reparaciones_historial
          (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion,
           sticker_numero, sticker_ubicacion)
        VALUES (?, 'COMPLETADA', ?, ?, 'CAMBIO_ESTADO', ?, ?, ?, ?)`,
       [
-        id, notaHistorial, authUserName, reparacion.estado,
-        notaHistorial, stickerNumero || null, stickerUbicacion || null
+        id, notaConPago, authUserName, reparacion.estado,
+        notaConPago, stickerNumero || null, stickerUbicacion || null
       ]
     );
     const historialId = histResult.insertId;
@@ -1426,6 +1490,26 @@ exports.completarReparacion = async (req, res) => {
     }
 
     await connection.commit();
+
+    // ── 9. Registrar movimiento financiero (fuera de la transacción principal) ──
+    if (metodoPagoFinal && montoPagoFinalCentavos > 0) {
+      try {
+        await cajaController.registrarMovimientoReparacion(
+          id,
+          reparacion.cliente_nombre || '',
+          metodoPagoFinal,
+          montoPagoFinalCentavos,
+          authUserName,
+          null,          // connection separada (fuera de TX)
+          cuentaBancariaId,
+          referenciaPago
+        );
+      } catch (cajaErr) {
+        // No revertir la reparación por error financiero; solo loguear
+        console.error('⚠️ Error al registrar movimiento financiero de reparación:', cajaErr.message);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Reparación completada exitosamente',
@@ -1435,6 +1519,8 @@ exports.completarReparacion = async (req, res) => {
         gananciaNeta:    centavosAQuetzales(gananciaNeta),
         costoRepuestos:  centavosAQuetzales(costoRepuestosTotal),
         costoRegalias:   centavosAQuetzales(costoRegaliasTotal),
+        montoPagoFinal:  centavosAQuetzales(montoPagoFinalCentavos),
+        interesAplicado: centavosAQuetzales(interesMontoCentavos),
         imagenesSubidas: uploadedFiles.length,
       }
     });
