@@ -278,8 +278,9 @@ export default function ModalActualizarEstado({
           regaliasUsadas.map(r => ({ id: r.itemId, tipo: r.tipo, cantidad: r.cantidad, nota: r.nota, nombre: r.nombre }))
         ));
         if (pagoFinalNum > 0) {
-          if (metodoPago !== PM_EFECTIVO && !cuentaBancariaId) {
-            alert('Debes seleccionar una cuenta bancaria para pagos con transferencia o tarjeta');
+          const necesitaBanco = metodoPago === PM_TRANSFERENCIA || metodoPago === PM_TARJETA_OTRA;
+          if (necesitaBanco && !cuentaBancariaId) {
+            alert('Debes seleccionar una cuenta bancaria para pagos con transferencia o tarjeta otra');
             setSaving(false);
             return;
           }
@@ -639,8 +640,15 @@ export default function ModalActualizarEstado({
                   </div>
                 </div>
 
-                {/* Banco/Cuenta — visible para transferencia y tarjeta */}
-                {(metodoPago === PM_TRANSFERENCIA || isCardMethod(metodoPago)) && (
+                {/* BAC / NEONET — banco auto, solo badge informativo */}
+                {(metodoPago === PM_TARJETA_BAC || metodoPago === PM_TARJETA_NEONET) && (
+                  <div className="rounded-lg px-3 py-2 text-xs font-medium border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400">
+                    {metodoPago === PM_TARJETA_BAC ? '💳 POS BAC — Cuenta BAC' : '💳 POS NEONET — Banco Industrial'}
+                  </div>
+                )}
+
+                {/* Selector de cuenta — solo para Transferencia y Tarjeta Otra */}
+                {(metodoPago === PM_TRANSFERENCIA || metodoPago === PM_TARJETA_OTRA) && (
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                       {metodoPago === PM_TRANSFERENCIA ? 'Cuenta bancaria destino' : 'POS / Cuenta bancaria'} *
