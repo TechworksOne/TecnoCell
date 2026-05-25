@@ -134,7 +134,8 @@ exports.createReparacion = async (req, res) => {
         estado, prioridad,
         manoObraCentavos, subtotalCentavos, impuestosCentavos, totalCentavos,
         anticipoCentavos, anticipoCentavos, metodoAnticipo,
-        fechaIngreso || new Date().toISOString().split('T')[0], observaciones, 'Sistema'
+        fechaIngreso || new Date().toISOString().split('T')[0], observaciones,
+        req.user?.username || req.user?.name || req.user?.nombre || 'Sistema'
       ]
     );
     
