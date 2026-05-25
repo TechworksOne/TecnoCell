@@ -176,11 +176,13 @@ exports.searchReparaciones = async (req, res) => {
     const [rows] = await db.query(
       `SELECT id, sticker_serie_interna AS numero_reparacion,
               cliente_nombre, cliente_telefono,
-              marca, modelo, total, saldo_anticipo
+              marca, modelo, estado,
+              ROUND(total / 100, 2)          AS total,
+              ROUND(monto_anticipo / 100, 2) AS monto_anticipo
        FROM reparaciones
        WHERE (cliente_nombre LIKE ? OR marca LIKE ? OR modelo LIKE ?
               OR sticker_serie_interna LIKE ?)
-         AND estado NOT IN ('CANCELADA','ENTREGADA')
+         AND estado NOT IN ('CANCELADA')
        ORDER BY created_at DESC
        LIMIT ?`,
       [like, like, like, like, parseInt(limit)]

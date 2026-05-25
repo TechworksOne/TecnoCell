@@ -179,14 +179,21 @@ function Step2({ state, setState }: { state: WizardState; setState: React.Dispat
         {state.reparacion ? (
           <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 rounded-xl p-4">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-violet-900 dark:text-violet-200">{state.reparacion.cliente_nombre}</p>
                 <p className="text-sm text-violet-700 dark:text-violet-300 mt-0.5">{state.reparacion.marca} {state.reparacion.modelo}</p>
                 {state.reparacion.numero_reparacion && <p className="text-xs text-violet-500 font-mono mt-0.5">#{state.reparacion.numero_reparacion}</p>}
-                <p className="text-sm font-bold text-violet-900 dark:text-violet-100 mt-1">Total: {fmt(state.reparacion.total)}</p>
+                {state.reparacion.estado && <p className="text-[10px] text-violet-400 uppercase tracking-wide mt-0.5">{state.reparacion.estado.replace('_',' ')}</p>}
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-xs text-violet-600 dark:text-violet-400">Total reparación: <span className="font-semibold">{fmt(state.reparacion.total)}</span></p>
+                  {(state.reparacion.monto_anticipo ?? 0) > 0 && (
+                    <p className="text-xs text-violet-600 dark:text-violet-400">Anticipo pagado: <span className="font-semibold text-emerald-600 dark:text-emerald-400">− {fmt(state.reparacion.monto_anticipo ?? 0)}</span></p>
+                  )}
+                  <p className="text-sm font-bold text-violet-900 dark:text-violet-100">Saldo a crédito: {fmt(Math.max(0, toNum(state.reparacion.total) - toNum(state.reparacion.monto_anticipo)))}</p>
+                </div>
               </div>
               <button onClick={() => { setState(s => ({ ...s, reparacion: undefined })); setQ(''); }}
-                className="p-1.5 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/30 text-violet-400">
+                className="p-1.5 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/30 text-violet-400 shrink-0">
                 <X size={16} />
               </button>
             </div>
@@ -200,17 +207,24 @@ function Step2({ state, setState }: { state: WizardState; setState: React.Dispat
             {searching && <p className="text-xs text-slate-400 text-center py-1">Buscando...</p>}
             {results.length > 0 && (
               <div className="border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl overflow-hidden max-h-52 overflow-y-auto">
-                {(results as ReparacionBusqueda[]).map(r => (
-                  <button key={r.id} type="button"
-                    onClick={() => { setState(s => ({ ...s, reparacion: r })); setQ(''); setResults([]); }}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-[#0A1220] border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC]">{r.cliente_nombre}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{r.marca} {r.modelo}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-[#48B9E6]">{fmt(r.total)}</span>
-                  </button>
-                ))}
+                {(results as ReparacionBusqueda[]).map(r => {
+                  const saldo = Math.max(0, toNum(r.total) - toNum(r.monto_anticipo));
+                  return (
+                    <button key={r.id} type="button"
+                      onClick={() => { setState(s => ({ ...s, reparacion: r })); setQ(''); setResults([]); }}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-[#0A1220] border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC]">{r.cliente_nombre}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{r.marca} {r.modelo}{r.estado ? ` · ${r.estado.replace('_',' ')}` : ''}</p>
+                        {(r.monto_anticipo ?? 0) > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Anticipo: {fmt(r.monto_anticipo ?? 0)}</p>}
+                      </div>
+                      <div className="text-right shrink-0 ml-3">
+                        <p className="text-sm font-semibold text-[#48B9E6]">{fmt(saldo)}</p>
+                        {(r.monto_anticipo ?? 0) > 0 && <p className="text-[10px] text-slate-400 line-through">{fmt(r.total)}</p>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </>
@@ -526,7 +540,11 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
 
   const montoTotal = (() => {
     if (state.tipoOrigen === 'MANUAL') return toNum(state.montoManual);
-    if (state.tipoOrigen === 'REPARACION') return toNum(state.reparacion?.total);
+    if (state.tipoOrigen === 'REPARACION') {
+      const total = toNum(state.reparacion?.total);
+      const anticipo = toNum(state.reparacion?.monto_anticipo);
+      return Math.max(0, total - anticipo);
+    }
     return state.carrito.reduce((s, i) => s + i.subtotal, 0);
   })();
 

@@ -25,8 +25,9 @@ export interface ReparacionBusqueda {
   cliente_telefono?: string;
   marca: string;
   modelo: string;
+  estado?: string;
   total: number;
-  saldo_anticipo?: number;
+  monto_anticipo?: number;
 }
 
 export interface Deudor {
