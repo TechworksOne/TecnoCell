@@ -22,6 +22,14 @@ router.post('/:id/pago', verifyToken, reparacionController.registrarPagoSaldo);
 // Cancelar reparación
 router.patch('/:id/cancelar', verifyToken, reparacionController.cancelarReparacion);
 
+// Completar reparación (repuestos + regalías + pago final, con imágenes opcionales)
+router.post(
+  '/:id/completar',
+  verifyToken,
+  reparacionController.uploadMiddleware,
+  reparacionController.completarReparacion
+);
+
 // Asignación técnica (OT)
 const otController = require('../controllers/otController');
 router.patch('/:id/asignar-tecnico', verifyToken, otController.asignarTecnico);

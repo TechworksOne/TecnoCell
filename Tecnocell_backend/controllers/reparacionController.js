@@ -1231,3 +1231,219 @@ exports.cancelarReparacion = async (req, res) => {
     connection.release();
   }
 };
+
+// ========== COMPLETAR REPARACIÓN (con repuestos, regalías y pago) ==========
+exports.completarReparacion = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const { id } = req.params;
+    const {
+      nota,
+      stickerId,
+      stickerNumero,
+      stickerUbicacion,
+    } = req.body;
+
+    // JSON fields sent as strings in FormData
+    const repuestosUsados  = JSON.parse(req.body.repuestosUsados  || '[]');
+    const regaliasUsadas   = JSON.parse(req.body.regaliasUsadas   || '[]');
+    const pagoFinalRaw     = req.body.pagoFinal ? JSON.parse(req.body.pagoFinal) : null;
+    const uploadedFiles    = req.files || [];
+
+    // ── 1. Obtener reparación ─────────────────────────────────────────────
+    const [[reparacion]] = await connection.query(
+      'SELECT * FROM reparaciones WHERE id = ?', [id]
+    );
+    if (!reparacion) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+
+    const authUserName = await getAuthUserName(req, connection);
+
+    // ── 2. Procesar repuestos utilizados ─────────────────────────────────
+    let costoRepuestosTotal = 0;
+    for (const item of repuestosUsados) {
+      const [[rep]] = await connection.query(
+        'SELECT id, nombre, precio_costo, stock FROM repuestos WHERE id = ?', [item.repuesto_id]
+      );
+      if (!rep) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: `Repuesto ID ${item.repuesto_id} no encontrado` });
+      }
+      if (rep.stock < item.cantidad) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Stock insuficiente para "${rep.nombre}". Disponible: ${rep.stock}, solicitado: ${item.cantidad}`
+        });
+      }
+      const costoUnit  = rep.precio_costo || 0;   // centavos
+      const subtotal   = costoUnit * item.cantidad;
+      costoRepuestosTotal += subtotal;
+
+      await connection.query('UPDATE repuestos SET stock = stock - ? WHERE id = ?', [item.cantidad, rep.id]);
+      await connection.query(
+        `INSERT INTO reparacion_repuestos (reparacion_id, repuesto_id, nombre, cantidad, costo_unitario, subtotal)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, rep.id, rep.nombre, item.cantidad, costoUnit, subtotal]
+      );
+    }
+
+    // ── 3. Procesar regalías ──────────────────────────────────────────────
+    let costoRegaliasTotal = 0;
+    for (const item of regaliasUsadas) {
+      let costoUnit = 0;
+      let nombreItem = item.nombre || '';
+
+      if (item.tipo === 'producto') {
+        const [[prod]] = await connection.query(
+          'SELECT id, nombre, precio_costo, stock FROM productos WHERE id = ?', [item.id]
+        );
+        if (!prod) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Producto ID ${item.id} no encontrado` });
+        }
+        if (prod.stock < item.cantidad) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.stock}, solicitado: ${item.cantidad}`
+          });
+        }
+        costoUnit  = Math.round((prod.precio_costo || 0) * 100); // quetzales → centavos
+        nombreItem = prod.nombre;
+        await connection.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, prod.id]);
+      } else {
+        const [[rep]] = await connection.query(
+          'SELECT id, nombre, precio_costo, stock FROM repuestos WHERE id = ?', [item.id]
+        );
+        if (!rep) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Repuesto ID ${item.id} no encontrado` });
+        }
+        if (rep.stock < item.cantidad) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Stock insuficiente para "${rep.nombre}". Disponible: ${rep.stock}, solicitado: ${item.cantidad}`
+          });
+        }
+        costoUnit  = rep.precio_costo || 0;
+        nombreItem = rep.nombre;
+        await connection.query('UPDATE repuestos SET stock = stock - ? WHERE id = ?', [item.cantidad, rep.id]);
+      }
+
+      const subtotal = costoUnit * item.cantidad;
+      costoRegaliasTotal += subtotal;
+
+      await connection.query(
+        `INSERT INTO reparacion_regalias (reparacion_id, item_id, nombre, tipo_inventario, cantidad, costo_unitario, subtotal, nota)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, item.id, nombreItem, item.tipo || 'repuesto', item.cantidad, costoUnit, subtotal, item.nota || null]
+      );
+    }
+
+    // ── 4. Procesar pago final ────────────────────────────────────────────
+    let montoPagoFinalCentavos = 0;
+    let metodoPagoFinal        = null;
+    let fechaPagoFinal         = null;
+    let observacionPagoFinal   = null;
+
+    if (pagoFinalRaw && parseFloat(pagoFinalRaw.monto) > 0) {
+      montoPagoFinalCentavos = quetzalesACentavos(parseFloat(pagoFinalRaw.monto));
+      metodoPagoFinal        = pagoFinalRaw.metodo   || null;
+      fechaPagoFinal         = pagoFinalRaw.fecha     || new Date().toISOString().split('T')[0];
+      observacionPagoFinal   = pagoFinalRaw.observacion || null;
+    }
+
+    const totalPagadoCentavos = (reparacion.monto_anticipo || 0) + montoPagoFinalCentavos;
+    const totalReparacion     = reparacion.total || 0;
+    const estadoPago =
+      totalPagadoCentavos >= totalReparacion ? 'pagado' :
+      totalPagadoCentavos  > 0              ? 'parcial' : 'pendiente';
+    const gananciaNeta = totalReparacion - costoRepuestosTotal - costoRegaliasTotal;
+
+    // ── 5. Asignar sticker ────────────────────────────────────────────────
+    if (stickerId && stickerNumero) {
+      await connection.query(
+        `UPDATE stickers_garantia
+         SET estado = 'ASIGNADO', reparacion_id = ?, ubicacion_sticker = ?, fecha_asignacion = NOW()
+         WHERE id = ? AND estado = 'DISPONIBLE'`,
+        [id, stickerUbicacion || null, stickerId]
+      );
+    }
+
+    // ── 6. Actualizar reparación ──────────────────────────────────────────
+    await connection.query(
+      `UPDATE reparaciones SET
+         estado                = 'COMPLETADA',
+         sticker_serie_interna = COALESCE(?, sticker_serie_interna),
+         sticker_ubicacion     = COALESCE(?, sticker_ubicacion),
+         monto_pago_final      = ?,
+         metodo_pago_final     = ?,
+         fecha_pago_final      = ?,
+         observacion_pago_final = ?,
+         estado_pago           = ?,
+         total_pagado          = ?,
+         ganancia_neta         = ?,
+         costo_repuestos_total = ?,
+         costo_regalias_total  = ?
+       WHERE id = ?`,
+      [
+        stickerNumero || null, stickerUbicacion || null,
+        montoPagoFinalCentavos, metodoPagoFinal, fechaPagoFinal, observacionPagoFinal,
+        estadoPago, totalPagadoCentavos, gananciaNeta,
+        costoRepuestosTotal, costoRegaliasTotal,
+        id
+      ]
+    );
+
+    // ── 7. Insertar historial ─────────────────────────────────────────────
+    const notaHistorial = nota || 'Reparación completada';
+    const [histResult] = await connection.query(
+      `INSERT INTO reparaciones_historial
+         (reparacion_id, estado, nota, user_nombre, tipo_evento, estado_anterior, descripcion,
+          sticker_numero, sticker_ubicacion)
+       VALUES (?, 'COMPLETADA', ?, ?, 'CAMBIO_ESTADO', ?, ?, ?, ?)`,
+      [
+        id, notaHistorial, authUserName, reparacion.estado,
+        notaHistorial, stickerNumero || null, stickerUbicacion || null
+      ]
+    );
+    const historialId = histResult.insertId;
+
+    // ── 8. Guardar imágenes finales ───────────────────────────────────────
+    for (const file of uploadedFiles) {
+      const urlPath = `/uploads/reparaciones/${id}/final/${file.filename}`;
+      await connection.query(
+        `INSERT INTO reparaciones_imagenes (reparacion_id, historial_id, tipo, filename, url_path, file_size, mime_type)
+         VALUES (?, ?, 'final', ?, ?, ?, ?)`,
+        [id, historialId, file.filename, urlPath, file.size, file.mimetype]
+      );
+    }
+
+    await connection.commit();
+    res.json({
+      success: true,
+      message: 'Reparación completada exitosamente',
+      data: {
+        estadoPago,
+        totalPagado:     centavosAQuetzales(totalPagadoCentavos),
+        gananciaNeta:    centavosAQuetzales(gananciaNeta),
+        costoRepuestos:  centavosAQuetzales(costoRepuestosTotal),
+        costoRegalias:   centavosAQuetzales(costoRegaliasTotal),
+        imagenesSubidas: uploadedFiles.length,
+      }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al completar reparación:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al completar la reparación' });
+  } finally {
+    connection.release();
+  }
+};
