@@ -562,7 +562,7 @@ export default function SaleNewPage() {
           <Card className="max-w-3xl mx-auto p-12">
             <ShoppingBag size={64} className="mx-auto text-green-600 mb-4" />
             <h2 className="text-2xl font-bold mb-2 text-center">Nueva Venta</h2>
-            <p className="text-gray-600 mb-8 text-center">
+            <p className="text-gray-600 dark:text-slate-400 mb-8 text-center">
               Selecciona cómo deseas crear la venta
             </p>
             
@@ -614,7 +614,7 @@ export default function SaleNewPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-6 py-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/ventas')}>
@@ -1261,7 +1261,7 @@ export default function SaleNewPage() {
 
           {/* Buscador */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={20} />
             <Input
               placeholder={`Buscar ${tipoItem === 'PRODUCTO' ? 'producto' : 'repuesto'}...`}
               value={searchTerm}
@@ -1361,7 +1361,7 @@ export default function SaleNewPage() {
         <div className="space-y-4">
           {/* Buscador */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={20} />
             <Input
               placeholder="Buscar por nombre, teléfono, NIT o correo..."
               value={searchCliente}

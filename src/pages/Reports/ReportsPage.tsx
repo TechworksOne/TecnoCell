@@ -111,7 +111,7 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 space-y-6 sm:space-y-8">
-      <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
+      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
         <PageHeader title="Reportes" subtitle="Análisis y estadísticas del negocio" />
       </div>
 
@@ -171,7 +171,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Pestañas de reportes */}
-      <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl rounded-2xl overflow-hidden">
+      <Card className="bg-white/95 dark:bg-slate-900/98 backdrop-blur-sm border-0 shadow-2xl rounded-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-slate-600 to-gray-700 p-6 text-white">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div className="flex flex-wrap gap-3">
@@ -180,7 +180,7 @@ export default function ReportsPage() {
                 onClick={() => setActiveTab("kardex")}
                 className={`font-semibold transition-all duration-200 rounded-xl ${
                   activeTab === "kardex"
-                    ? "bg-white text-slate-700 shadow-lg hover:scale-105"
+                    ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-lg hover:scale-105"
                     : "bg-white/20 hover:bg-white/30 text-white border border-white/30"
                 }`}
               >
@@ -192,7 +192,7 @@ export default function ReportsPage() {
                 onClick={() => setActiveTab("sales")}
                 className={`font-semibold transition-all duration-200 rounded-xl ${
                   activeTab === "sales"
-                    ? "bg-white text-slate-700 shadow-lg hover:scale-105"
+                    ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-lg hover:scale-105"
                     : "bg-white/20 hover:bg-white/30 text-white border border-white/30"
                 }`}
               >
@@ -204,7 +204,7 @@ export default function ReportsPage() {
                 onClick={() => setActiveTab("employees")}
                 className={`font-semibold transition-all duration-200 rounded-xl ${
                   activeTab === "employees"
-                    ? "bg-white text-slate-700 shadow-lg hover:scale-105"
+                    ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-lg hover:scale-105"
                     : "bg-white/20 hover:bg-white/30 text-white border border-white/30"
                 }`}
               >
@@ -216,7 +216,7 @@ export default function ReportsPage() {
                 onClick={() => setActiveTab("stock")}
                 className={`font-semibold transition-all duration-200 rounded-xl ${
                   activeTab === "stock"
-                    ? "bg-white text-slate-700 shadow-lg hover:scale-105"
+                    ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-lg hover:scale-105"
                     : "bg-white/20 hover:bg-white/30 text-white border border-white/30"
                 }`}
               >
@@ -302,10 +302,10 @@ export default function ReportsPage() {
               {/* Gráfico placeholder */}
               <Card>
                 <h3 className="font-medium mb-4">Tendencia de Ventas</h3>
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-slate-800 rounded-lg">
                   <div className="text-center">
-                    <BarChart2 className="text-gray-300 mx-auto mb-2" size={48} />
-                    <p className="text-gray-500">Gráfico de tendencias</p>
+                    <BarChart2 className="text-gray-300 dark:text-slate-600 mx-auto mb-2" size={48} />
+                    <p className="text-gray-500 dark:text-slate-400">Gráfico de tendencias</p>
                     <p className="text-sm text-gray-400">Implementación futura</p>
                   </div>
                 </div>

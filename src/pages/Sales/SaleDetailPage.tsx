@@ -53,7 +53,7 @@ export default function SaleDetailPage() {
       {/* Versión para pantalla */}
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 no-print">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-6 py-4">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -252,7 +252,7 @@ export default function SaleDetailPage() {
           {/* Header empresa */}
           <div className="text-center mb-8 border-b-2 border-gray-300 pb-6">
             <h1 className="text-3xl font-bold mb-2">TECNOCELL</h1>
-            <p className="text-gray-600">by EMPRENDE360</p>
+            <p className="text-gray-600 dark:text-slate-400">by EMPRENDE360</p>
             <p className="text-sm text-gray-600 mt-2">
               Gestión Comercial | Tel: +502 1234-5678
             </p>

@@ -82,11 +82,11 @@ export function StateHistory({ history, className = '' }: StateHistoryProps) {
               relative z-10 flex items-center justify-center w-12 h-12 rounded-full border-4 border-white shadow-lg
               ${STATE_COLORS[entry.estado].replace('text-', 'bg-').replace('border-', 'bg-')}
             `}>
-              <div className="w-4 h-4 bg-white rounded-full"></div>
+              <div className="w-4 h-4 bg-white dark:bg-slate-800 rounded-full"></div>
             </div>
             
             {/* Contenido del evento */}
-            <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+            <div className="flex-1 min-w-0 bg-white border border-gray-200 dark:border-slate-600 rounded-lg shadow-sm p-4">
               {/* Header con estado y fecha */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
@@ -117,7 +117,7 @@ export function StateHistory({ history, className = '' }: StateHistoryProps) {
               </div>
               
               {/* Nota */}
-              <p className="text-gray-900 mb-3">{entry.nota}</p>
+              <p className="text-gray-900 dark:text-slate-100 mb-3">{entry.nota}</p>
               
               {/* Información adicional para esperando pieza */}
               {entry.piezaNecesaria && (
@@ -138,7 +138,7 @@ export function StateHistory({ history, className = '' }: StateHistoryProps) {
               {/* Fotos */}
               {entry.fotos && entry.fotos.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-gray-700 mb-2">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-slate-300 mb-2">
                     <Camera size={14} />
                     <span className="text-sm font-medium">
                       Fotos ({entry.fotos.length})

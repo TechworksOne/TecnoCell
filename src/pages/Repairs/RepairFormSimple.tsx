@@ -307,7 +307,7 @@ export default function RepairFormSimple() {
 
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/reparaciones')} className="text-gray-600">
+          <Button variant="ghost" onClick={() => navigate('/reparaciones')} className="text-gray-600 dark:text-slate-400">
             <ArrowLeft size={20} className="mr-2" />
             Volver
           </Button>
@@ -315,7 +315,7 @@ export default function RepairFormSimple() {
         </div>
 
         {/* Progress Steps */}
-        <Card className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <Card className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700">
           <div className="flex items-center justify-between">
             {STEPS.map((step, idx) => {
               const isActive = currentStep === step;
@@ -343,7 +343,7 @@ export default function RepairFormSimple() {
 
         {/* STEP 1: Cliente */}
         {currentStep === 'cliente' && (
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                 <User size={16} className="text-blue-600" />
@@ -362,7 +362,7 @@ export default function RepairFormSimple() {
 
         {/* STEP 2: Equipo */}
         {currentStep === 'equipo' && (
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+          <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                 <Smartphone size={16} className="text-green-600" />
@@ -408,7 +408,7 @@ export default function RepairFormSimple() {
                     <button type="button" onClick={handleCrearNuevoTipo} disabled={!nuevoTipo.trim() || creatingTipo} className={btnInlineCls}>
                       {creatingTipo ? '...' : 'Crear'}
                     </button>
-                    <button type="button" onClick={() => setShowNuevoTipoInput(false)} className="text-gray-400 hover:text-gray-600">
+                    <button type="button" onClick={() => setShowNuevoTipoInput(false)} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300">
                       <X size={14} />
                     </button>
                   </div>
@@ -453,7 +453,7 @@ export default function RepairFormSimple() {
                     <button type="button" onClick={handleCrearNuevaMarca} disabled={!nuevaMarca.trim() || creatingMarca} className={btnInlineCls}>
                       {creatingMarca ? '...' : 'Crear'}
                     </button>
-                    <button type="button" onClick={() => setShowNuevaMarcaInput(false)} className="text-gray-400 hover:text-gray-600">
+                    <button type="button" onClick={() => setShowNuevaMarcaInput(false)} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300">
                       <X size={14} />
                     </button>
                   </div>
@@ -498,7 +498,7 @@ export default function RepairFormSimple() {
                     <button type="button" onClick={handleCrearNuevoModelo} disabled={!nuevoModelo.trim() || creatingModelo} className={btnInlineCls}>
                       {creatingModelo ? '...' : 'Crear'}
                     </button>
-                    <button type="button" onClick={() => setShowNuevoModeloInput(false)} className="text-gray-400 hover:text-gray-600">
+                    <button type="button" onClick={() => setShowNuevoModeloInput(false)} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300">
                       <X size={14} />
                     </button>
                   </div>
@@ -509,7 +509,7 @@ export default function RepairFormSimple() {
             {/* Serie/IMEI + Color */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={labelCls}>Serie / IMEI <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <label className={labelCls}>Serie / IMEI <span className="text-gray-400 dark:text-slate-500 font-normal">(opcional)</span></label>
                 <Input
                   value={equipmentData.imei}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEquipmentData(prev => ({ ...prev, imei: e.target.value }))}
@@ -518,7 +518,7 @@ export default function RepairFormSimple() {
                 />
               </div>
               <div>
-                <label className={labelCls}>Color <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <label className={labelCls}>Color <span className="text-gray-400 dark:text-slate-500 font-normal">(opcional)</span></label>
                 <Input
                   value={equipmentData.color}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEquipmentData(prev => ({ ...prev, color: e.target.value }))}
@@ -590,7 +590,7 @@ export default function RepairFormSimple() {
 
             {/* Contrasena */}
             <div>
-              <label className={labelCls}>Contrasena / Patron <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className={labelCls}>Contrasena / Patron <span className="text-gray-400 dark:text-slate-500 font-normal">(opcional)</span></label>
               <Input
                 type="text"
                 value={equipmentData.contrasena}
@@ -603,7 +603,7 @@ export default function RepairFormSimple() {
 
             {/* Observaciones */}
             <div>
-              <label className={labelCls}>Observaciones <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className={labelCls}>Observaciones <span className="text-gray-400 dark:text-slate-500 font-normal">(opcional)</span></label>
               <textarea
                 value={equipmentData.observaciones}
                 onChange={e => setEquipmentData(prev => ({ ...prev, observaciones: e.target.value }))}
@@ -615,7 +615,7 @@ export default function RepairFormSimple() {
 
             {/* Tecnico asignado */}
             <div>
-              <label className={labelCls}>Tecnico asignado <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className={labelCls}>Tecnico asignado <span className="text-gray-400 dark:text-slate-500 font-normal">(opcional)</span></label>
               <Input
                 value={tecnicoAsignado}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTecnicoAsignado(e.target.value)}
@@ -628,7 +628,7 @@ export default function RepairFormSimple() {
 
         {/* STEP 3: Resumen */}
         {currentStep === 'resumen' && (
-          <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                 <FileText size={16} className="text-purple-600" />
@@ -679,11 +679,11 @@ export default function RepairFormSimple() {
                 <div>
                   <h5 className="font-medium text-gray-700 mb-2">Accesorios recibidos</h5>
                   <div className="bg-gray-50 rounded-lg p-3 flex flex-wrap gap-2 text-sm">
-                    {accesorios.chip && <span className="px-2 py-0.5 bg-white rounded border border-gray-200">Chip/SIM</span>}
-                    {accesorios.estuche && <span className="px-2 py-0.5 bg-white rounded border border-gray-200">Estuche</span>}
-                    {accesorios.memoriaSD && <span className="px-2 py-0.5 bg-white rounded border border-gray-200">Memoria SD</span>}
-                    {accesorios.cargador && <span className="px-2 py-0.5 bg-white rounded border border-gray-200">Cargador</span>}
-                    {accesorios.otros && <span className="px-2 py-0.5 bg-white rounded border border-gray-200">{accesorios.otros}</span>}
+                    {accesorios.chip && <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">Chip/SIM</span>}
+                    {accesorios.estuche && <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">Estuche</span>}
+                    {accesorios.memoriaSD && <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">Memoria SD</span>}
+                    {accesorios.cargador && <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">Cargador</span>}
+                    {accesorios.otros && <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">{accesorios.otros}</span>}
                   </div>
                 </div>
               )}
@@ -716,7 +716,7 @@ export default function RepairFormSimple() {
                       <p className="text-sm text-gray-600">Genera el PDF con los terminos y condiciones</p>
                     </div>
                   </div>
-                  <Button variant="outline" onClick={handleGenerarPDF} className="bg-white hover:bg-purple-50 text-purple-600 border-purple-300">
+                  <Button variant="outline" onClick={handleGenerarPDF} className="bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-slate-700 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-700">
                     <Printer size={16} className="mr-2" />
                     Generar PDF
                   </Button>
@@ -734,7 +734,7 @@ export default function RepairFormSimple() {
                     type="date"
                     value={fechaRecepcion}
                     onChange={e => setFechaRecepcion(e.target.value)}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                    className="w-full p-2.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-800"
                   />
                 </div>
               </div>
@@ -746,7 +746,7 @@ export default function RepairFormSimple() {
         <div className="flex justify-between">
           <div>
             {currentStep !== 'cliente' && (
-              <Button variant="ghost" onClick={handleBack} className="text-gray-600">
+              <Button variant="ghost" onClick={handleBack} className="text-gray-600 dark:text-slate-400">
                 <ArrowLeft size={16} className="mr-2" />
                 Anterior
               </Button>

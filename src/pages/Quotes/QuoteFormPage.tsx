@@ -437,7 +437,7 @@ export default function QuoteFormPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Print View */}
       {showPrintView && formState.cliente && (
-        <div className="fixed inset-0 bg-white z-50 overflow-auto">
+        <div className="fixed inset-0 bg-white dark:bg-slate-950 z-50 overflow-auto">
           <div className="no-print p-4 border-b flex justify-between items-center">
             <h2 className="text-lg font-bold">Vista de Impresión</h2>
             <Button variant="ghost" onClick={() => setShowPrintView(false)}>
@@ -467,7 +467,7 @@ export default function QuoteFormPage() {
       )}
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-6 py-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -535,9 +535,9 @@ export default function QuoteFormPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-lg">{formState.cliente.name}</p>
-                      <p className="text-gray-600">{formState.cliente.phone}</p>
+                      <p className="text-gray-600 dark:text-slate-400">{formState.cliente.phone}</p>
                       {formState.cliente.email && (
-                        <p className="text-gray-600 text-sm">{formState.cliente.email}</p>
+                        <p className="text-gray-600 dark:text-slate-400 text-sm">{formState.cliente.email}</p>
                       )}
                     </div>
                     <Button
@@ -807,7 +807,7 @@ export default function QuoteFormPage() {
               ) : (
                 <div className="text-center py-12">
                   <Package size={64} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 mb-4">No hay productos agregados</p>
+                  <p className="text-gray-600 dark:text-slate-400 mb-4">No hay productos agregados</p>
                   <p className="text-sm text-gray-500">
                     Agrega productos del catálogo o crea líneas manuales
                   </p>

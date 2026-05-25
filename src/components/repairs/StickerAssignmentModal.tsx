@@ -105,21 +105,21 @@ export function StickerAssignmentModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
               <Tag size={20} className="text-purple-600" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Asignar Sticker</h2>
-              <p className="text-sm text-gray-500">Identificación única para el equipo</p>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Asignar Sticker</h2>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Identificación única para el equipo</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
           >
             <X size={24} />
           </button>
@@ -143,7 +143,7 @@ export function StickerAssignmentModal({
 
           {/* Número de sticker */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Número de Sticker *
             </label>
             <div className="space-y-2">
@@ -157,7 +157,7 @@ export function StickerAssignmentModal({
                   className={`h-12 rounded-xl border-2 font-mono text-lg ${
                     stickerNumber ? 
                       (isValid ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50') : 
-                      'border-gray-200'
+                      'border-gray-200 dark:border-slate-600'
                   }`}
                 />
                 {isValid && (
@@ -187,7 +187,7 @@ export function StickerAssignmentModal({
 
           {/* Ubicación del sticker */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Ubicación del Sticker *
             </label>
             <Select
@@ -195,7 +195,7 @@ export function StickerAssignmentModal({
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
                 setLocation(e.target.value as StickerLocation)
               }
-              className="h-12 rounded-xl border-2 border-gray-200 focus:border-purple-500"
+              className="h-12 rounded-xl border-2 border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:border-purple-500"
             >
               {STICKER_LOCATIONS.map(loc => (
                 <option key={loc.value} value={loc.value}>
@@ -208,7 +208,7 @@ export function StickerAssignmentModal({
           {/* Campo personalizado para "otro" */}
           {location === 'otro' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Especificar ubicación
               </label>
               <Input
@@ -217,20 +217,20 @@ export function StickerAssignmentModal({
                   setCustomLocation(e.target.value)
                 }
                 placeholder="Describe dónde se colocó el sticker"
-                className="h-12 rounded-xl border-2 border-gray-200 focus:border-purple-500"
+                className="h-12 rounded-xl border-2 border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:border-purple-500"
               />
             </div>
           )}
 
           {/* Vista previa */}
           {stickerNumber && isValid && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-              <h4 className="font-medium text-gray-900 mb-2">Vista previa</h4>
+            <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl p-4">
+              <h4 className="font-medium text-gray-900 dark:text-slate-100 mb-2">Vista previa</h4>
               <div className="flex items-center gap-3">
-                <div className="bg-white border-2 border-purple-500 rounded-lg px-3 py-2 font-mono text-sm font-bold text-purple-700">
+                <div className="bg-white dark:bg-slate-900 border-2 border-purple-500 rounded-lg px-3 py-2 font-mono text-sm font-bold text-purple-700 dark:text-purple-400">
                   {stickerNumber}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-slate-400">
                   Ubicación: {location === 'otro' ? customLocation || 'Otro lugar' : 
                     STICKER_LOCATIONS.find(l => l.value === location)?.label}
                 </div>
@@ -239,7 +239,7 @@ export function StickerAssignmentModal({
           )}
 
           {/* Botones */}
-          <div className="flex gap-3 pt-4 border-t border-gray-100">
+          <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-slate-700">
             <Button
               type="button"
               variant="ghost"

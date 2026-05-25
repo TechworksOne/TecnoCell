@@ -142,7 +142,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
       </div>
 
       {/* Información Básica del Equipo */}
-      <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
             <Smartphone size={16} className="text-blue-600" />
@@ -155,7 +155,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
           <div className="space-y-4">
             {/* Tipo de equipo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Tipo de Equipo *
               </label>
               <Select
@@ -165,7 +165,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
                 }
                 disabled={isConfirmed}
                 className={`h-12 rounded-xl border-2 ${
-                  isConfirmed ? 'bg-gray-50 border-gray-200' : 'border-gray-200 focus:border-blue-500'
+                  isConfirmed ? 'bg-gray-50 dark:bg-slate-800 border-gray-200' : 'border-gray-200 focus:border-blue-500'
                 }`}
               >
                 <option value="">Seleccionar tipo</option>
@@ -181,7 +181,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
             {reception.tipoEquipo === 'Telefono' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Marca</label>
                   <Select
                     value={reception.marca || ''}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -201,7 +201,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Modelo</label>
                   <Select
                     value={reception.modelo || ''}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
@@ -224,7 +224,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
             {/* Color y contraseña */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   <Palette size={16} className="inline mr-1" />
                   Color
                 </label>
@@ -240,7 +240,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   <Shield size={16} className="inline mr-1" />
                   Patrón/Contraseña
                 </label>
@@ -259,7 +259,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
 
             {/* Estado físico */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Estado Físico del Equipo
               </label>
               <textarea
@@ -269,7 +269,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
                 rows={3}
                 disabled={isConfirmed}
                 className={`w-full px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  isConfirmed ? 'bg-gray-50 border-gray-200' : 'border-gray-300'
+                  isConfirmed ? 'bg-gray-50 dark:bg-slate-800 border-gray-200' : 'border-gray-300'
                 }`}
               />
             </div>
@@ -282,7 +282,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Accesorios Recibidos
               </label>
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { key: 'chip', label: 'Chip/SIM' },
@@ -319,7 +319,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
 
             {/* Diagnóstico inicial */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Diagnóstico Inicial *
               </label>
               <textarea
@@ -329,7 +329,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
                 rows={4}
                 disabled={isConfirmed}
                 className={`w-full px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  isConfirmed ? 'bg-gray-50 border-gray-200' : 'border-gray-300'
+                  isConfirmed ? 'bg-gray-50 dark:bg-slate-800 border-gray-200' : 'border-gray-300'
                 }`}
               />
             </div>
@@ -338,7 +338,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
       </Card>
 
       {/* Sección de Anticipo */}
-      <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
             <DollarSign size={16} className="text-emerald-600" />
@@ -350,7 +350,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Monto del anticipo */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Monto del Anticipo
             </label>
             <div className="relative">
@@ -441,7 +441,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
               {/* Campo de comprobante para transferencia */}
               {reception.metodoAnticipo === 'transferencia' && (
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     <FileText size={16} className="inline mr-1" />
                     Comprobante de Transferencia
                   </label>
@@ -522,7 +522,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
               {/* Campo de referencia para tarjetas */}
               {(reception.metodoAnticipo === 'tarjeta_bac' || reception.metodoAnticipo === 'tarjeta_neonet') && (
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                     <FileText size={16} className="inline mr-1" />
                     Últimos 4 dígitos / No. Autorización
                   </label>
@@ -543,7 +543,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
       </Card>
 
       {/* Fotos de Recepción */}
-      <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
             <Camera size={16} className="text-purple-600" />
@@ -615,7 +615,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
             </div>
             
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">Fotos subidas: {reception.fotosRecepcion.length}</span>
+              <span className="text-gray-600 dark:text-slate-400">Fotos subidas: {reception.fotosRecepcion.length}</span>
               <span className={`font-medium ${reception.fotosRecepcion.length >= 2 ? 'text-green-600' : 'text-red-500'}`}>
                 {reception.fotosRecepcion.length >= 2 ? '✓ Mínimo cumplido' : '⚠ Faltan fotos'}
               </span>
@@ -627,19 +627,19 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
       {/* Dialog de confirmación */}
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md mx-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md mx-4">
             <div className="text-center">
               <Shield size={48} className="text-orange-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 ¿Confirmar Recepción?
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-slate-400 mb-4">
                 Una vez confirmada, los datos de recepción no podrán modificarse.
                 Asegúrate de que toda la información esté correcta.
               </p>
               
-              <div className="bg-gray-50 rounded-lg p-3 mb-4 text-left text-sm">
-                <div className="font-medium text-gray-700 mb-1">Resumen:</div>
+              <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-3 mb-4 text-left text-sm">
+                <div className="font-medium text-gray-700 dark:text-slate-300 mb-1">Resumen:</div>
                 <div>• {equipmentTypes.find(t => t.value === reception.tipoEquipo)?.label}</div>
                 {reception.marca && <div>• {reception.marca} {reception.modelo}</div>}
                 <div>• {reception.fotosRecepcion.length} fotos</div>

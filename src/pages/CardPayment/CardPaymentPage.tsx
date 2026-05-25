@@ -110,7 +110,7 @@ export default function CardPaymentPage() {
             <Check size={40} className="text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">¡Pago Exitoso!</h2>
-          <p className="text-gray-600 mb-6">Su transacción ha sido procesada correctamente.</p>
+          <p className="text-gray-600 dark:text-slate-400 mb-6">Su transacción ha sido procesada correctamente.</p>
           <div className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6">
             <p className="text-green-800 font-semibold">Monto: Q {cardData.amount}</p>
             <p className="text-green-700 text-sm">Tarjeta: ****{cardData.cardNumber.slice(-4)}</p>
@@ -124,7 +124,7 @@ export default function CardPaymentPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6 mb-6">
+      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6 mb-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -140,7 +140,7 @@ export default function CardPaymentPage() {
 
       {/* Payment Form */}
       <div className="max-w-2xl mx-auto">
-        <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
+        <Card className="bg-white/95 dark:bg-slate-900/98 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
           {/* Header del POS */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
             <div className="flex items-center gap-4">

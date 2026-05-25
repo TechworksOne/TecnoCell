@@ -77,7 +77,7 @@ export default function RepuestoCard({
                     e.stopPropagation();
                     setShowImageModal(true);
                   }}
-                  className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                  className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
                   title="Ver imagen completa"
                 >
                   <ZoomIn size={16} />
@@ -128,7 +128,7 @@ export default function RepuestoCard({
       <div className="p-4 space-y-3">
         {/* SKU */}
         {repuesto.sku && (
-          <div className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600">
             <span className="text-xs text-gray-500 font-medium">SKU:</span>
             <span className="text-xs font-mono text-gray-700 font-semibold">{repuesto.sku}</span>
           </div>
@@ -215,7 +215,7 @@ export default function RepuestoCard({
         )}
 
         {/* Botones */}
-        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-slate-700">
           <Button
             variant="ghost"
             size="sm"

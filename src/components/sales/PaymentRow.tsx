@@ -66,11 +66,11 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
   };
 
   return (
-    <div className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200 space-y-3">
+    <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border-2 border-gray-200 space-y-3">
       <div className="flex items-center gap-3">
         {/* Método */}
         <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 dark:text-slate-300 mb-1">
             Método de Pago
           </label>
           <div className="relative">
@@ -93,7 +93,7 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
 
         {/* Monto */}
         <div className="w-40">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 dark:text-slate-300 mb-1">
             Monto
           </label>
           <Input
@@ -130,7 +130,7 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
       {payment.metodo === 'TRANSFERENCIA' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 dark:text-slate-300 mb-1">
               Referencia / Voucher
             </label>
             <Input
@@ -141,7 +141,7 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 dark:text-slate-300 mb-1">
               Comprobante
             </label>
             <input
@@ -164,7 +164,7 @@ export default function PaymentRow({ payment, onChange, onRemove, canRemove, tot
 
       {isCardMethod(payment.metodo) && (
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 dark:text-slate-300 mb-1">
             Últimos 4 dígitos
           </label>
           <Input

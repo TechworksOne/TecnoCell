@@ -65,14 +65,14 @@ export function SummaryCard({ repairData, onDeliveryClick, canDeliver }: Summary
   const total = calculateTotal();
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg p-6">
+    <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
           <Calculator size={20} className="text-green-600" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">Resumen General</h3>
-          <p className="text-sm text-gray-500">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Resumen General</h3>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             Información consolidada de la reparación
           </p>
         </div>
@@ -144,26 +144,26 @@ export function SummaryCard({ repairData, onDeliveryClick, canDeliver }: Summary
         </div>
 
         {/* Costos */}
-        <div className="bg-gray-50 rounded-xl p-4">
+        <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Calculator size={16} className="text-gray-600" />
-            <span className="font-medium text-gray-900">Costos</span>
+            <Calculator size={16} className="text-gray-600 dark:text-slate-400" />
+            <span className="font-medium text-gray-900 dark:text-slate-100">Costos</span>
           </div>
           
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-700">Items ({repairData.items.length}):</span>
-              <span className="font-medium text-gray-900">Q{total.toFixed(2)}</span>
+              <span className="text-gray-700 dark:text-slate-300">Items ({repairData.items.length}):</span>
+              <span className="font-medium text-gray-900 dark:text-slate-100">Q{total.toFixed(2)}</span>
             </div>
             
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between">
-                <span className="font-medium text-gray-900">Total:</span>
+                <span className="font-medium text-gray-900 dark:text-slate-100">Total:</span>
                 <span className="text-lg font-bold text-green-600">Q{total.toFixed(2)}</span>
               </div>
             </div>
             
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
               * Los precios mostrados no incluyen IVA automáticamente
             </p>
           </div>
@@ -263,7 +263,7 @@ export function SummaryCard({ repairData, onDeliveryClick, canDeliver }: Summary
               <Clock size={16} className="mr-2" />
               Marcar como Entregada
             </Button>
-            <p className="text-xs text-gray-500 mt-2 text-center">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-2 text-center">
               Al entregar se iniciará el período de garantía de 5 meses
             </p>
           </div>

@@ -172,7 +172,7 @@ export default function QuoteDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {showPrintView && (
-        <div className="fixed inset-0 bg-white z-50 overflow-auto">
+        <div className="fixed inset-0 bg-white dark:bg-slate-950 z-50 overflow-auto">
           <div className="no-print p-4 border-b flex justify-between items-center">
             <h2 className="text-lg font-bold">Vista de Impresión</h2>
             <Button variant="ghost" onClick={() => setShowPrintView(false)}>
@@ -185,7 +185,7 @@ export default function QuoteDetailPage() {
       )}
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-6 py-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -366,7 +366,7 @@ export default function QuoteDetailPage() {
             {quote.observaciones && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-2">Observaciones</h3>
-                <p className="text-gray-700">{quote.observaciones}</p>
+                <p className="text-gray-700 dark:text-slate-300">{quote.observaciones}</p>
               </Card>
             )}
 

@@ -66,26 +66,26 @@ export function RepairProgressStepper({ currentStatus, className = '' }: RepairP
       case 'current':
         return {
           circle: `bg-${color}-500 border-${color}-500 text-white ring-4 ring-${color}-100`,
-          line: 'bg-gray-200',
+          line: 'bg-gray-200 dark:bg-slate-700',
           text: `text-${color}-600 font-semibold`
         };
       case 'pending':
         return {
-          circle: 'bg-gray-100 border-gray-300 text-gray-400',
-          line: 'bg-gray-200',
-          text: 'text-gray-400'
+          circle: 'bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500',
+          line: 'bg-gray-200 dark:bg-slate-700',
+          text: 'text-gray-400 dark:text-slate-500'
         };
       default:
         return {
-          circle: 'bg-gray-100 border-gray-300 text-gray-400',
-          line: 'bg-gray-200',
-          text: 'text-gray-400'
+          circle: 'bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500',
+          line: 'bg-gray-200 dark:bg-slate-700',
+          text: 'text-gray-400 dark:text-slate-500'
         };
     }
   };
 
   return (
-    <div className={`bg-white rounded-2xl shadow-lg p-6 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 ${className}`}>
       <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
         <Clock size={20} className="text-blue-500" />
         Progreso de la Reparación
@@ -125,7 +125,7 @@ export function RepairProgressStepper({ currentStatus, className = '' }: RepairP
               {index < STEPS.length - 1 && (
                 <div className={`
                   absolute top-8 left-full w-full h-0.5 transition-all duration-500
-                  ${stepStatus === 'completed' ? styles.line : 'bg-gray-200'}
+                  ${stepStatus === 'completed' ? styles.line : 'bg-gray-200 dark:bg-slate-700'}
                 `} style={{ width: 'calc(100% - 2rem)' }}></div>
               )}
             </div>
@@ -134,7 +134,7 @@ export function RepairProgressStepper({ currentStatus, className = '' }: RepairP
       </div>
       
       {/* Información adicional del estado actual */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+      <div className="mt-6 p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
         <div className="text-sm text-gray-600">
           <span className="font-medium">Estado actual:</span> {STEPS[currentStepIndex]?.label || 'Desconocido'}
         </div>

@@ -47,7 +47,7 @@ export default function RepuestoFilters({
   );
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 space-y-4">
       {/* Búsqueda principal */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -160,7 +160,7 @@ export default function RepuestoFilters({
                   min="0"
                   step="0.01"
                 />
-                <span className="text-gray-500">-</span>
+                <span className="text-gray-500 dark:text-slate-400">-</span>
                 <Input
                   type="number"
                   placeholder="Máx"
@@ -179,7 +179,7 @@ export default function RepuestoFilters({
       )}
 
       {/* Resultados y limpiar filtros */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
         <div className="text-sm text-gray-600">
           {totalResults} {totalResults === 1 ? 'repuesto encontrado' : 'repuestos encontrados'}
         </div>

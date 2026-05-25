@@ -25,8 +25,8 @@ export default function Button({
   
   const variantClasses = {
     primary: "bg-primary-500 text-white hover:bg-primary-600",
-    ghost: "bg-transparent border hover:bg-slate-50",
-    outline: "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+    ghost: "bg-transparent border hover:bg-slate-50 dark:hover:bg-slate-800",
+    outline: "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
   };
   
   return (

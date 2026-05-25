@@ -414,7 +414,7 @@ export default function CustomerPicker({
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3">
               <Users size={24} className="text-green-600" />
             </div>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-slate-400">
               Agrega los datos del nuevo cliente
             </p>
           </div>
@@ -422,7 +422,7 @@ export default function CustomerPicker({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Nombre *
                 </label>
                 <Input
@@ -437,7 +437,7 @@ export default function CustomerPicker({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Apellido
                 </label>
                 <Input
@@ -453,7 +453,7 @@ export default function CustomerPicker({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Teléfono
                 </label>
                 <Input
@@ -467,7 +467,7 @@ export default function CustomerPicker({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   NIT
                 </label>
                 <Input
@@ -482,7 +482,7 @@ export default function CustomerPicker({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Email
               </label>
               <Input
@@ -497,7 +497,7 @@ export default function CustomerPicker({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Dirección
               </label>
               <Input

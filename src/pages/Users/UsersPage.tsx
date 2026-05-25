@@ -204,7 +204,7 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 space-y-6 sm:space-y-8">
-      <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
+      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
         <PageHeader title="Usuarios" subtitle="Gestión de empleados y administradores" />
       </div>
 
@@ -263,7 +263,7 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      <Card className="mb-6 bg-white/90 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
+      <Card className="mb-6 bg-white/90 dark:bg-slate-900/95 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-blue-600 p-6 text-white">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
@@ -283,7 +283,7 @@ export default function UsersPage() {
                 });
                 setShowUserModal(true);
               }}
-              className="w-full lg:w-auto bg-white text-indigo-600 hover:bg-indigo-50 border-0 shadow-lg font-semibold transition-all duration-200 hover:scale-105"
+              className="w-full lg:w-auto bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 border-0 shadow-lg font-semibold transition-all duration-200 hover:scale-105"
             >
               <Plus size={16} className="mr-2" />
               Nuevo Usuario
@@ -292,7 +292,7 @@ export default function UsersPage() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden bg-white/95 backdrop-blur-sm border-0 shadow-2xl rounded-2xl">
+      <Card className="overflow-hidden bg-white/95 dark:bg-slate-900/98 backdrop-blur-sm border-0 shadow-2xl rounded-2xl">
         <div className="overflow-x-auto">
           <Table columns={Object.keys(usersTableData[0] || {})} data={usersTableData} />
         </div>

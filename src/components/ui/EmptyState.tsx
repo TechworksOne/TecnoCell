@@ -13,7 +13,7 @@ export function EmptyState({ title, subtitle, icon, action, description }: Empty
     <div className="text-center p-8">
       <div className="flex justify-center mb-4">
         {icon ? (
-          <div className="text-gray-400">
+          <div className="text-gray-400 dark:text-slate-500">
             {icon}
           </div>
         ) : (

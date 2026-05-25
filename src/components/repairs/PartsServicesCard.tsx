@@ -90,7 +90,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
             Descripción *
           </label>
           <Input
@@ -106,7 +106,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Cantidad
             </label>
             <Input
@@ -121,7 +121,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Precio Unitario
             </label>
             <Input
@@ -138,7 +138,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
           </div>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-3">
+        <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-600">Subtotal:</span>
             <span className="text-lg font-bold text-gray-900">
@@ -164,7 +164,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
   };
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg p-6">
+    <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
           <Package size={20} className="text-purple-600" />
@@ -206,7 +206,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
       {filteredItems.length > 0 ? (
         <div className="space-y-3 mb-6">
           {filteredItems.map((item) => (
-            <div key={item.id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+            <div key={item.id} className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4 hover:bg-gray-100 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -284,7 +284,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
       {/* Modal Agregar */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md mx-4 w-full">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
               Agregar Pieza o Servicio
             </h4>
@@ -304,7 +304,7 @@ export function PartsServicesCard({ items, onItemsChange, canEdit = true }: Part
       {/* Modal Editar */}
       {editingItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md mx-4 w-full">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
               Editar Item
             </h4>

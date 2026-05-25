@@ -85,7 +85,7 @@ export default function QuotePicker({ open, onClose, onSelect, allowedType = 'VE
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {availableQuotes.length === 0 ? (
             <EmptyState
-              icon={<FileText size={48} className="text-gray-400" />}
+              icon={<FileText size={48} className="text-gray-400 dark:text-slate-500" />}
               title="No hay cotizaciones disponibles"
               description={searchTerm 
                 ? "No se encontraron cotizaciones con ese criterio" 
@@ -96,7 +96,7 @@ export default function QuotePicker({ open, onClose, onSelect, allowedType = 'VE
             availableQuotes.map((quote) => (
               <div
                 key={quote.id}
-                className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 onClick={() => handleSelect(quote)}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -110,7 +110,7 @@ export default function QuotePicker({ open, onClose, onSelect, allowedType = 'VE
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <User size={14} />
                       <span>{quote.cliente.name}</span>
-                      <span className="text-gray-400">•</span>
+                      <span className="text-gray-400 dark:text-slate-500">•</span>
                       <span>{quote.cliente.phone}</span>
                     </div>
                   </div>

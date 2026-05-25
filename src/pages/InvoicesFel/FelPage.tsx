@@ -124,7 +124,7 @@ export default function FelPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-teal-50 to-emerald-50 space-y-6 sm:space-y-8">
-      <div className="bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
+      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg rounded-2xl p-6">
         <PageHeader
           title="Facturación Electrónica (FEL)"
           subtitle="Gestión de facturas electrónicas"
@@ -193,7 +193,7 @@ export default function FelPage() {
       </div>
 
       {/* Filtros y acciones */}
-      <Card className="mb-6 bg-white/90 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
+      <Card className="mb-6 bg-white/90 dark:bg-slate-900/95 backdrop-blur-sm border-0 shadow-xl rounded-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-cyan-600 to-teal-600 p-6 text-white">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -202,7 +202,7 @@ export default function FelPage() {
             </div>
             <Button 
               onClick={() => setShowEmitModal(true)} 
-              className="w-full sm:w-auto bg-white text-cyan-600 hover:bg-cyan-50 border-0 shadow-lg font-semibold transition-all duration-200 hover:scale-105"
+              className="w-full sm:w-auto bg-white dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-slate-700 border-0 shadow-lg font-semibold transition-all duration-200 hover:scale-105"
             >
               <FileText size={16} className="mr-2" />
               ⚡ Emitir Factura
@@ -266,7 +266,7 @@ export default function FelPage() {
       </Card>
 
       {/* Tabla de facturas */}
-      <Card className="overflow-hidden bg-white/95 backdrop-blur-sm border-0 shadow-2xl rounded-2xl">
+      <Card className="overflow-hidden bg-white/95 dark:bg-slate-900/98 backdrop-blur-sm border-0 shadow-2xl rounded-2xl">
         <div className="overflow-x-auto">
           <Table columns={Object.keys(invoicesTableData[0] || {})} data={invoicesTableData} />
         </div>
@@ -314,7 +314,7 @@ export default function FelPage() {
                 const sale = mockSales.find((s) => s.id === selectedSale);
                 return sale ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="bg-white/70 p-4 rounded-xl">
+                    <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-xl">
                       <div className="font-semibold text-emerald-800">🆔 ID: {sale.id}</div>
                       <div className="text-emerald-700">👤 Cliente: {sale.customerName || "Cliente General"}</div>
                       {sale.customerNit && <div className="text-emerald-700">📋 NIT: {sale.customerNit}</div>}

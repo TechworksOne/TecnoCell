@@ -267,7 +267,7 @@ export default function SalesPage() {
         <div className="flex flex-wrap gap-3 items-end">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={16} />
             <Input
               type="text"
               placeholder="Cliente, código, teléfono…"

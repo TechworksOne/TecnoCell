@@ -234,7 +234,7 @@ function ModalEvento({ evento, fechaInicial, onClose, onSaved }: ModalEventoProp
               {evento ? 'Editar evento' : 'Nuevo evento'}
             </h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1"><X size={18} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 rounded-lg p-1"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
           {/* Tipo */}
@@ -371,7 +371,7 @@ function ModalDayChoice({ fecha, onProgramarEntrega, onNuevoEvento, onClose }: M
             <Calendar size={16} style={{ color: '#48B9E6' }} />
             <span className="text-sm font-semibold capitalize" style={{ color: 'var(--color-text)' }}>{label}</span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"><X size={16} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 rounded-lg"><X size={16} /></button>
         </div>
         <div className="p-2 space-y-1">
           <p className="text-xs px-3 py-1" style={{ color: 'var(--color-text-muted)' }}>¿Qué quieres agendar?</p>
@@ -471,7 +471,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
               Programar entrega
             </h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 rounded-lg p-1">
             <X size={18} />
           </button>
         </div>
@@ -642,7 +642,7 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
               Programar entrega
             </h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded-lg p-1">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 rounded-lg p-1">
             <X size={18} />
           </button>
         </div>
@@ -673,7 +673,7 @@ function ModalProgramarNueva({ fechaInicial, onClose, onSaved }: ModalProgramarN
                   </div>
                   <button
                     onClick={() => { setRepSeleccionada(null); setBusqueda(''); }}
-                    className="text-gray-400 hover:text-red-400 shrink-0 p-1 rounded-lg transition-colors"
+                    className="text-gray-400 dark:text-slate-500 hover:text-red-400 shrink-0 p-1 rounded-lg transition-colors"
                   >
                     <X size={14} />
                   </button>

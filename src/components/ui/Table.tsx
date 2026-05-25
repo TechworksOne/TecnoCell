@@ -1,6 +1,6 @@
 export default function Table({ columns, data }: { columns: string[]; data: any[] }) {
   return (
-    <div className="overflow-auto rounded-xl border bg-white">
+    <div className="overflow-auto rounded-xl border bg-white dark:bg-slate-900">
       <table className="min-w-full">
         <thead className="bg-gray-50 sticky top-0">
           <tr>

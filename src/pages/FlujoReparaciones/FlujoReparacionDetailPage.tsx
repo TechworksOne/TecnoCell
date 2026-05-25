@@ -707,7 +707,7 @@ export default function FlujoReparacionDetailPage() {
               className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                 value
                   ? 'border-green-500 bg-green-50'
-                  : 'border-slate-300 bg-white hover:border-slate-400'
+                  : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -743,7 +743,7 @@ export default function FlujoReparacionDetailPage() {
                 className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 bg-white hover:border-slate-400'
+                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -765,7 +765,7 @@ export default function FlujoReparacionDetailPage() {
                 className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 bg-white hover:border-slate-400'
+                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -787,7 +787,7 @@ export default function FlujoReparacionDetailPage() {
                 className={`p-3 md:p-4 rounded-lg border-2 transition-all active:scale-95 ${
                   item.checked
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 bg-white hover:border-slate-400'
+                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">

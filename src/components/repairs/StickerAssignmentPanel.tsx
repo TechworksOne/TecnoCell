@@ -110,7 +110,7 @@ export function StickerAssignmentPanel({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="bg-white rounded-2xl max-w-lg mx-4 w-full max-h-[90vh] overflow-y-auto">
+      <Card className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg mx-4 w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -119,8 +119,8 @@ export function StickerAssignmentPanel({
                 <Tag size={20} className="text-yellow-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Asignar Sticker</h3>
-                <p className="text-sm text-gray-500">Reparación completada</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Asignar Sticker</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Reparación completada</p>
               </div>
             </div>
             <Button variant="ghost" onClick={onClose} className="p-2">
@@ -141,7 +141,7 @@ export function StickerAssignmentPanel({
           {/* Búsqueda de sticker */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Número de Sticker *
               </label>
               <div className="relative">
@@ -182,7 +182,7 @@ export function StickerAssignmentPanel({
             {/* Sugerencias */}
             {sugerencias.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Sugerencias Disponibles
                 </label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -191,7 +191,7 @@ export function StickerAssignmentPanel({
                       key={index}
                       variant="ghost"
                       onClick={() => seleccionarSugerencia(sugerencia)}
-                      className={`w-full justify-start text-left p-2 border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 ${
+                      className={`w-full justify-start text-left p-2 border border-gray-200 dark:border-slate-600 hover:border-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-950/30 ${
                         sugerencia.usado ? 'opacity-50' : ''
                       }`}
                       disabled={sugerencia.usado}
@@ -213,7 +213,7 @@ export function StickerAssignmentPanel({
 
             {/* Ubicación del sticker */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 <MapPin size={16} className="inline mr-1" />
                 Ubicación del Sticker *
               </label>
@@ -233,7 +233,7 @@ export function StickerAssignmentPanel({
             {/* Ubicación personalizada */}
             {ubicacion === 'otro' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Ubicación Personalizada *
                 </label>
                 <Input
@@ -246,10 +246,10 @@ export function StickerAssignmentPanel({
             )}
 
             {/* Información adicional */}
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4">
               <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-gray-700">
+                <AlertCircle size={16} className="text-gray-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-gray-700 dark:text-slate-300">
                   <p className="font-medium mb-1">Información Importante:</p>
                   <ul className="space-y-1 text-xs">
                     <li>• El sticker se asigna automáticamente al completar la reparación</li>

@@ -399,7 +399,7 @@ export default function SuppliersPage() {
                     onClick={() => setField('activo', !currentSupplier.activo)}
                     className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer flex items-center ${currentSupplier.activo ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'}`}
                     style={{ minWidth: 40, height: 22 }}>
-                    <div className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${currentSupplier.activo ? 'translate-x-5' : 'translate-x-0.5'}`} style={{ top: 3 }} />
+                    <div className={`absolute w-4 h-4 bg-white dark:bg-slate-200 rounded-full shadow transition-transform ${currentSupplier.activo ? 'translate-x-5' : 'translate-x-0.5'}`} style={{ top: 3 }} />
                   </div>
                   <span className="text-sm font-medium text-[var(--color-text-sec)]">
                     Proveedor {currentSupplier.activo ? 'activo' : 'inactivo'}

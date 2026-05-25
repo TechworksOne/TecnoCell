@@ -156,7 +156,7 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
   };
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg p-6">
+    <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentStateInfo.bgColor}`}>
           <currentStateInfo.icon size={20} className={`text-${currentStateInfo.color}-600`} />
@@ -200,7 +200,7 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
                       key={nextState}
                       onClick={() => handleStateChangeClick(nextState)}
                       variant="ghost"
-                      className="w-full justify-start p-3 h-auto border border-gray-200 hover:border-gray-300"
+                      className="w-full justify-start p-3 h-auto border border-gray-200 hover:border-gray-300 dark:border-slate-600"
                     >
                       <nextStateInfo.icon size={18} className={`text-${nextStateInfo.color}-600 mr-3`} />
                       <div className="text-left">
@@ -239,7 +239,7 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
                     }`}>
                       <stateInfo.icon 
                         size={14} 
-                        className={`${isLast ? `text-${stateInfo.color}-600` : 'text-gray-400'}`} 
+                        className={`${isLast ? `text-${stateInfo.color}-600` : 'text-gray-400 dark:text-slate-500'}`} 
                       />
                     </div>
                     
@@ -265,7 +265,7 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
                         {entry.nota && (
                           <div className="flex items-start gap-1 mt-2">
                             <MessageSquare size={12} className="mt-0.5 flex-shrink-0" />
-                            <span className="text-gray-600 italic">{entry.nota}</span>
+                            <span className="text-gray-600 dark:text-slate-400 italic">{entry.nota}</span>
                           </div>
                         )}
                       </div>
@@ -281,7 +281,7 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
       {/* Modal para cambio de estado */}
       {showNoteModal && selectedNextState && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md mx-4 w-full">
             <div className="text-center mb-4">
               {selectedNextState && (() => {
                 const StateIcon = ESTADOS[selectedNextState].icon;
@@ -294,13 +294,13 @@ export function StateFlowCard({ currentState, historialEstados, onStateChange, c
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {selectedNextState && `Cambiar a ${ESTADOS[selectedNextState].label}`}
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 dark:text-slate-400 text-sm">
                 {selectedNextState && ESTADOS[selectedNextState].description}
               </p>
             </div>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Notas del cambio (opcional)
               </label>
               <textarea

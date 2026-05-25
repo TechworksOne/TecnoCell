@@ -134,7 +134,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
   const CurrentIcon = getCurrentIcon();
 
   return (
-    <div className={`bg-white rounded-2xl shadow-lg p-6 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 ${className}`}>
       {/* Encabezado de la sección */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -149,7 +149,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
       <div className="space-y-6">
         {/* Tipo de equipo */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
             Tipo de Equipo *
           </label>
           <Select
@@ -170,7 +170,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
         {/* Marca (dinámico según tipo) */}
         {equipment.tipoEquipo !== 'Otro' && getCurrentBrands().length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Marca *
             </label>
             <Select
@@ -193,7 +193,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
         {/* Campo personalizado de marca si selecciona "Otro" */}
         {(equipment.marca === 'Otro' || equipment.tipoEquipo === 'Otro') && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               {equipment.tipoEquipo === 'Otro' ? 'Tipo personalizado' : 'Marca personalizada'} *
             </label>
             <Input
@@ -211,7 +211,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
         {/* Modelo (dinámico según marca) */}
         {equipment.marca && equipment.marca !== 'Otro' && getCurrentModels().length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Modelo *
             </label>
             <Select
@@ -234,7 +234,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
         {/* Campo personalizado de modelo */}
         {equipment.marca && (!getCurrentModels().length || equipment.marca === 'Otro') && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Modelo *
             </label>
             <Input
@@ -252,7 +252,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
         {/* Color y Patrón en la misma fila */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               <Palette size={16} className="inline mr-1" />
               Color
             </label>
@@ -267,7 +267,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               <Lock size={16} className="inline mr-1" />
               Patrón/Contraseña
             </label>
@@ -284,7 +284,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
 
         {/* Estado físico */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
             Estado Físico del Equipo
           </label>
           <textarea
@@ -294,13 +294,13 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
             }
             placeholder="Describe el estado físico del equipo (rayones, golpes, etc.)"
             rows={3}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-0 resize-none"
+            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:border-green-500 focus:ring-0 resize-none"
           />
         </div>
 
         {/* Diagnóstico inicial */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
             Diagnóstico Inicial
           </label>
           <textarea
@@ -310,7 +310,7 @@ export function EquipmentSelector({ equipment, onEquipmentChange, className = ''
             }
             placeholder="Problema reportado por el cliente o diagnóstico inicial"
             rows={3}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-0 resize-none"
+            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:border-green-500 focus:ring-0 resize-none"
           />
         </div>
       </div>

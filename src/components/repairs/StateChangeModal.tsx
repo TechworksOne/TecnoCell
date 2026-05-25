@@ -118,14 +118,14 @@ export function StateChangeModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">
             Cambiar Estado de Reparación
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
           >
             <X size={24} />
           </button>
@@ -135,7 +135,7 @@ export function StateChangeModal({
           {/* Estado y Sub-etapa */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Nuevo Estado *
               </label>
               <Select
@@ -153,7 +153,7 @@ export function StateChangeModal({
 
             {newState === 'EN_PROCESO' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Sub-etapa
                 </label>
                 <Select
@@ -174,13 +174,13 @@ export function StateChangeModal({
 
           {/* Nota obligatoria */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Nota del cambio *
             </label>
             <textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               rows={3}
               placeholder="Describe el motivo del cambio de estado..."
               required
@@ -196,7 +196,7 @@ export function StateChangeModal({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Pieza necesaria *
                 </label>
                 <Input
@@ -208,7 +208,7 @@ export function StateChangeModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Proveedor sugerido
                 </label>
                 <Input
@@ -219,7 +219,7 @@ export function StateChangeModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Costo del repuesto
                 </label>
                 <Input
@@ -277,7 +277,7 @@ export function StateChangeModal({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Número de serie del sticker *
                 </label>
                 <Input
@@ -292,13 +292,13 @@ export function StateChangeModal({
                     ⚠️ Este número de sticker ya está en uso
                   </p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                   Este número debe ser único para cada equipo
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Ubicación del sticker
                 </label>
                 <Select
@@ -334,7 +334,7 @@ export function StateChangeModal({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                   Diferencia de la reparación
                 </label>
                 <Input
@@ -345,7 +345,7 @@ export function StateChangeModal({
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDiferenciaReparacion(parseFloat(e.target.value) || 0)}
                   placeholder="0.00"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                   Monto adicional por servicios o repuestos no cubiertos por el anticipo
                 </p>
               </div>
@@ -423,7 +423,7 @@ export function StateChangeModal({
           {/* Fotos */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
                 Fotos {isDelivered && '*'}
               </label>
               <Button
@@ -467,7 +467,7 @@ export function StateChangeModal({
                   <button
                     type="button"
                     onClick={() => galleryInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors"
                   >
                     <Upload size={16} />
                     Elegir galería

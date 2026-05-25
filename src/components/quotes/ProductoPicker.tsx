@@ -206,7 +206,7 @@ export default function ProductoPicker({ open, onClose, onSelect }: ProductoPick
                 return (
                   <div
                     key={product.id}
-                    className={`p-4 hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                    className={`p-4 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
                   >
                     <div className="flex items-center gap-4">
                       <input
@@ -236,7 +236,7 @@ export default function ProductoPicker({ open, onClose, onSelect }: ProductoPick
                     {isSelected && selection && (
                       <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Cantidad</label>
                           <Input
                             type="number"
                             min="1"
@@ -248,7 +248,7 @@ export default function ProductoPicker({ open, onClose, onSelect }: ProductoPick
                         </div>
                         
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Precio Unitario</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Precio Unitario</label>
                           <Input
                             type="number"
                             step="0.01"
@@ -260,7 +260,7 @@ export default function ProductoPicker({ open, onClose, onSelect }: ProductoPick
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Subtotal</label>
                           <div className="px-3 py-2 bg-gray-100 rounded-lg font-bold text-green-600">
                             {formatMoney(selection.cantidad * selection.precioUnit)}
                           </div>

@@ -112,7 +112,7 @@ export default function RepuestoPicker({ isOpen, onClose, onConfirm }: RepuestoP
     >
       <div className="space-y-6">
         {/* Filtros compactos */}
-        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-800 rounded-lg">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <Input
@@ -158,14 +158,14 @@ export default function RepuestoPicker({ isOpen, onClose, onConfirm }: RepuestoP
                 </div>
               ) : (
                 repuestosFiltrados.map(repuesto => (
-                  <div key={repuesto.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50">
+                  <div key={repuesto.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                       {repuesto.imagenes[0] ? (
                         <img src={getImageUrl(repuesto.imagenes[0])} alt={repuesto.nombre} className="w-full h-full object-cover"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
-                        <div className="text-gray-400">📱</div>
+                        <div className="text-gray-400 dark:text-slate-500">📱</div>
                       )}
                     </div>
                     
@@ -191,19 +191,19 @@ export default function RepuestoPicker({ isOpen, onClose, onConfirm }: RepuestoP
           </div>
 
           {/* Carrito */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4">
             <h3 className="font-medium text-gray-900 mb-4">
               Repuestos Seleccionados ({carrito.length})
             </h3>
             
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {carrito.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-gray-500 dark:text-slate-400 text-center py-4">
                   No hay repuestos seleccionados
                 </p>
               ) : (
                 carrito.map(item => (
-                  <div key={item.id} className="bg-white p-3 rounded border">
+                  <div key={item.id} className="bg-white dark:bg-slate-800 p-3 rounded border dark:border-slate-600">
                     <h4 className="font-medium text-sm">{item.nombre}</h4>
                     
                     <div className="mt-2 space-y-2">

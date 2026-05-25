@@ -101,7 +101,7 @@ export function CustomerSelector({ selectedCustomer, onCustomerChange, className
   };
 
   return (
-    <div className={`bg-white rounded-2xl shadow-lg p-6 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 ${className}`}>
       {/* Encabezado de la sección */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -140,7 +140,7 @@ export function CustomerSelector({ selectedCustomer, onCustomerChange, className
 
             {/* Dropdown de resultados */}
             {showDropdown && searchQuery && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 dark:border-slate-600 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
                 {filteredCustomers.length > 0 ? (
                   filteredCustomers.map((customer) => (
                     <button
@@ -234,7 +234,7 @@ export function CustomerSelector({ selectedCustomer, onCustomerChange, className
           {/* Modo manual */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Nombre completo *
               </label>
               <Input
@@ -249,7 +249,7 @@ export function CustomerSelector({ selectedCustomer, onCustomerChange, className
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Teléfono
               </label>
               <Input
@@ -263,7 +263,7 @@ export function CustomerSelector({ selectedCustomer, onCustomerChange, className
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Email
               </label>
               <Input
