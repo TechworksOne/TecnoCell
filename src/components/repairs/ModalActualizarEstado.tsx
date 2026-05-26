@@ -8,6 +8,7 @@ import API_URL from '../../services/config';
 import Button from '../ui/Button';
 import axios from 'axios';
 import { PAYMENT_METHODS, isCardMethod } from '../../constants/paymentMethods';
+import { useToast } from '../ui/Toast';
 
 // Payment method value constants for convenience
 const PM_EFECTIVO     = 'EFECTIVO';
@@ -60,6 +61,7 @@ const fmtQ = (n: number) => `Q${n.toFixed(2)}`;
 export default function ModalActualizarEstado({
   isOpen, onClose, reparacion, onSuccess,
 }: ModalActualizarEstadoProps) {
+  const toast = useToast();
   // ── Base state ───────────────────────────────────────────────────────────────
   const [estado, setEstado]       = useState(reparacion.estado);
   const [nota, setNota]           = useState('');
@@ -208,8 +210,8 @@ export default function ModalActualizarEstado({
   const addRepuestoUsado = () => {
     if (!repuestoSel) return;
     const stock = repuestoSel.stock ?? 0;
-    if (cantRepuesto <= 0) { alert('Cantidad debe ser mayor a 0'); return; }
-    if (cantRepuesto > stock) { alert(`Stock insuficiente. Disponible: ${stock}`); return; }
+    if (cantRepuesto <= 0) { toast.error('Cantidad debe ser mayor a 0'); return; }
+    if (cantRepuesto > stock) { toast.error(`Stock insuficiente. Disponible: ${stock}`); return; }
     const costoUnit = (repuestoSel.precio_costo ?? 0) / 100;
     setRepuestosUsados(prev => [...prev, {
       repuestoId: repuestoSel.id, nombre: repuestoSel.nombre,
@@ -224,8 +226,8 @@ export default function ModalActualizarEstado({
   const addRegalia = () => {
     if (!regaliaSel) return;
     const stock = regaliaSel.stock ?? 0;
-    if (cantRegalia <= 0) { alert('Cantidad debe ser mayor a 0'); return; }
-    if (cantRegalia > stock) { alert(`Stock insuficiente. Disponible: ${stock}`); return; }
+    if (cantRegalia <= 0) { toast.error('Cantidad debe ser mayor a 0'); return; }
+    if (cantRegalia > stock) { toast.error(`Stock insuficiente. Disponible: ${stock}`); return; }
     const costoUnit = tipoRegalia === 'repuesto'
       ? (regaliaSel.precio_costo ?? 0) / 100
       : (regaliaSel.precio_costo ?? 0);
@@ -255,7 +257,7 @@ export default function ModalActualizarEstado({
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!nota.trim()) {
-      alert('Por favor agrega una nota sobre el cambio de estado');
+      toast.warning('Por favor agrega una nota sobre el cambio de estado');
       return;
     }
     const estadoBackend = toBackendEstado(estado);
@@ -281,7 +283,7 @@ export default function ModalActualizarEstado({
         if (pagoFinalNum > 0) {
           const necesitaBanco = metodoPago === PM_TRANSFERENCIA || metodoPago === PM_TARJETA_OTRA;
           if (necesitaBanco && !cuentaBancariaId) {
-            alert('Debes seleccionar una cuenta bancaria para pagos con transferencia o tarjeta otra');
+            toast.error('Debes seleccionar una cuenta bancaria para pagos con transferencia o tarjeta otra');
             setSaving(false);
             return;
           }
@@ -303,7 +305,7 @@ export default function ModalActualizarEstado({
         if (res.data.success) { onSuccess(); onClose(); }
         else throw new Error(res.data.message);
       } catch (err: any) {
-        alert(`Error: ${err.response?.data?.message || err.message}`);
+        toast.error(err.response?.data?.message || err.message || 'Error al completar la reparación');
       } finally { setSaving(false); }
       return;
     }
@@ -333,7 +335,7 @@ export default function ModalActualizarEstado({
       const msg = status === 403
         ? (err.response?.data?.message || 'Sin permisos')
         : (err.response?.data?.message || err.message || 'Error al actualizar estado');
-      alert(`Error: ${msg}`);
+      toast.error(msg);
     } finally { setSaving(false); }
   };
 

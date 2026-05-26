@@ -6,6 +6,7 @@ import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
 import Select from "../../components/ui/Select";
 import { useToast } from "../../components/ui/Toast";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { formatMoney } from "../../lib/format";
 import { useCatalog } from "../../store/useCatalog";
 import { Product } from "../../types/product";
@@ -191,6 +192,7 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [stockAdjustment, setStockAdjustment] = useState({ productId: "", quantity: 0, note: "" });
   const [categoriesData, setCategoriesData] = useState<any>({ categories: [], subcategories: [] });
+  const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   const [productForm, setProductForm] = useState({
     sku: "",
@@ -396,19 +398,21 @@ export default function ProductsPage() {
   }
 
   async function handleDeleteProduct() {
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.')) {
-      return;
-    }
-    
-    try {
-      const { deleteProduct } = useCatalog.getState();
-      await deleteProduct(stockAdjustment.productId);
-      toast.add("Producto eliminado exitosamente");
-      setShowStockModal(false);
-    } catch (error) {
-      toast.add("Error al eliminar el producto", "error");
-      console.error('Error:', error);
-    }
+    setConfirmState({
+      message: '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          const { deleteProduct } = useCatalog.getState();
+          await deleteProduct(stockAdjustment.productId);
+          toast.add("Producto eliminado exitosamente");
+          setShowStockModal(false);
+        } catch (error) {
+          toast.add("Error al eliminar el producto", "error");
+          console.error('Error:', error);
+        }
+      }
+    });
   }
 
   async function handleAddCategory() {
@@ -476,33 +480,37 @@ export default function ProductsPage() {
   }
 
   async function handleDeleteCategory(categoryId: number, categoryName: string) {
-    if (!window.confirm(`¿Estás seguro de eliminar la categoría "${categoryName}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
-    
-    try {
-      await categoryService.deleteCategory(categoryId);
-      toast.add("Categoría eliminada exitosamente");
-      await loadCategories();
-    } catch (error: any) {
-      toast.add(error.message || "Error al eliminar categoría", "error");
-      console.error('Error:', error);
-    }
+    setConfirmState({
+      message: `¿Estás seguro de eliminar la categoría "${categoryName}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          await categoryService.deleteCategory(categoryId);
+          toast.add("Categoría eliminada exitosamente");
+          await loadCategories();
+        } catch (error: any) {
+          toast.add(error.message || "Error al eliminar categoría", "error");
+          console.error('Error:', error);
+        }
+      }
+    });
   }
 
   async function handleDeleteSubcategory(subcategoryId: number, subcategoryName: string) {
-    if (!window.confirm(`¿Estás seguro de eliminar la subcategoría "${subcategoryName}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
-    
-    try {
-      await categoryService.deleteSubcategory(subcategoryId);
-      toast.add("Subcategoría eliminada exitosamente");
-      await loadCategories();
-    } catch (error: any) {
-      toast.add(error.message || "Error al eliminar subcategoría", "error");
-      console.error('Error:', error);
-    }
+    setConfirmState({
+      message: `¿Estás seguro de eliminar la subcategoría "${subcategoryName}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          await categoryService.deleteSubcategory(subcategoryId);
+          toast.add("Subcategoría eliminada exitosamente");
+          await loadCategories();
+        } catch (error: any) {
+          toast.add(error.message || "Error al eliminar subcategoría", "error");
+          console.error('Error:', error);
+        }
+      }
+    });
   }
 
   function getProductImage(product: Product) {
@@ -1232,5 +1240,14 @@ export default function ProductsPage() {
         )}
       </Modal>
     </div>
+    {confirmState && (
+      <ConfirmModal
+        isOpen
+        message={confirmState.message}
+        variant="danger"
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
+    )}
   );
 }

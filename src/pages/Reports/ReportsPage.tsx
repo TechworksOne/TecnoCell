@@ -8,12 +8,13 @@ import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Table from "../../components/ui/Table";
 import { formatDate, formatMoney } from "../../lib/format";
+import { useToast } from "../../components/ui/Toast";
 import { mockKardex, mockSales, mockUsers } from "../../lib/mock";
 import { useCatalog } from "../../store/useCatalog";
 
 export default function ReportsPage() {
   const { products } = useCatalog();
-
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("kardex");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [dateFrom, setDateFrom] = useState("2024-10-01");
@@ -100,7 +101,7 @@ export default function ReportsPage() {
     // Simulación de exportación
     const reportName =
       activeTab === "kardex" ? "Kardex" : activeTab === "sales" ? "Ventas" : "Stock Mínimo";
-    alert(`Exportando reporte de ${reportName} a Excel`);
+    toast.info(`Exportando reporte de ${reportName} a Excel`);
   }
 
   const tabs = [

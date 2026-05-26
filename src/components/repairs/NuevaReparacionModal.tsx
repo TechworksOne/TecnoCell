@@ -16,6 +16,7 @@ import { createReparacion } from '../../services/repairService';
 import { useAuth } from '../../store/useAuth';
 import PatternLock from './PatternLock';
 import FirmaCanvas from './FirmaCanvas';
+import ConfirmModal from '../ui/ConfirmModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Step = 'cliente' | 'equipo' | 'resumen';
@@ -75,6 +76,7 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
   const [fechaRecepcion, setFechaRecepcion] = useState<string>(localToday());
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   // Marcas / modelos
   const [marcas, setMarcas] = useState<EquipoMarca[]>([]);
@@ -217,7 +219,8 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
 
   const handleClose = () => {
     if (hasDirtyData(selectedCustomer, equipmentData)) {
-      if (!window.confirm('Hay datos sin guardar. ¿Deseas cerrar el formulario?')) return;
+      setConfirmClose(true);
+      return;
     }
     onClose();
   };
@@ -839,5 +842,14 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
         </div>
       </div>
     </div>
+    <ConfirmModal
+      isOpen={confirmClose}
+      title="Cerrar formulario"
+      message="Hay datos sin guardar. ¿Deseas cerrar el formulario?"
+      confirmLabel="Cerrar"
+      variant="danger"
+      onConfirm={() => { setConfirmClose(false); onClose(); }}
+      onCancel={() => setConfirmClose(false)}
+    />
   );
 }

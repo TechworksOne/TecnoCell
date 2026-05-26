@@ -15,6 +15,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import axios from 'axios';
+import { useToast } from '../../components/ui/Toast';
 
 interface CuentaBancaria {
   id: number;
@@ -46,6 +47,7 @@ interface Movimiento {
 }
 
 export default function CajaBancosPage() {
+  const toast = useToast();
   const [saldoCajaChica, setSaldoCajaChica] = useState({ saldo: 0, ingresos: 0, egresos: 0, pendientes: 0 });
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>([]);
   const [movimientosCaja, setMovimientosCaja] = useState<Movimiento[]>([]);
@@ -154,7 +156,7 @@ export default function CajaBancosPage() {
   };
 
   const handleGuardarBanco = async () => {
-    if (!bancoForm.nombre.trim()) { alert('El nombre es requerido'); return; }
+    if (!bancoForm.nombre.trim()) { toast.error('El nombre es requerido'); return; }
     try {
       setSavingBanco(true);
       const token = sessionStorage.getItem('token');
@@ -167,7 +169,7 @@ export default function CajaBancosPage() {
       setShowBancoModal(false);
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error al guardar banco');
+      toast.error(err.response?.data?.message || 'Error al guardar banco');
     } finally {
       setSavingBanco(false);
     }
@@ -183,7 +185,7 @@ export default function CajaBancosPage() {
       setBancoADesactivar(null);
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error al desactivar banco');
+      toast.error(err.response?.data?.message || 'Error al desactivar banco');
     }
   };
 
@@ -244,12 +246,12 @@ export default function CajaBancosPage() {
       const montoNum = parseFloat(monto);
 
       if (!montoNum || montoNum <= 0) {
-        alert('Ingresa un monto válido');
+        toast.error('Ingresa un monto válido');
         return;
       }
 
       if (!concepto.trim()) {
-        alert('Ingresa un concepto');
+        toast.error('Ingresa un concepto');
         return;
       }
 
@@ -266,7 +268,7 @@ export default function CajaBancosPage() {
         }, config);
       } else if (tipoMovimiento === 'INGRESO_MANUAL') {
         if (ingresoDestino === 'banco') {
-          if (!cuentaDestino) { alert('Selecciona una cuenta bancaria'); return; }
+          if (!cuentaDestino) { toast.error('Selecciona una cuenta bancaria'); return; }
           await axios.post(`${API_URL}/caja/ingreso-banco`, {
             cuenta_id: parseInt(cuentaDestino),
             monto: montoNum,
@@ -286,7 +288,7 @@ export default function CajaBancosPage() {
           }, config);
         }
       } else if (tipoMovimiento === 'RETIRO_BANCO') {
-        if (!cuentaOrigen) { alert('Selecciona la cuenta bancaria'); return; }
+        if (!cuentaOrigen) { toast.error('Selecciona la cuenta bancaria'); return; }
         await axios.post(`${API_URL}/caja/retiro-banco`, {
           cuenta_id: parseInt(cuentaOrigen),
           monto: montoNum,
@@ -296,7 +298,7 @@ export default function CajaBancosPage() {
           observaciones: observaciones || null
         }, config);
       } else if (tipoMovimiento === 'DEPOSITO') {
-        if (!cuentaDestino) { alert('Selecciona una cuenta bancaria de destino'); return; }
+        if (!cuentaDestino) { toast.error('Selecciona una cuenta bancaria de destino'); return; }
         await axios.post(`${API_URL}/caja/depositar-banco`, {
           cuenta_id: parseInt(cuentaDestino),
           monto: montoNum,
@@ -305,8 +307,8 @@ export default function CajaBancosPage() {
           observaciones: observaciones || null
         }, config);
       } else if (tipoMovimiento === 'TRANSFERENCIA') {
-        if (!cuentaOrigen || !cuentaDestino) { alert('Selecciona ambas cuentas bancarias'); return; }
-        if (cuentaOrigen === cuentaDestino) { alert('La cuenta de origen y destino deben ser diferentes'); return; }
+        if (!cuentaOrigen || !cuentaDestino) { toast.error('Selecciona ambas cuentas bancarias'); return; }
+        if (cuentaOrigen === cuentaDestino) { toast.error('La cuenta de origen y destino deben ser diferentes'); return; }
         await axios.post(`${API_URL}/caja/transferencia-bancos`, {
           cuenta_origen_id: parseInt(cuentaOrigen),
           cuenta_destino_id: parseInt(cuentaDestino),
@@ -329,9 +331,9 @@ export default function CajaBancosPage() {
         sessionStorage.removeItem('user');
         window.location.href = '/login';
       } else if (error.response?.data?.message) {
-        alert(error.response.data.message);
+        toast.error(error.response.data.message);
       } else {
-        alert('Error al registrar movimiento');
+        toast.error('Error al registrar movimiento');
       }
     }
   };

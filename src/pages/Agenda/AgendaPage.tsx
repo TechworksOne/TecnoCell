@@ -441,7 +441,7 @@ function ModalProgramar({ entrega, onClose, onSaved }: ModalProgramarProps) {
   };
 
   const handleRemove = async () => {
-    if (!entrega || !window.confirm('¿Eliminar la fecha de entrega programada?')) return;
+    if (!entrega) return;
     setSaving(true);
     try {
       await deleteFechaEntrega(entrega.id);

@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "../../components/ui/Toast";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { formatMoney } from "../../lib/format";
 import { useCatalog } from "../../store/useCatalog";
 import { useSuppliersStore } from "../../store/useSuppliers";
@@ -74,6 +75,7 @@ export default function NuevaCompraModal({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const isDirty = items.length > 0 || compraForm.proveedor_nombre !== "";
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Load catalogs when opened
   useEffect(() => {
@@ -115,7 +117,8 @@ export default function NuevaCompraModal({
 
   function attemptClose() {
     if (isDirty) {
-      if (!window.confirm("¿Descartar los datos ingresados y cerrar?")) return;
+      setConfirmDiscard(true);
+      return;
     }
     resetForm();
     onClose();
@@ -790,5 +793,14 @@ export default function NuevaCompraModal({
         </div>
       </div>
     </div>
+    <ConfirmModal
+      isOpen={confirmDiscard}
+      title="Descartar cambios"
+      message="¿Descartar los datos ingresados y cerrar?"
+      confirmLabel="Descartar"
+      variant="danger"
+      onConfirm={() => { setConfirmDiscard(false); resetForm(); onClose(); }}
+      onCancel={() => setConfirmDiscard(false)}
+    />
   );
 }

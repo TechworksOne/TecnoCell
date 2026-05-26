@@ -27,6 +27,7 @@ import type {
   CargaTecnico,
 } from '../../types/ot';
 import Modal from '../../components/ui/Modal';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 // ── Status maps ────────────────────────────────────────────────────────────
 const STATUS_PILL: Record<string, string> = {
@@ -556,6 +557,7 @@ export default function OrdenesTrabajoPage() {
   const [loadingH,  setLoadingH]  = useState(false);
   const [error,     setError]     = useState('');
   const [toast,     setToast]     = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [confirmOt, setConfirmOt] = useState<OrdenTrabajo | null>(null);
 
   // Filters — activas
   const [busqueda,    setBusqueda]    = useState('');
@@ -629,7 +631,11 @@ export default function OrdenesTrabajoPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleQuitarAsignacion = async (ot: OrdenTrabajo) => {
-    if (!window.confirm(`¿Quitar asignación de la reparación ${ot.id}?`)) return;
+    setConfirmOt(ot);
+  };
+
+  const doQuitarAsignacion = async (ot: OrdenTrabajo) => {
+    setConfirmOt(null);
     try {
       await quitarAsignacion(ot.id);
       showToast('Asignación eliminada');
@@ -772,7 +778,16 @@ export default function OrdenesTrabajoPage() {
         </div>
       )}
     </div>
+    {confirmOt && (
+      <ConfirmModal
+        isOpen
+        title="Quitar asignación"
+        message={`¿Quitar asignación de la reparación ${confirmOt.id}?`}
+        confirmLabel="Quitar"
+        variant="danger"
+        onConfirm={() => doQuitarAsignacion(confirmOt)}
+        onCancel={() => setConfirmOt(null)}
+      />
+    )}
   );
 }
-
-

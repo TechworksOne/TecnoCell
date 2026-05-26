@@ -12,6 +12,8 @@ import { useAuth } from '../../store/useAuth';
 import { isAdmin } from '../../lib/permissions';
 import API_URL from '../../services/config';
 import axios from 'axios';
+import { useToast } from '../../components/ui/Toast';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 interface CheckItem {
   id: string;
@@ -37,6 +39,7 @@ interface CuentaBancaria {
 export default function FlujoReparacionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [reparacion, setReparacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,6 +59,7 @@ export default function FlujoReparacionDetailPage() {
   const [entregaHora, setEntregaHora] = useState('');
   const [entregaNota, setEntregaNota] = useState('');
   const [savingEntrega, setSavingEntrega] = useState(false);
+  const [confirmQuitarEntrega, setConfirmQuitarEntrega] = useState(false);
 
   const abrirEntregaModal = () => {
     if (reparacion?.fechaEntregaProgramada) {
@@ -84,21 +88,22 @@ export default function FlujoReparacionDetailPage() {
       if (updated) setReparacion(updated);
       setShowEntregaModal(false);
     } catch (e) {
-      alert('Error al guardar fecha de entrega');
+      toast.error('Error al guardar fecha de entrega');
     } finally {
       setSavingEntrega(false);
     }
   };
 
   const quitarEntrega = async () => {
-    if (!reparacion || !window.confirm('¿Eliminar la fecha de entrega programada?')) return;
+    if (!reparacion) return;
     setSavingEntrega(true);
+    setConfirmQuitarEntrega(false);
     try {
       await deleteFechaEntrega(reparacion.id);
       const updated = (await getAllReparaciones()).find((r: any) => r.id === reparacion.id);
       if (updated) setReparacion(updated);
       setShowEntregaModal(false);
-    } catch { alert('Error al eliminar'); } finally { setSavingEntrega(false); }
+    } catch { toast.error('Error al eliminar'); } finally { setSavingEntrega(false); }
   };
   
   // Checks generales
@@ -322,11 +327,11 @@ export default function FlujoReparacionDetailPage() {
 
     // Validación de anticipo
     if (dejoAnticipo && (!montoAnticipo || parseFloat(montoAnticipo) <= 0)) {
-      alert('Por favor ingresa el monto del anticipo');
+      toast.warning('Por favor ingresa el monto del anticipo');
       return;
     }
     if (dejoAnticipo && metodoAnticipo === 'transferencia' && !cuentaBancariaId) {
-      alert('Selecciona una cuenta bancaria para el anticipo por transferencia');
+      toast.warning('Selecciona una cuenta bancaria para el anticipo por transferencia');
       return;
     }
 
@@ -382,19 +387,19 @@ export default function FlujoReparacionDetailPage() {
         : 'Checklist guardado exitosamente. Estado de reparación actualizado a RECIBIDA.';
       if (dejoAnticipo) {
         const metodoLabel = metodoAnticipo === 'efectivo' ? 'Efectivo' : 'Transferencia';
-        alert(`${mensaje}\nAnticipo Q${montoAnticipo} (${metodoLabel}) registrado como PENDIENTE. Confírmalo desde /caja-bancos.`);
+        toast.success(`${mensaje} Anticipo Q${montoAnticipo} (${metodoLabel}) registrado como PENDIENTE.`);
       } else {
-        alert(mensaje);
+        toast.success(mensaje);
       }
       navigate('/flujo-reparaciones');
 
     } catch (error: any) {
       console.error('Error saving checklist:', error);
       if (error.response?.status === 409) {
-        alert('No se puede modificar el anticipo: ya fue confirmado en Caja/Bancos.');
+        toast.error('No se puede modificar el anticipo: ya fue confirmado en Caja/Bancos.');
         setAnticipoConfirmado(true);
       } else {
-        alert('Error al guardar el checklist');
+        toast.error('Error al guardar el checklist');
       }
     } finally {
       setSaving(false);
@@ -675,7 +680,7 @@ export default function FlujoReparacionDetailPage() {
             </div>
             <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-700 gap-2">
               {reparacion.fechaEntregaProgramada && (
-                <button onClick={quitarEntrega} disabled={savingEntrega}
+                <button onClick={() => setConfirmQuitarEntrega(true)} disabled={savingEntrega}
                   className="text-sm text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50">
                   Quitar
                 </button>
@@ -937,5 +942,14 @@ export default function FlujoReparacionDetailPage() {
         </Button>
       </div>
     </div>
+    <ConfirmModal
+      isOpen={confirmQuitarEntrega}
+      title="Quitar fecha de entrega"
+      message="\u00bfEliminar la fecha de entrega programada?"
+      confirmLabel="Quitar"
+      variant="danger"
+      onConfirm={quitarEntrega}
+      onCancel={() => setConfirmQuitarEntrega(false)}
+    />
   );
 }

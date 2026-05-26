@@ -6,6 +6,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
+import { useToast } from '../ui/Toast';
 
 interface EquipmentReceptionCardProps {
   reception: any;
@@ -34,6 +35,7 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   const handleInputChange = (field: string, value: any) => {
     if (isConfirmed) return; // Bloquear si ya está confirmado
@@ -72,17 +74,17 @@ export function EquipmentReceptionCard({ reception, onReceptionChange, isConfirm
   const confirmReception = () => {
     // Validaciones
     if (!reception.tipoEquipo) {
-      alert('Debe seleccionar el tipo de equipo');
+      toast.error('Debe seleccionar el tipo de equipo');
       return;
     }
     
     if (reception.fotosRecepcion.length < 2) {
-      alert('Debe cargar al menos 2 fotos del equipo');
+      toast.error('Debe cargar al menos 2 fotos del equipo');
       return;
     }
     
     if (!reception.diagnosticoInicial?.trim()) {
-      alert('Debe escribir un diagnóstico inicial');
+      toast.error('Debe escribir un diagnóstico inicial');
       return;
     }
     

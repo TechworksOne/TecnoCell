@@ -7,6 +7,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
+import { useToast } from '../ui/Toast';
 
 interface StickerAssignmentPanelProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export function StickerAssignmentPanel({
   equipoInfo 
 }: StickerAssignmentPanelProps) {
   const { verificarSticker, asignarSticker, buscarStickers } = useStickers();
+  const toast = useToast();
   const [stickerNumero, setStickerNumero] = useState('');
   const [ubicacion, setUbicacion] = useState<StickerLocation>('chasis');
   const [ubicacionCustom, setUbicacionCustom] = useState('');
@@ -96,7 +98,7 @@ export function StickerAssignmentPanel({
       onStickerAssigned(stickerNumero, ubicacion);
       onClose();
     } catch (error) {
-      alert('Error al asignar el sticker. Inténtalo de nuevo.');
+      toast.error('Error al asignar el sticker. Inténtalo de nuevo.');
     } finally {
       setAsignando(false);
     }

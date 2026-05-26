@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Save, AlertCircle, Loader2 } from 'lucide-react';
 import API_URL from '../../services/config';
 import axios from 'axios';
+import ConfirmModal from '../ui/ConfirmModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CheckItem { id: string; label: string; checked: boolean; }
@@ -137,6 +138,7 @@ export default function ChecklistIngresoModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [existeCheck, setExisteCheck] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const [checksGenerales, setChecksGenerales] = useState<ChecksGenerales>({
     enciende: true, tactilFunciona: true, pantallaOk: true, bateriaOk: true, cargaOk: true,
@@ -268,7 +270,8 @@ export default function ChecklistIngresoModal({
   // ── Close with confirmation ───────────────────────────────────────────────
   const handleClose = useCallback(() => {
     if (isDirty) {
-      if (!window.confirm('Hay cambios sin guardar. ¿Deseas salir de todos modos?')) return;
+      setConfirmClose(true);
+      return;
     }
     onClose();
   }, [isDirty, onClose]);
@@ -767,5 +770,14 @@ export default function ChecklistIngresoModal({
         </div>
       </div>
     </div>
+    <ConfirmModal
+      isOpen={confirmClose}
+      title="Cambios sin guardar"
+      message="Hay cambios sin guardar. ¿Deseas salir de todos modos?"
+      confirmLabel="Salir"
+      variant="danger"
+      onConfirm={() => { setConfirmClose(false); onClose(); }}
+      onCancel={() => setConfirmClose(false)}
+    />
   );
 }

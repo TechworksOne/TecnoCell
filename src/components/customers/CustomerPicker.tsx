@@ -7,6 +7,7 @@ import Input from '../ui/Input';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
+import { useToast } from '../ui/Toast';
 
 interface CustomerPickerProps {
   value?: Customer;
@@ -101,6 +102,7 @@ export default function CustomerPicker({
   
   const customerStore = useCustomers();
   const customers = customerStore.customers;
+  const toast = useToast();
   
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -188,7 +190,7 @@ export default function CustomerPicker({
 
   const handleCreateNewCustomer = () => {
     if (!newCustomerForm.firstName.trim() && !newCustomerForm.lastName.trim()) {
-      alert('El nombre es requerido');
+      toast.error('El nombre es requerido');
       return;
     }
 

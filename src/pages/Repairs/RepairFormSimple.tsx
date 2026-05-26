@@ -23,6 +23,7 @@ import {
 import { generarPDFRecepcion } from '../../lib/pdfGenerator';
 import { createReparacion } from '../../services/repairService';
 import { useAuth } from '../../store/useAuth';
+import { useToast } from '../../components/ui/Toast';
 
 type Step = 'cliente' | 'equipo' | 'resumen';
 
@@ -50,6 +51,7 @@ interface Accesorios {
 
 export default function RepairFormSimple() {
   const navigate = useNavigate();
+  const toast = useToast();
   const { user } = useAuth();
   const authUserName = user?.username || user?.name || 'Sistema';
   const [currentStep, setCurrentStep] = useState<Step>('cliente');
@@ -151,7 +153,7 @@ export default function RepairFormSimple() {
       await loadTipos();
       setEquipmentData(prev => ({ ...prev, tipo: created.nombre, tipoId: created.id, marca: '', marcaId: null, modelo: '' }));
       setShowNuevoTipoInput(false); setNuevoTipo('');
-    } catch { alert('Error al crear el tipo. Puede que ya exista.'); }
+    } catch { toast.error('Error al crear el tipo. Puede que ya exista.'); }
     finally { setCreatingTipo(false); }
   };
 
@@ -163,7 +165,7 @@ export default function RepairFormSimple() {
       await loadMarcas(equipmentData.tipoId);
       setEquipmentData(prev => ({ ...prev, marca: created.nombre, marcaId: created.id, modelo: '' }));
       setShowNuevaMarcaInput(false); setNuevaMarca('');
-    } catch { alert('Error al crear la marca. Puede que ya exista.'); }
+    } catch { toast.error('Error al crear la marca. Puede que ya exista.'); }
     finally { setCreatingMarca(false); }
   };
 
@@ -179,7 +181,7 @@ export default function RepairFormSimple() {
       await loadModelos(equipmentData.tipoId, equipmentData.marcaId);
       setEquipmentData(prev => ({ ...prev, modelo: created.nombre }));
       setShowNuevoModeloInput(false); setNuevoModelo('');
-    } catch { alert('Error al crear el modelo. Puede que ya exista.'); }
+    } catch { toast.error('Error al crear el modelo. Puede que ya exista.'); }
     finally { setCreatingModelo(false); }
   };
 
@@ -207,7 +209,7 @@ export default function RepairFormSimple() {
   };
 
   const handleGenerarPDF = () => {
-    if (!selectedCustomer) { alert('Debe seleccionar un cliente primero'); return; }
+    if (!selectedCustomer) { toast.error('Debe seleccionar un cliente primero'); return; }
     const numeroReparacion = `REP${String(Date.now()).slice(-6)}`;
     const [anio, mes, dia] = fechaRecepcion.split('-');
     generarPDFRecepcion({
@@ -287,11 +289,11 @@ export default function RepairFormSimple() {
       };
 
       const response = await createReparacion(repairData);
-      alert(`Reparacion ${response.id} creada exitosamente`);
+      toast.success(`Reparacion ${response.id} creada exitosamente`);
       navigate('/reparaciones');
     } catch (error) {
       console.error('Error creating repair:', error);
-      alert('Error al crear la reparacion');
+      toast.error('Error al crear la reparacion');
     } finally {
       setIsCreatingRepair(false);
     }
@@ -425,7 +427,7 @@ export default function RepairFormSimple() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!equipmentData.tipoId) { alert('Selecciona un tipo primero'); return; }
+                      if (!equipmentData.tipoId) { toast.error('Selecciona un tipo primero'); return; }
                       setShowNuevaMarcaInput(v => !v); setNuevaMarca('');
                     }}
                     className={`flex items-center gap-1 text-xs font-semibold transition-colors ${equipmentData.tipoId ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed'}`}
@@ -470,7 +472,7 @@ export default function RepairFormSimple() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!equipmentData.marcaId) { alert('Selecciona una marca primero'); return; }
+                      if (!equipmentData.marcaId) { toast.error('Selecciona una marca primero'); return; }
                       setShowNuevoModeloInput(v => !v); setNuevoModelo('');
                     }}
                     className={`flex items-center gap-1 text-xs font-semibold transition-colors ${equipmentData.marcaId ? 'text-blue-600 hover:text-blue-800' : 'text-gray-300 cursor-not-allowed'}`}
