@@ -258,7 +258,7 @@ exports.createReparacion = async (req, res) => {
     
     // ── 6. Guardar firma del cliente (post-commit, no fatal) ──────────────
     const { firma_cliente_base64 } = req.body;
-    let firmaAbsPath = null;
+    let firmaClienteUrl = null;   // URL relativa para la BD y para contratoService
 
     if (
       firma_cliente_base64 &&
@@ -266,25 +266,32 @@ exports.createReparacion = async (req, res) => {
       firma_cliente_base64.startsWith('data:image/png;base64,')
     ) {
       try {
-        const base64Data  = firma_cliente_base64.replace(/^data:image\/png;base64,/, '');
-        const firmaDir    = path.join(__dirname, '..', 'uploads', 'firmas', 'reparaciones', repairId);
-        const firmaFile   = path.join(firmaDir, 'firma_cliente.png');
-        fs.mkdirSync(firmaDir, { recursive: true });
-        fs.writeFileSync(firmaFile, Buffer.from(base64Data, 'base64'));
+        const base64Data = firma_cliente_base64.replace(/^data:image\/png;base64,/, '');
 
-        const firmaUrl  = `/uploads/firmas/reparaciones/${repairId}/firma_cliente.png`;
-        const tecnicoId = req.user?.id ?? req.user?.userId ?? null;
-        await db.query(
-          `UPDATE reparaciones
-              SET firma_cliente_url      = ?,
-                  firma_estado           = 'FIRMADO',
-                  firmado_at             = NOW(),
-                  firmado_por_usuario_id = ?
-            WHERE id = ?`,
-          [firmaUrl, tecnicoId, repairId]
-        );
-        firmaAbsPath = firmaFile;
-        console.log(`✅ Firma guardada para reparación ${repairId}`);
+        // Validar que no sea un canvas vacío (PNG todo-blanco suele ser < 600 bytes)
+        const bufSize = Buffer.byteLength(base64Data, 'base64');
+        if (bufSize < 600) {
+          console.warn(`⚠️ Firma descartada — PNG posiblemente vacío (${bufSize} bytes)`);
+        } else {
+          const firmaDir  = path.join(__dirname, '..', 'uploads', 'firmas', 'reparaciones', repairId);
+          const firmaFile = path.join(firmaDir, 'firma_cliente.png');
+          fs.mkdirSync(firmaDir, { recursive: true });
+          fs.writeFileSync(firmaFile, Buffer.from(base64Data, 'base64'));
+
+          firmaClienteUrl    = `/uploads/firmas/reparaciones/${repairId}/firma_cliente.png`;
+          const tecnicoId    = req.user?.id ?? req.user?.userId ?? null;
+
+          await db.query(
+            `UPDATE reparaciones
+                SET firma_cliente_url      = ?,
+                    firma_estado           = 'FIRMADO',
+                    firmado_at             = NOW(),
+                    firmado_por_usuario_id = ?
+              WHERE id = ?`,
+            [firmaClienteUrl, tecnicoId, repairId]
+          );
+          console.log(`✅ Firma guardada para reparación ${repairId} → ${firmaClienteUrl}`);
+        }
       } catch (firmaErr) {
         console.error('⚠️ Error guardando firma cliente:', firmaErr.message);
       }
@@ -311,7 +318,7 @@ exports.createReparacion = async (req, res) => {
         costoTotal:    centavosAQuetzales(totalCentavos),
         anticipo:      centavosAQuetzales(anticipoCentavos),
         saldo:         centavosAQuetzales(totalCentavos - anticipoCentavos),
-        firmaPngPath:  firmaAbsPath,
+        firmaClienteUrl,                              // URL relativa (/uploads/firmas/...)
       });
     } catch (pdfErr) {
       console.error('⚠️ Error generando contrato PDF:', pdfErr.message);
