@@ -1,5 +1,6 @@
 import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import tecnocellLogo from "../../assets/tecnocell-logo.png";
+import { getImageUrl } from "../../utils/getImageUrl";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../store/useAuth";
@@ -111,17 +112,27 @@ export default function Topbar() {
             border:     "1px solid var(--color-border)",
           }}
         >
-          {/* Avatar con inicial */}
-          <div
-            className="flex items-center justify-center rounded-lg text-white font-bold text-xs shrink-0"
-            style={{
-              width: 26,
-              height: 26,
-              background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
-            }}
-          >
-            {user?.name?.[0]?.toUpperCase() ?? <User size={13} />}
-          </div>
+          {/* Avatar: foto de perfil o inicial como fallback */}
+          {user?.foto_perfil ? (
+            <img
+              src={getImageUrl(user.foto_perfil)}
+              alt={user.name}
+              className="rounded-lg shrink-0 object-cover"
+              style={{ width: 26, height: 26 }}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : (
+            <div
+              className="flex items-center justify-center rounded-lg text-white font-bold text-xs shrink-0"
+              style={{
+                width: 26,
+                height: 26,
+                background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
+              }}
+            >
+              {user?.name?.[0]?.toUpperCase() ?? <User size={13} />}
+            </div>
+          )}
           <div className="text-sm hidden sm:block">
             <p className="font-semibold leading-none" style={{ color: "var(--color-text)", fontSize: 12.5 }}>
               {user?.name}
