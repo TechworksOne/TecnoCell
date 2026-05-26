@@ -313,7 +313,7 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
   ];
 
   const quickActions = [
-    { icon: Wrench,        label: "Mis reparaciones",  path: "/reparaciones" },
+    { icon: Wrench,        label: "Mis reparaciones",  path: "/ordenes-trabajo" },
     { icon: Activity,      label: "Flujo",             path: "/flujo-reparaciones" },
     { icon: CheckCircle2,  label: "Checklist",         path: "/reparaciones" },
     { icon: Boxes,         label: "Repuestos",         path: "/repuestos" },
