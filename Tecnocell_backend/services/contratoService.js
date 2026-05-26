@@ -1,7 +1,7 @@
 /**
  * contratoService.js
  * ──────────────────────────────────────────────────────────────────────────
- * Rellena la plantilla `contrato_tecnocell_2_paginas.pdf` con los datos
+ * Rellena la plantilla `contrato_tecnocell_oficial_v2.pdf` con los datos
  * dinámicos de la reparación y la firma del cliente.
  *
  * REGLA: NO se genera diseño desde cero. Solo se escriben textos e imagen
@@ -19,7 +19,7 @@ const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
 // ── Rutas ────────────────────────────────────────────────────────────────────
 const TEMPLATE_PATH = path.join(
-  __dirname, '..', 'templates', 'contrato_tecnocell_2_paginas.pdf'
+  __dirname, '..', 'templates', 'contrato_tecnocell_oficial_v2.pdf'
 );
 const CONTRATOS_DIR = path.join(__dirname, '..', 'uploads', 'contratos');
 
@@ -234,7 +234,7 @@ async function generarContrato(datos) {
   console.log('[ContratoPDF] templatePath:', TEMPLATE_PATH);
 
   if (!fs.existsSync(TEMPLATE_PATH)) {
-    throw new Error(`[ContratoPDF] Plantilla no encontrada: ${TEMPLATE_PATH}`);
+    throw new Error(`[ContratoPDF] Plantilla oficial no encontrada: ${TEMPLATE_PATH}`);
   }
 
   const existingPdfBytes = fs.readFileSync(TEMPLATE_PATH);
