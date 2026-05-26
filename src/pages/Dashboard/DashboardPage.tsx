@@ -1251,11 +1251,9 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
   );
 }
 
-  return (
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENTRY POINT — Detecta rol y carga el dashboard correcto
 // ═══════════════════════════════════════════════════════════════════════════════
-
 
 function normalizeRole(value: unknown): string {
   return String(value || "")
