@@ -87,6 +87,12 @@ export default function CajaBancosPage() {
   // Destino del ingreso manual
   const [ingresoDestino, setIngresoDestino] = useState<'caja' | 'banco'>('caja');
 
+  // Historial por cuenta bancaria
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaBancaria | null>(null);
+  const [cuentaStats, setCuentaStats] = useState<{ ingresos: number; egresos: number; saldo: number } | null>(null);
+  const [periodoHistorial, setPeriodoHistorial] = useState<'mes' | 'mes_anterior' | 'todo'>('mes');
+  const [loadingCuentaStats, setLoadingCuentaStats] = useState(false);
+
   // Auth – definir antes de loadData para que el closure lo capture
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.rol === 'admin' ||
@@ -356,6 +362,53 @@ export default function CajaBancosPage() {
   const movsCajaFiltrados = aplicarFiltros(movimientosCaja);
   const movsBancosFiltrados = aplicarFiltros(movimientosBancos);
 
+  // Movimientos filtrados por cuenta seleccionada + período
+  const movsHistorialCuenta = (() => {
+    if (!cuentaSeleccionada) return [];
+    const hoy = new Date();
+    const mesActual = hoy.getMonth();
+    const anioActual = hoy.getFullYear();
+    return movimientosBancos.filter(m => {
+      if (m.cuenta_id !== cuentaSeleccionada.id) return false;
+      if (periodoHistorial === 'mes') {
+        const d = new Date(m.fecha_movimiento);
+        return d.getMonth() === mesActual && d.getFullYear() === anioActual;
+      }
+      if (periodoHistorial === 'mes_anterior') {
+        const d = new Date(m.fecha_movimiento);
+        const mesPrev = mesActual === 0 ? 11 : mesActual - 1;
+        const anioPrev = mesActual === 0 ? anioActual - 1 : anioActual;
+        return d.getMonth() === mesPrev && d.getFullYear() === anioPrev;
+      }
+      return true; // todo
+    });
+  })();
+
+  const seleccionarCuenta = async (cuenta: CuentaBancaria) => {
+    setCuentaSeleccionada(cuenta);
+    setPeriodoHistorial('mes');
+    setLoadingCuentaStats(true);
+    try {
+      const token = sessionStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const resp = await axios.get(`${API_URL}/caja/bancos/${cuenta.id}/saldo`, config);
+      setCuentaStats({
+        ingresos: resp.data.data.ingresos,
+        egresos:  resp.data.data.egresos,
+        saldo:    resp.data.data.saldo,
+      });
+    } catch {
+      setCuentaStats(null);
+    } finally {
+      setLoadingCuentaStats(false);
+    }
+  };
+
+  const cerrarHistorial = () => {
+    setCuentaSeleccionada(null);
+    setCuentaStats(null);
+  };
+
   const abrirModal = (tipo: typeof tipoMovimiento) => {
     setTipoMovimiento(tipo);
     setMonto(''); setConcepto(''); setObservaciones('');
@@ -605,7 +658,81 @@ export default function CajaBancosPage() {
           {/* ── VISTA BANCOS ─────────────────────────────────────────── */}
           {vistaActual === 'bancos' && (
             <div>
-              {/* Cards de cuentas bancarias */}
+
+              {/* ── HISTORIAL DE CUENTA SELECCIONADA ── */}
+              {cuentaSeleccionada ? (
+                <div>
+                  {/* Header historial */}
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3 mb-4">
+                      <button
+                        onClick={cerrarHistorial}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <ArrowDownCircle size={13} className="rotate-90" /> Volver
+                      </button>
+                      <div>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Historial</p>
+                        <p className="text-base font-bold text-slate-900 dark:text-slate-100">{cuentaSeleccionada.nombre}</p>
+                      </div>
+                    </div>
+
+                    {/* Stats totales (all-time) */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">Total ingresos</p>
+                        {loadingCuentaStats ? <div className="h-5 w-16 mx-auto bg-emerald-200 dark:bg-emerald-900/40 rounded animate-pulse" /> : (
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Q{Number(cuentaStats?.ingresos || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</p>
+                        )}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Confirmados · total</p>
+                      </div>
+                      <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">Total egresos</p>
+                        {loadingCuentaStats ? <div className="h-5 w-16 mx-auto bg-red-200 dark:bg-red-900/40 rounded animate-pulse" /> : (
+                          <p className="text-sm font-bold text-red-700 dark:text-red-300">Q{Number(cuentaStats?.egresos || 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</p>
+                        )}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Confirmados · total</p>
+                      </div>
+                      <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/20 p-3 text-center">
+                        <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Saldo actual</p>
+                        {loadingCuentaStats ? <div className="h-5 w-20 mx-auto bg-blue-200 dark:bg-blue-900/40 rounded animate-pulse" /> : (
+                          <p className="text-sm font-bold text-blue-700 dark:text-blue-300">Q{Number(cuentaStats?.saldo ?? cuentaSeleccionada.saldo_actual ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</p>
+                        )}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Confirmado</p>
+                      </div>
+                    </div>
+
+                    {/* Filtro período */}
+                    <div className="flex gap-1.5">
+                      {([['mes', 'Este mes'], ['mes_anterior', 'Mes anterior'], ['todo', 'Todo']] as const).map(([key, label]) => (
+                        <button
+                          key={key}
+                          onClick={() => setPeriodoHistorial(key)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            periodoHistorial === key
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 self-center">
+                        {movsHistorialCuenta.length} movimiento{movsHistorialCuenta.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Movimientos de la cuenta filtrados */}
+                  <MovimientosPanel
+                    movimientos={movsHistorialCuenta.filter(m => m.estado === estadoFiltro)}
+                    estadoFiltro={estadoFiltro}
+                    onConfirmar={(mov) => solicitarConfirmacion(mov.id, 'banco', mov)}
+                  />
+                </div>
+              ) : (
+              <div>
+              {/* ── Cards de cuentas bancarias ── */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cuentas bancarias</p>
@@ -678,6 +805,12 @@ export default function CajaBancosPage() {
                             ) : null;
                           })()}
                         </div>
+                        <button
+                          onClick={() => seleccionarCuenta(cuenta)}
+                          className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/40 transition-colors"
+                        >
+                          <FileText size={12} /> Ver historial
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -691,6 +824,8 @@ export default function CajaBancosPage() {
                 onConfirmar={(mov) => solicitarConfirmacion(mov.id, 'banco', mov)}
                 mostrarBanco
               />
+            </div>
+            )}
             </div>
           )}
         </div>
