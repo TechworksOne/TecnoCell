@@ -362,14 +362,15 @@ export default function CajaBancosPage() {
   const movsCajaFiltrados = aplicarFiltros(movimientosCaja);
   const movsBancosFiltrados = aplicarFiltros(movimientosBancos);
 
-  // Movimientos filtrados por cuenta seleccionada + período
+  // Movimientos filtrados por cuenta seleccionada + período + filtros globales
   const movsHistorialCuenta = (() => {
     if (!cuentaSeleccionada) return [];
     const hoy = new Date();
     const mesActual = hoy.getMonth();
     const anioActual = hoy.getFullYear();
     return movimientosBancos.filter(m => {
-      if (m.cuenta_id !== cuentaSeleccionada.id) return false;
+      // Comparación robusta: DB puede devolver número o string
+      if (Number(m.cuenta_id) !== Number(cuentaSeleccionada.id)) return false;
       if (periodoHistorial === 'mes') {
         const d = new Date(m.fecha_movimiento);
         return d.getMonth() === mesActual && d.getFullYear() === anioActual;
@@ -386,7 +387,7 @@ export default function CajaBancosPage() {
 
   const seleccionarCuenta = async (cuenta: CuentaBancaria) => {
     setCuentaSeleccionada(cuenta);
-    setPeriodoHistorial('mes');
+    setPeriodoHistorial('todo');
     setLoadingCuentaStats(true);
     try {
       const token = sessionStorage.getItem('token');
