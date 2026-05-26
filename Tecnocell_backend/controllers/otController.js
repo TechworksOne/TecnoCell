@@ -288,7 +288,7 @@ exports.asignarTecnico = async (req, res) => {
 
     // Verificar que el técnico es un usuario válido y activo
     const [[tecnico]] = await db.query(
-      `SELECT u.id, u.username,
+      `SELECT u.id, u.username, u.name,
               CONCAT(COALESCE(p.nombres,''), ' ', COALESCE(p.apellidos,'')) AS nombre_completo
        FROM users u
        LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -299,14 +299,15 @@ exports.asignarTecnico = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Técnico no encontrado o inactivo' });
     }
 
-    // Actualizar asignación
+    // Actualizar asignación (tecnico_asignado guarda el nombre para compatibilidad con dashboard)
     await db.query(
       `UPDATE reparaciones
-         SET tecnico_asignado_id = ?,
+         SET tecnico_asignado    = ?,
+             tecnico_asignado_id = ?,
              asignado_por = ?,
              asignado_en = NOW()
        WHERE id = ?`,
-      [parseInt(tecnico_id, 10), req.user.id, id]
+      [tecnico.name, parseInt(tecnico_id, 10), req.user.id, id]
     );
 
     // Devolver datos actualizados
@@ -355,7 +356,8 @@ exports.quitarAsignacion = async (req, res) => {
 
     await db.query(
       `UPDATE reparaciones
-         SET tecnico_asignado_id = NULL,
+         SET tecnico_asignado    = NULL,
+             tecnico_asignado_id = NULL,
              asignado_por = NULL,
              asignado_en = NULL
        WHERE id = ?`,
@@ -377,6 +379,7 @@ exports.getTecnicos = async (req, res) => {
       `SELECT
          u.id,
          u.username,
+         u.name,
          u.email,
          CONCAT(COALESCE(p.nombres,''), ' ', COALESCE(p.apellidos,'')) AS nombre_completo,
          GROUP_CONCAT(r.nombre ORDER BY r.nombre SEPARATOR ',') AS roles
@@ -385,8 +388,11 @@ exports.getTecnicos = async (req, res) => {
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        LEFT JOIN roles r ON r.id = ur.role_id
        WHERE u.active = 1
+         AND (u.role IN ('admin','tecnico') OR ur.user_id IS NOT NULL)
        GROUP BY u.id
-       HAVING roles LIKE '%ADMINISTRADOR%' OR roles LIKE '%TECNICO%'
+       HAVING u.role IN ('admin','tecnico')
+           OR roles LIKE '%ADMINISTRADOR%'
+           OR roles LIKE '%TECNICO%'
        ORDER BY nombre_completo`,
       []
     );
