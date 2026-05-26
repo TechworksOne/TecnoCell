@@ -48,6 +48,9 @@ router.post(
   reparacionController.changeRepairState
 );
 
+// Descargar contrato PDF generado al crear la reparación
+router.get('/:id/contrato', verifyToken, reparacionController.descargarContrato);
+
 // Subir imagen individual (opcional)
 router.post(
   '/upload',

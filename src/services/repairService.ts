@@ -125,7 +125,10 @@ export const createReparacion = async (repairData: RepairFormData, fotosRecepcio
       fotosRecepcion: fotosRecepcionUrls,
 
       // Fecha de ingreso seleccionada por el usuario
-      fechaIngreso: repairData.recepcion.fechaRecepcion
+      fechaIngreso: repairData.recepcion.fechaRecepcion,
+
+      // Firma del cliente (base64 PNG, opcional)
+      firma_cliente_base64: (repairData as any).firma_cliente_base64 || undefined,
     };
     
     const response = await api.post('/reparaciones', payload);

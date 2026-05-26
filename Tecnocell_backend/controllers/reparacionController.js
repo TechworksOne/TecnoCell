@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cajaController = require('./cajaController');
+const contratoService = require('../services/contratoService');
 
 // Métodos de pago válidos (igual que ventas)
 const VALID_METODOS_PAGO_REP = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA_BAC', 'TARJETA_NEONET', 'TARJETA_OTRA'];
@@ -255,6 +256,67 @@ exports.createReparacion = async (req, res) => {
     
     await connection.commit();
     
+    // ── 6. Guardar firma del cliente (post-commit, no fatal) ──────────────
+    const { firma_cliente_base64 } = req.body;
+    let firmaAbsPath = null;
+
+    if (
+      firma_cliente_base64 &&
+      typeof firma_cliente_base64 === 'string' &&
+      firma_cliente_base64.startsWith('data:image/png;base64,')
+    ) {
+      try {
+        const base64Data  = firma_cliente_base64.replace(/^data:image\/png;base64,/, '');
+        const firmaDir    = path.join(__dirname, '..', 'uploads', 'firmas', 'reparaciones', repairId);
+        const firmaFile   = path.join(firmaDir, 'firma_cliente.png');
+        fs.mkdirSync(firmaDir, { recursive: true });
+        fs.writeFileSync(firmaFile, Buffer.from(base64Data, 'base64'));
+
+        const firmaUrl  = `/uploads/firmas/reparaciones/${repairId}/firma_cliente.png`;
+        const tecnicoId = req.user?.id ?? req.user?.userId ?? null;
+        await db.query(
+          `UPDATE reparaciones
+              SET firma_cliente_url      = ?,
+                  firma_estado           = 'FIRMADO',
+                  firmado_at             = NOW(),
+                  firmado_por_usuario_id = ?
+            WHERE id = ?`,
+          [firmaUrl, tecnicoId, repairId]
+        );
+        firmaAbsPath = firmaFile;
+        console.log(`✅ Firma guardada para reparación ${repairId}`);
+      } catch (firmaErr) {
+        console.error('⚠️ Error guardando firma cliente:', firmaErr.message);
+      }
+    }
+
+    // ── 7. Generar contrato PDF (post-commit, no fatal) ───────────────────
+    try {
+      const fechaFormateada = (fechaIngreso || new Date().toISOString().split('T')[0])
+        .split('-').reverse().join('/');                   // YYYY-MM-DD → DD/MM/YYYY
+
+      await contratoService.generarContrato({
+        reparacionId:  repairId,
+        fecha:         fechaFormateada,
+        clienteNombre,
+        clienteTel:    clienteTelefono,
+        clienteEmail,
+        tipoEquipo,
+        marca,
+        modelo,
+        color,
+        imei:          imeiSerie,
+        acceso:        acceso_tipo !== 'ninguno' ? `${acceso_tipo} registrado` : 'ninguno',
+        descripcion:   diagnosticoInicial,
+        costoTotal:    centavosAQuetzales(totalCentavos),
+        anticipo:      centavosAQuetzales(anticipoCentavos),
+        saldo:         centavosAQuetzales(totalCentavos - anticipoCentavos),
+        firmaPngPath:  firmaAbsPath,
+      });
+    } catch (pdfErr) {
+      console.error('⚠️ Error generando contrato PDF:', pdfErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Reparación creada exitosamente',
@@ -1531,5 +1593,34 @@ exports.completarReparacion = async (req, res) => {
     res.status(500).json({ success: false, message: error.message || 'Error al completar la reparación' });
   } finally {
     connection.release();
+  }
+};
+
+// ========== DESCARGAR CONTRATO PDF ==========
+exports.descargarContrato = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [[rep]] = await db.query(
+      'SELECT id, firma_estado FROM reparaciones WHERE id = ?', [id]
+    );
+    if (!rep) {
+      return res.status(404).json({ success: false, message: 'Reparación no encontrada' });
+    }
+
+    const contratoPath = path.join(
+      __dirname, '..', 'uploads', 'contratos', id, `contrato_reparacion_${id}.pdf`
+    );
+
+    if (!fs.existsSync(contratoPath)) {
+      return res.status(404).json({ success: false, message: 'Contrato no generado aún' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="contrato_${id}.pdf"`);
+    res.sendFile(contratoPath);
+  } catch (err) {
+    console.error('Error al descargar contrato:', err);
+    res.status(500).json({ success: false, message: 'Error al obtener el contrato' });
   }
 };
