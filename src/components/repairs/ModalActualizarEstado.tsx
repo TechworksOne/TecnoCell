@@ -262,15 +262,16 @@ export default function ModalActualizarEstado({
 
     // COMPLETADA → endpoint especial
     if (estadoBackend === 'COMPLETADA') {
-      if (!stickerSeleccionado) { alert('Selecciona un sticker de garantía'); return; }
       setSaving(true);
       try {
         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
         const fd = new FormData();
         fd.append('nota', nota);
-        fd.append('stickerId', String(stickerSeleccionado.id));
-        fd.append('stickerNumero', stickerNumero);
-        fd.append('stickerUbicacion', stickerUbicacion || '');
+        if (stickerSeleccionado) {
+          fd.append('stickerId', String(stickerSeleccionado.id));
+          fd.append('stickerNumero', stickerNumero);
+          fd.append('stickerUbicacion', stickerUbicacion || '');
+        }
         fd.append('repuestosUsados', JSON.stringify(
           repuestosUsados.map(r => ({ repuesto_id: r.repuestoId, cantidad: r.cantidad }))
         ));
@@ -438,7 +439,7 @@ export default function ModalActualizarEstado({
               {/* ── Sticker ─────────────────────────────────────────────── */}
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 p-4 rounded-xl space-y-3">
                 <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  <Package size={16} className="text-green-600" /> Sticker de Garantía *
+                  <Package size={16} className="text-green-600" /> Sticker de Garantía <span className="text-xs font-normal text-slate-400">(opcional)</span>
                 </h3>
                 <select onChange={e => {
                   const s = stickersDisponibles.find(x => x.id === parseInt(e.target.value));
