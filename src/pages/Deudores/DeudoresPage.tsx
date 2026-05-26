@@ -689,6 +689,12 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
   const [observaciones, setObservaciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [cuentaBancariaId, setCuentaBancariaId] = useState('');
+  const [cuentasBancarias, setCuentasBancarias] = useState<Array<{ id: number; nombre: string; numero_cuenta?: string; tipo_cuenta?: string; activa: boolean }>>([]);
+
+  useEffect(() => {
+    deudoresService.getCuentasBancarias().then(data => setCuentasBancarias(data)).catch(() => {});
+  }, []);
 
   const handleMetodoChange = (m: string) => {
     setMetodo(m);
