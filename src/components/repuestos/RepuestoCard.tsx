@@ -65,6 +65,8 @@ export default function RepuestoCard({
             <img
               src={getImageUrl(imagenes[0])}
               alt={repuesto.nombre}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />

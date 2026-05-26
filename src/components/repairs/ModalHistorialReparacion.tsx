@@ -304,6 +304,8 @@ export default function ModalHistorialReparacion({
                                     key={i}
                                     src={getImageUrl(img)}
                                     alt={`Evidencia ${i + 1}`}
+                                    loading="lazy"
+                                    decoding="async"
                                     className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity shadow-sm"
                                     onClick={() => setImagenAmpliada(getImageUrl(img))}
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

@@ -78,6 +78,8 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
         <img
           src={getImage(product)}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           className="w-11 h-11 rounded-xl object-cover shrink-0 bg-slate-100 dark:bg-[#0A1220] border border-slate-100 dark:border-[rgba(72,185,230,0.10)]"
           onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }}
         />

@@ -76,6 +76,10 @@ services:
     restart: always
     ports:
       - "8092:80"
+    volumes:
+      # Mismo volumen de uploads que el backend, montado read-only.
+      # Nginx sirve las imágenes DIRECTO desde disco (sin pasar por Node.js).
+      - /var/www/Tecnocell_storage/uploads:/var/www/uploads:ro
     depends_on:
       backend:
         condition: service_started
