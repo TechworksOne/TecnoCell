@@ -19,7 +19,8 @@ router.put('/caja-chica/confirmar/:id', cajaController.confirmarMovimientoCajaCh
 router.get('/bancos', cajaController.getCuentasBancarias);
 // Las siguientes rutas son solo para admin
 router.get('/bancos/movimientos', verifyRole('admin', 'ADMINISTRADOR'), cajaController.getMovimientosBancarios);
-router.get('/bancos/:id/saldo', verifyRole('admin', 'ADMINISTRADOR'), cajaController.getSaldoCuentaBancaria);
+router.get('/bancos/:id/saldo',       verifyRole('admin', 'ADMINISTRADOR'), cajaController.getSaldoCuentaBancaria);
+router.get('/bancos/:id/movimientos', verifyRole('admin', 'ADMINISTRADOR'), cajaController.getMovimientosPorCuenta);
 router.post('/bancos/movimiento', verifyRole('admin', 'ADMINISTRADOR'), cajaController.registrarMovimientoBancario);
 router.put('/bancos/confirmar/:id', verifyRole('admin', 'ADMINISTRADOR'), cajaController.confirmarMovimientoBancario);
 // CRUD bancos (solo admin)

@@ -693,6 +693,7 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
   const handleMetodoChange = (m: string) => {
     setMetodo(m);
     setReferencia('');
+    setCuentaBancariaId('');
     setPctInput(String(RECARGO_PCT[m] ?? 0));
   };
 
@@ -709,6 +710,7 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
     const n = parseFloat(monto);
     if (!n || n <= 0) { setErr('Ingresa un monto válido'); return; }
     if (requireRef && !referencia.trim()) { setErr('La referencia es requerida para este método de pago'); return; }
+    if (metodo === 'TRANSFERENCIA' && !cuentaBancariaId) { setErr('Selecciona la cuenta bancaria destino'); return; }
     setLoading(true); setErr('');
     try {
       await deudoresService.registrarPago(deudor.id, {
@@ -719,6 +721,7 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
         realizado_por: user?.username || user?.nombre || 'Sistema',
         porcentaje_recargo: pctRecargo,
         usuario_id: (user as any)?.id,
+        cuenta_id: metodo === 'TRANSFERENCIA' && cuentaBancariaId ? Number(cuentaBancariaId) : undefined,
       });
       onPaid(); onClose();
     } catch (e: any) {
@@ -798,6 +801,30 @@ function ModalPago({ deudor, onClose, onPaid }: { deudor: Deudor; onClose: () =>
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 dark:text-slate-500">%</span>
               </div>
+            </div>
+          )}
+
+          {/* Cuenta bancaria (solo transferencia) */}
+          {metodo === 'TRANSFERENCIA' && (
+            <div>
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                Cuenta bancaria destino <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={inputCls}
+                value={cuentaBancariaId}
+                onChange={e => setCuentaBancariaId(e.target.value)}
+              >
+                <option value="">-- Selecciona una cuenta --</option>
+                {cuentasBancarias.map(c => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.nombre}{c.tipo_cuenta ? ` — ${c.tipo_cuenta}` : ''}{c.numero_cuenta ? ` (${c.numero_cuenta})` : ''}
+                  </option>
+                ))}
+              </select>
+              {cuentasBancarias.length === 0 && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">No hay cuentas bancarias activas registradas.</p>
+              )}
             </div>
           )}
 

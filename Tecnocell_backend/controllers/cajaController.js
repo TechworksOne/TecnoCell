@@ -155,6 +155,46 @@ exports.getSaldoCuentaBancaria = async (req, res) => {
   }
 };
 
+// Obtener movimientos de una cuenta bancaria específica (historial)
+exports.getMovimientosPorCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('[HistorialCuenta] cuenta_id:', id);
+
+    const [rows] = await db.query(
+      `SELECT
+         mb.id,
+         mb.cuenta_id,
+         cb.nombre        AS cuenta_nombre,
+         cb.numero_cuenta,
+         cb.tipo_cuenta,
+         mb.tipo_movimiento,
+         mb.monto,
+         mb.concepto,
+         mb.categoria,
+         mb.estado,
+         mb.venta_id,
+         mb.numero_referencia,
+         mb.realizado_por,
+         mb.observaciones,
+         mb.referencia_tipo,
+         mb.referencia_id,
+         mb.fecha_movimiento
+       FROM movimientos_bancarios mb
+       LEFT JOIN cuentas_bancarias cb ON cb.id = mb.cuenta_id
+       WHERE mb.cuenta_id = ?
+       ORDER BY mb.fecha_movimiento DESC, mb.id DESC`,
+      [id]
+    );
+
+    console.log('[HistorialCuenta] movimientos encontrados:', rows.length);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('[HistorialCuenta] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Obtener movimientos bancarios
 exports.getMovimientosBancarios = async (req, res) => {
   try {

@@ -90,8 +90,10 @@ export default function CajaBancosPage() {
   // Historial por cuenta bancaria
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaBancaria | null>(null);
   const [cuentaStats, setCuentaStats] = useState<{ ingresos: number; egresos: number; saldo: number } | null>(null);
-  const [periodoHistorial, setPeriodoHistorial] = useState<'mes' | 'mes_anterior' | 'todo'>('mes');
+  const [periodoHistorial, setPeriodoHistorial] = useState<'mes' | 'mes_anterior' | 'todo'>('todo');
   const [loadingCuentaStats, setLoadingCuentaStats] = useState(false);
+  const [movsHistorial, setMovsHistorial] = useState<Movimiento[]>([]);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
 
   // Auth – definir antes de loadData para que el closure lo capture
   const { user } = useAuth();
@@ -362,15 +364,13 @@ export default function CajaBancosPage() {
   const movsCajaFiltrados = aplicarFiltros(movimientosCaja);
   const movsBancosFiltrados = aplicarFiltros(movimientosBancos);
 
-  // Movimientos filtrados por cuenta seleccionada + período + filtros globales
-  const movsHistorialCuenta = (() => {
-    if (!cuentaSeleccionada) return [];
+  // Movimientos del historial filtrados por período (los datos vienen del endpoint dedicado)
+  const movsHistorialFiltrados = (() => {
+    if (!movsHistorial.length) return [];
     const hoy = new Date();
     const mesActual = hoy.getMonth();
     const anioActual = hoy.getFullYear();
-    return movimientosBancos.filter(m => {
-      // Comparación robusta: DB puede devolver número o string
-      if (Number(m.cuenta_id) !== Number(cuentaSeleccionada.id)) return false;
+    return movsHistorial.filter(m => {
       if (periodoHistorial === 'mes') {
         const d = new Date(m.fecha_movimiento);
         return d.getMonth() === mesActual && d.getFullYear() === anioActual;
@@ -388,26 +388,36 @@ export default function CajaBancosPage() {
   const seleccionarCuenta = async (cuenta: CuentaBancaria) => {
     setCuentaSeleccionada(cuenta);
     setPeriodoHistorial('todo');
+    setMovsHistorial([]);
+    const token = sessionStorage.getItem('token');
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    // Fetch stats y movimientos en paralelo
     setLoadingCuentaStats(true);
+    setLoadingHistorial(true);
     try {
-      const token = sessionStorage.getItem('token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const resp = await axios.get(`${API_URL}/caja/bancos/${cuenta.id}/saldo`, config);
+      const [statsResp, movsResp] = await Promise.all([
+        axios.get(`${API_URL}/caja/bancos/${cuenta.id}/saldo`, config),
+        axios.get(`${API_URL}/caja/bancos/${cuenta.id}/movimientos`, config),
+      ]);
       setCuentaStats({
-        ingresos: resp.data.data.ingresos,
-        egresos:  resp.data.data.egresos,
-        saldo:    resp.data.data.saldo,
+        ingresos: statsResp.data.data.ingresos,
+        egresos:  statsResp.data.data.egresos,
+        saldo:    statsResp.data.data.saldo,
       });
+      setMovsHistorial(movsResp.data.data || []);
     } catch {
       setCuentaStats(null);
+      setMovsHistorial([]);
     } finally {
       setLoadingCuentaStats(false);
+      setLoadingHistorial(false);
     }
   };
 
   const cerrarHistorial = () => {
     setCuentaSeleccionada(null);
     setCuentaStats(null);
+    setMovsHistorial([]);
   };
 
   const abrirModal = (tipo: typeof tipoMovimiento) => {
@@ -719,17 +729,117 @@ export default function CajaBancosPage() {
                         </button>
                       ))}
                       <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 self-center">
-                        {movsHistorialCuenta.length} movimiento{movsHistorialCuenta.length !== 1 ? 's' : ''}
+                        {loadingHistorial ? '...' : `${movsHistorialFiltrados.length} movimiento${movsHistorialFiltrados.length !== 1 ? 's' : ''}`}
                       </span>
                     </div>
                   </div>
 
-                  {/* Movimientos de la cuenta filtrados */}
-                  <MovimientosPanel
-                    movimientos={movsHistorialCuenta.filter(m => m.estado === estadoFiltro)}
-                    estadoFiltro={estadoFiltro}
-                    onConfirmar={(mov) => solicitarConfirmacion(mov.id, 'banco', mov)}
-                  />
+                  {/* Tabla de movimientos del historial */}
+                  {loadingHistorial ? (
+                    <div className="flex items-center justify-center py-14">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="ml-3 text-sm text-slate-400 dark:text-slate-500">Cargando movimientos...</span>
+                    </div>
+                  ) : movsHistorialFiltrados.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-14 px-4 text-center">
+                      <FileText size={40} className="text-slate-300 mb-3" />
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">
+                        {movsHistorial.length === 0
+                          ? 'Esta cuenta aún no tiene movimientos registrados.'
+                          : 'No hay movimientos en el período seleccionado.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Desktop: tabla */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Fecha</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Tipo</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Concepto</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Categoría</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Estado</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Referencia</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase">Realizado por</th>
+                              <th className="text-right px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400 text-xs uppercase">Ingreso</th>
+                              <th className="text-right px-4 py-3 font-semibold text-red-600 dark:text-red-400 text-xs uppercase">Egreso</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {movsHistorialFiltrados.map(mov => (
+                              <tr key={mov.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                  {new Date(mov.fecha_movimiento).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                    mov.tipo_movimiento === 'INGRESO'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                      : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                                  }`}>
+                                    {mov.tipo_movimiento === 'INGRESO' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                    {mov.tipo_movimiento}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-800 dark:text-slate-200 max-w-[200px] truncate">{mov.concepto || '—'}</td>
+                                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{mov.categoria || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                    mov.estado === 'CONFIRMADO' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                                    : mov.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                  }`}>{mov.estado}</span>
+                                </td>
+                                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{mov.numero_referencia || '—'}</td>
+                                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{mov.realizado_por || '—'}</td>
+                                <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {mov.tipo_movimiento === 'INGRESO' ? `Q${Number(mov.monto).toFixed(2)}` : ''}
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
+                                  {mov.tipo_movimiento === 'EGRESO' ? `Q${Number(mov.monto).toFixed(2)}` : ''}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Mobile: tarjetas */}
+                      <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                        {movsHistorialFiltrados.map(mov => (
+                          <div key={mov.id} className="p-4 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                mov.tipo_movimiento === 'INGRESO'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                  : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                              }`}>
+                                {mov.tipo_movimiento === 'INGRESO' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                {mov.tipo_movimiento}
+                              </span>
+                              <span className={`font-bold text-base ${
+                                mov.tipo_movimiento === 'INGRESO' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                {mov.tipo_movimiento === 'INGRESO' ? '+' : '-'}Q{Number(mov.monto).toFixed(2)}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{mov.concepto || '—'}</p>
+                            <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+                              <span>{new Date(mov.fecha_movimiento).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                              <span className={`px-2 py-0.5 rounded-full font-medium ${
+                                mov.estado === 'CONFIRMADO' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                                : mov.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-slate-100 text-slate-500'
+                              }`}>{mov.estado}</span>
+                            </div>
+                            {mov.numero_referencia && <p className="text-xs text-slate-400 dark:text-slate-500">Ref: {mov.numero_referencia}</p>}
+                            {mov.realizado_por && <p className="text-xs text-slate-400 dark:text-slate-500">Por: {mov.realizado_por}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
               <div>

@@ -134,6 +134,7 @@ export const deudoresService = {
     realizado_por?: string;
     porcentaje_recargo?: number;
     usuario_id?: number;
+    cuenta_id?: number;
   }): Promise<Deudor> => {
     const { data } = await axios.post(`${API_URL}/deudores/${id}/pago`, payload, getConfig());
     return data.data;
@@ -146,6 +147,11 @@ export const deudoresService = {
   getResumen: async (): Promise<DeudoresResumen> => {
     const { data } = await axios.get(`${API_URL}/deudores/resumen`, getConfig());
     return data.data;
+  },
+
+  getCuentasBancarias: async (): Promise<Array<{ id: number; nombre: string; numero_cuenta?: string; tipo_cuenta?: string; activa: boolean }>> => {
+    const { data } = await axios.get(`${API_URL}/caja/bancos`, getConfig());
+    return (data.data || []).filter((c: any) => c.activa);
   },
 
   searchProductos: async (q: string) => {
