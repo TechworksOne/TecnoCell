@@ -113,9 +113,9 @@ export default function Topbar() {
           }}
         >
           {/* Avatar: foto de perfil o inicial como fallback */}
-          {user?.foto_perfil ? (
+          {user?.perfil?.foto_perfil ? (
             <img
-              src={getImageUrl(user.foto_perfil)}
+              src={getImageUrl(user.perfil.foto_perfil)}
               alt={user.name}
               className="rounded-lg shrink-0 object-cover"
               style={{ width: 26, height: 26 }}
