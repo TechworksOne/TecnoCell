@@ -290,113 +290,124 @@ exports.getTecnicoDashboardStats = async (req, res) => {
     return res.status(403).json({ error: 'Acceso denegado. Endpoint exclusivo para técnicos.' });
   }
 
+  console.log('[DashboardTecnico] req.user:', {
+    id:       req.user?.id,
+    username: req.user?.username,
+    name:     req.user?.name,
+    role:     req.user?.role,
+  });
+  console.log('[DashboardTecnico] usando filtro tecnico_asignado_id:', req.user?.id);
+
+  const tecnicoId = req.user.id;
+
   try {
     const connection = await pool.getConnection();
 
-    // Obtener el nombre del técnico desde la tabla users usando su id del JWT
-    const [userRows] = await connection.query(
-      'SELECT name FROM users WHERE id = ?',
-      [req.user.id]
+    // Obtener nombre del técnico
+    const [[userRow]] = await connection.query(
+      'SELECT name, username FROM users WHERE id = ?',
+      [tecnicoId]
     );
-
-    if (!userRows.length) {
+    if (!userRow) {
       connection.release();
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-
-    const tecnicoNombre = userRows[0].name;
+    const tecnicoNombre = userRow.name;
 
     // 1. Total asignadas (activas)
     const [[totalAsignadas]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado NOT IN ('ENTREGADA', 'CANCELADA')
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 2. En proceso
     const [[enProceso]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado IN ('EN_DIAGNOSTICO','EN_REPARACION','EN_PROCESO',
                        'AUTORIZADA','ESPERANDO_AUTORIZACION','STAND_BY','ESPERANDO_PIEZA')
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 3. Pendientes (recibidas pero sin iniciar trabajo)
     const [[pendientes]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado IN ('RECIBIDA','ANTICIPO_REGISTRADO')
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 4. Listas para entregar
     const [[listas]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ? AND estado = 'COMPLETADA'
-    `, [tecnicoNombre]);
+      WHERE tecnico_asignado_id = ? AND estado = 'COMPLETADA'
+    `, [tecnicoId]);
 
     // 5. Atrasadas (fecha_estimada_entrega pasó y aún no cerrada)
     const [[atrasadas]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado NOT IN ('COMPLETADA','ENTREGADA','CANCELADA')
         AND fecha_estimada_entrega IS NOT NULL
         AND fecha_estimada_entrega < CURDATE()
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 6. Sin checklist (activas sin entrada en check_equipo)
     const [[sinChecklist]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones r
-      WHERE r.tecnico_asignado = ?
+      WHERE r.tecnico_asignado_id = ?
         AND r.estado NOT IN ('ENTREGADA','CANCELADA')
         AND r.id NOT IN (SELECT DISTINCT reparacion_id FROM check_equipo)
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 7. Finalizadas hoy
     const [[finalizadasHoy]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado IN ('COMPLETADA','ENTREGADA')
         AND DATE(COALESCE(fecha_cierre, updated_at)) = CURDATE()
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 8. Finalizadas este mes
     const [[finalizadasMes]] = await connection.query(`
       SELECT COUNT(*) AS total FROM reparaciones
-      WHERE tecnico_asignado = ?
+      WHERE tecnico_asignado_id = ?
         AND estado IN ('COMPLETADA','ENTREGADA')
         AND MONTH(COALESCE(fecha_cierre, updated_at)) = MONTH(CURDATE())
         AND YEAR(COALESCE(fecha_cierre, updated_at))  = YEAR(CURDATE())
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 9. Repuestos/ítems usados este mes
     const [[repuestosUsados]] = await connection.query(`
       SELECT COALESCE(SUM(ri.cantidad), 0) AS total
       FROM reparaciones_items ri
       JOIN reparaciones r ON r.id = ri.reparacion_id
-      WHERE r.tecnico_asignado = ?
+      WHERE r.tecnico_asignado_id = ?
         AND MONTH(r.fecha_ingreso) = MONTH(CURDATE())
         AND YEAR(r.fecha_ingreso)  = YEAR(CURDATE())
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 10. Conteo por estado
     const [estadosBD] = await connection.query(`
       SELECT estado, COUNT(*) AS total
       FROM reparaciones
-      WHERE tecnico_asignado = ? AND estado NOT IN ('ENTREGADA','CANCELADA')
+      WHERE tecnico_asignado_id = ? AND estado NOT IN ('ENTREGADA','CANCELADA')
       GROUP BY estado
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 11. Lista de reparaciones activas (hasta 10, priorizando ALTA)
     const [reparacionesActivas] = await connection.query(`
-      SELECT id, cliente_nombre, tipo_equipo, marca, modelo,
-             estado, prioridad, fecha_ingreso, fecha_estimada_entrega, observaciones
-      FROM reparaciones
-      WHERE tecnico_asignado = ? AND estado NOT IN ('ENTREGADA','CANCELADA')
+      SELECT r.id, r.cliente_nombre, r.tipo_equipo, r.marca, r.modelo,
+             r.estado, r.prioridad, r.fecha_ingreso, r.fecha_estimada_entrega,
+             r.observaciones, r.tecnico_asignado_id, r.asignado_en,
+             t.name AS tecnico_nombre, t.username AS tecnico_username
+      FROM reparaciones r
+      LEFT JOIN users t ON t.id = r.tecnico_asignado_id
+      WHERE r.tecnico_asignado_id = ? AND r.estado NOT IN ('ENTREGADA','CANCELADA')
       ORDER BY
-        CASE prioridad WHEN 'ALTA' THEN 1 WHEN 'MEDIA' THEN 2 ELSE 3 END,
-        created_at DESC
+        CASE r.prioridad WHEN 'ALTA' THEN 1 WHEN 'MEDIA' THEN 2 ELSE 3 END,
+        r.created_at DESC
       LIMIT 10
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     // 12. Actividad reciente (últimos 8 eventos del historial de sus reparaciones)
     const [actividadReciente] = await connection.query(`
@@ -404,10 +415,10 @@ exports.getTecnicoDashboardStats = async (req, res) => {
              r.cliente_nombre, r.tipo_equipo, r.marca, r.modelo
       FROM reparaciones_historial h
       JOIN reparaciones r ON r.id = h.reparacion_id
-      WHERE r.tecnico_asignado = ?
+      WHERE r.tecnico_asignado_id = ?
       ORDER BY h.created_at DESC
       LIMIT 8
-    `, [tecnicoNombre]);
+    `, [tecnicoId]);
 
     connection.release();
 
