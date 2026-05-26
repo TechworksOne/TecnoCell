@@ -67,7 +67,7 @@ exports.createMarca = async (req, res) => {
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({
         success: false,
-        message: 'Ya existe una marca con ese nombre'
+        message: `Ya existe la marca "${nombre}" para el tipo de equipo "${tipo_equipo}"`
       });
     }
     
