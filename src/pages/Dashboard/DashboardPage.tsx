@@ -104,10 +104,18 @@ interface VentasStats {
   dashboardType: 'ventas';
   ventasHoy:    { cantidad: number; total: number };
   ventasMes:    { cantidad: number; total: number };
-  cotizaciones: { total: number; abiertas: number };
-  reparaciones: { activas: number };
+  ventasMesAnterior?: { cantidad: number; total: number };
+  cambioMes?:   number | null;
+  ticketHoy?:   number;
+  ticketMes?:   number;
+  cotizaciones: { total: number; abiertas: number; valor_abierto?: number };
+  reparaciones: { activas: number; listas?: number };
+  ventasParciales?: { cantidad: number; saldo: number };
+  stock?: { sin_stock: number; bajo_stock: number };
   stockBajo:    number;
   clientesHoy:  number;
+  clientesMes?: number;
+  tendencia?:   Array<{ fecha: string; ventas: number; ingresos: number }>;
 }
 
 // ─── Helpers de color por estado ──────────────────────────────────────────────
@@ -744,109 +752,228 @@ function TecnicoDashboard({ data, time }: { data: TecnicoData; time: Date }) {
 function VentasDashboard({ stats, time, userName }: { stats: VentasStats; time: Date; userName?: string }) {
   const navigate = useNavigate();
 
+  const mesLabel   = time.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' });
+  const todayKey   = new Date().toISOString().split('T')[0];
+  const trend      = stats.tendencia ?? [];
+  const maxIng     = Math.max(...trend.map(d => d.ingresos), 1);
+  const repListas  = stats.reparaciones.listas ?? 0;
+  const cobros     = stats.ventasParciales ?? { cantidad: 0, saldo: 0 };
+  const sinStock   = stats.stock?.sin_stock  ?? 0;
+  const bajoStock  = stats.stock?.bajo_stock ?? stats.stockBajo ?? 0;
+  const clientesMes = stats.clientesMes ?? stats.clientesHoy;
+  const todayRow   = trend.find(d => d.fecha === todayKey);
+  const weekTotal  = trend.reduce((s, d) => s + d.ingresos, 0);
+  const weekVentas = trend.reduce((s, d) => s + d.ventas, 0);
+
   const quickActions = [
-    { icon: ShoppingCart, label: "Nueva Venta",      color: "bg-emerald-500", path: "/ventas/nueva" },
-    { icon: FileText,     label: "Cotización",       color: "bg-blue-500",    path: "/cotizaciones" },
-    { icon: Users,        label: "Nuevo Cliente",    color: "bg-indigo-500",  path: "/clientes" },
-    { icon: Wrench,       label: "Nueva Reparación", color: "bg-violet-500",  path: "/reparaciones" },
+    { icon: ShoppingCart, label: 'Nueva Venta',      color: 'bg-emerald-500', path: '/ventas/nueva' },
+    { icon: FileText,     label: 'Cotización',       color: 'bg-blue-500',    path: '/cotizaciones' },
+    { icon: Users,        label: 'Nuevo Cliente',    color: 'bg-indigo-500',  path: '/clientes' },
+    { icon: Wrench,       label: 'Nueva Reparación', color: 'bg-violet-500',  path: '/reparaciones' },
   ];
 
   return (
     <div className="space-y-5 max-w-screen-2xl">
-      {/* Header */}
+
+      {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">
-            <Zap size={11} /> Panel de Ventas
+            <TrendingUp size={11} /> Panel de Ventas · Operaciones Comerciales
           </span>
-          <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">Dashboard</h1>
-          <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
-            Bienvenido{userName ? `, ${userName}` : ''} — Operaciones comerciales del día
+          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text)' }}>
+            Dashboard de Ventas
+          </h1>
+          <p className="text-sm mt-0.5 capitalize" style={{ color: 'var(--color-text-sec)' }}>
+            {userName ? `Bienvenido, ${userName} · ` : ''}{mesLabel}
           </p>
         </div>
         <ClockWidget time={time} />
       </div>
 
-      {/* KPI Cards — montos de ventas (no ganancia ni costo) */}
+      {/* ── ROW 1: KPIs PRINCIPALES (4 cards) ── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard
+        <FinancialKpiCard
           label="Ventas Hoy"
           value={formatMoney(stats.ventasHoy.total)}
-          footnote={`${stats.ventasHoy.cantidad} transacciones`}
-          footnoteIcon={<TrendingUp size={11} />}
-          icon={<ShoppingCart size={17} />}
-          gradient="bg-gradient-to-br from-emerald-500 to-green-600"
+          sub={`${stats.ventasHoy.cantidad} transacciones · ${stats.clientesHoy} clientes`}
+          icon={<ShoppingCart size={16} />}
+          accent="#10B981"
         />
-        <KpiCard
+        <FinancialKpiCard
           label="Ventas del Mes"
           value={formatMoney(stats.ventasMes.total)}
-          footnote={`${stats.ventasMes.cantidad} transacciones`}
-          icon={<Activity size={17} />}
-          gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+          sub={`${stats.ventasMes.cantidad} ventas`}
+          change={stats.cambioMes}
+          icon={<TrendingUp size={16} />}
+          accent="#3B82F6"
         />
-        <KpiCard
+        <FinancialKpiCard
+          label="Ticket Promedio Hoy"
+          value={(stats.ticketHoy ?? 0) > 0 ? formatMoney(stats.ticketHoy!) : '—'}
+          sub={`Mes: ${formatMoney(stats.ticketMes ?? 0)} por venta`}
+          icon={<Receipt size={16} />}
+          accent="#F59E0B"
+        />
+        <FinancialKpiCard
+          label="Clientes del Mes"
+          value={String(clientesMes)}
+          sub={`${stats.clientesHoy} atendidos hoy`}
+          icon={<Users size={16} />}
+          accent="#8B5CF6"
+        />
+      </div>
+
+      {/* ── ROW 2: ALERTAS OPERACIONALES (3 cards) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <OpKpiCard
+          label="Reparaciones Listas"
+          value={repListas}
+          sub={repListas > 0 ? 'Completadas · pendientes de entrega' : 'Todas entregadas'}
+          icon={<CheckCircle2 size={16} />}
+          accent="#F59E0B"
+          alert={repListas > 0}
+          onClick={() => navigate('/ordenes-trabajo')}
+        />
+        <OpKpiCard
           label="Cotizaciones Abiertas"
           value={stats.cotizaciones.abiertas}
-          footnote={`${stats.cotizaciones.total} totales`}
-          icon={<FileText size={17} />}
-          gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+          sub={(stats.cotizaciones.valor_abierto ?? 0) > 0
+            ? `${formatMoney(stats.cotizaciones.valor_abierto!)} valor total`
+            : 'pendientes de respuesta'}
+          icon={<FileText size={16} />}
+          accent="#3B82F6"
+          alert={false}
+          onClick={() => navigate('/cotizaciones')}
         />
-        <KpiCard
-          label="Clientes Atendidos Hoy"
-          value={stats.clientesHoy}
-          footnote="clientes únicos"
-          icon={<Users size={17} />}
-          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
-        />
-      </div>
-
-      {/* Stat cards operativas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          label="Reparaciones Activas"
-          value={stats.reparaciones.activas}
-          sub="en proceso"
-          icon={<Wrench size={17} className="text-violet-600" />}
-          iconBg="bg-violet-50 dark:bg-violet-950/30"
-          footer={<span className="text-[#5E7184] dark:text-[#B8C2D1]">Flujo de reparaciones</span>}
-          onClick={() => navigate("/flujo-reparaciones")}
-        />
-        <StatCard
-          label="Cotizaciones Pendientes"
-          value={stats.cotizaciones.abiertas}
-          sub="sin respuesta al cliente"
-          icon={<FileText size={17} className="text-amber-600" />}
-          iconBg="bg-amber-50 dark:bg-amber-950/30"
-          footer={<span className="text-amber-600 dark:text-amber-400">Pendientes de seguimiento</span>}
-          onClick={() => navigate("/cotizaciones")}
-        />
-        <StatCard
-          label="Stock Bajo"
-          value={stats.stockBajo}
-          sub="productos bajo mínimo"
-          icon={<AlertTriangle size={17} className="text-orange-500" />}
-          iconBg="bg-orange-50 dark:bg-orange-950/30"
-          footer={<span className="text-orange-600">Requieren reposición</span>}
-          onClick={() => navigate("/productos")}
+        <OpKpiCard
+          label="Cobros Pendientes"
+          value={cobros.cantidad}
+          sub={cobros.cantidad > 0
+            ? `${formatMoney(cobros.saldo)} saldo por cobrar`
+            : 'sin saldos pendientes'}
+          icon={<AlertTriangle size={16} />}
+          accent="#EF4444"
+          alert={cobros.cantidad > 0}
+          onClick={() => navigate('/ventas')}
         />
       </div>
 
-      {/* Acciones rápidas */}
-      <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm px-5 py-4">
-        <p className="text-[10px] font-bold text-[#5E7184] dark:text-[#7F8A99] uppercase tracking-widest mb-3">
-          Acciones Rápidas
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {quickActions.map(({ icon: Icon, label, color, path }, i) => (
-            <button
-              key={i}
-              onClick={() => navigate(path)}
-              className={`${color} text-white flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 hover:opacity-90 hover:shadow-lg transition-all`}
+      {/* ── ROW 3: TENDENCIA + ACCIONES ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Sparkline 7 días */}
+        <div
+          className="lg:col-span-2 rounded-2xl p-5"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-sec)' }}>
+                Tendencia — Últimos 7 días
+              </p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--color-text)' }}>
+                {todayRow
+                  ? `Hoy: ${formatMoney(todayRow.ingresos)} · ${todayRow.ventas} ventas`
+                  : 'Sin ventas hoy aún'}
+              </p>
+            </div>
+            <span
+              className="text-[10px] font-semibold rounded-lg px-2 py-1"
+              style={{ background: '#10B98112', color: '#059669' }}
             >
-              <Icon size={17} />
-              <span className="text-[10px] font-semibold leading-tight text-center">{label}</span>
+              Ingresos diarios
+            </span>
+          </div>
+
+          {/* Barras */}
+          <div className="flex items-end gap-1 sm:gap-2" style={{ height: 80 }}>
+            {trend.map((d, i) => {
+              const h = Math.max((d.ingresos / maxIng) * 68, 4);
+              const isToday = d.fecha === todayKey;
+              const dayLabel = new Date(d.fecha + 'T12:00:00')
+                .toLocaleDateString('es-GT', { weekday: 'short' })
+                .replace('.', '').slice(0, 3);
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end" style={{ height: 68 }}>
+                    <div
+                      className={`w-full rounded-t-md transition-all ${
+                        isToday ? 'bg-emerald-500' : 'bg-emerald-400/40 dark:bg-emerald-500/25'
+                      }`}
+                      style={{ height: h }}
+                      title={`${d.fecha}: ${formatMoney(d.ingresos)} · ${d.ventas} ventas`}
+                    />
+                  </div>
+                  <span
+                    className={`text-[9px] capitalize ${isToday ? 'font-bold' : 'font-medium'}`}
+                    style={{ color: isToday ? 'var(--color-text)' : 'var(--color-text-sec)' }}
+                  >
+                    {dayLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-[11px] mt-3" style={{ color: 'var(--color-text-sec)' }}>
+            Semana: <span className="font-semibold" style={{ color: 'var(--color-text)' }}>{formatMoney(weekTotal)}</span>
+            {' '}·{' '}{weekVentas} ventas en 7 días
+          </p>
+        </div>
+
+        {/* Acciones rápidas + alerta stock */}
+        <div
+          className="rounded-2xl p-5 flex flex-col gap-4"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-sec)' }}>
+            Acciones Rápidas
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {quickActions.map(({ icon: Icon, label, color, path }, i) => (
+              <button
+                key={i}
+                onClick={() => navigate(path)}
+                className={`${color} text-white flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 hover:opacity-90 hover:shadow-lg transition-all`}
+              >
+                <Icon size={16} />
+                <span className="text-[10px] font-semibold leading-tight text-center">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Alerta inventario */}
+          {(sinStock > 0 || bajoStock > 0) ? (
+            <button
+              onClick={() => navigate('/productos')}
+              className="rounded-xl px-3 py-3 text-left w-full transition-all hover:shadow-sm"
+              style={{ background: '#F59E0B0D', border: '1px solid #F59E0B30' }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+                <span className="text-[11px] font-bold" style={{ color: '#B45309' }}>Alertas de Inventario</span>
+              </div>
+              {sinStock > 0 && (
+                <p className="text-[11px]" style={{ color: 'var(--color-text-sec)' }}>
+                  <span className="font-semibold text-red-600 dark:text-red-400">{sinStock}</span> sin stock · no disponibles
+                </p>
+              )}
+              {bajoStock > 0 && (
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-sec)' }}>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">{bajoStock}</span> bajo mínimo · reabastecer
+                </p>
+              )}
             </button>
-          ))}
+          ) : (
+            <div
+              className="rounded-xl px-3 py-2.5"
+              style={{ background: '#10B9810D', border: '1px solid #10B98130' }}
+            >
+              <p className="text-[11px] font-semibold" style={{ color: '#059669' }}>✓ Stock en buen estado</p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-sec)' }}>Ningún producto bajo mínimo</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

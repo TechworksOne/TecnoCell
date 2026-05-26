@@ -447,54 +447,150 @@ exports.getVentasDashboard = async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
+    // ── Ventas hoy ───────────────────────────────────────────────────────────
     const [[ventasHoy]] = await connection.query(`
-      SELECT COUNT(*) as cantidad, COALESCE(SUM(total), 0) as monto
+      SELECT COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS monto
       FROM ventas
-      WHERE DATE(created_at) = CURDATE() AND estado IN ('PAGADA', 'PARCIAL')
+      WHERE DATE(COALESCE(fecha_venta, created_at)) = CURDATE()
+        AND estado != 'ANULADA'
     `);
 
+    // ── Ventas mes actual ────────────────────────────────────────────────────
     const [[ventasMes]] = await connection.query(`
-      SELECT COUNT(*) as cantidad, COALESCE(SUM(total), 0) as monto
+      SELECT COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS monto
       FROM ventas
-      WHERE MONTH(created_at) = MONTH(CURDATE())
-        AND YEAR(created_at)  = YEAR(CURDATE())
-        AND estado IN ('PAGADA', 'PARCIAL')
+      WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(CURDATE())
+        AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(CURDATE())
+        AND estado != 'ANULADA'
     `);
 
+    // ── Ventas mes anterior (comparación %) ──────────────────────────────────
+    const [[ventasMesAnterior]] = await connection.query(`
+      SELECT COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS monto
+      FROM ventas
+      WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND estado != 'ANULADA'
+    `);
+
+    // ── Cotizaciones abiertas (BORRADOR + ENVIADA) con valor total ────────────
     const [[cotizaciones]] = await connection.query(`
       SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) as abiertas
+        COUNT(*) AS total,
+        SUM(CASE WHEN estado IN ('BORRADOR', 'ENVIADA') THEN 1 ELSE 0 END) AS abiertas,
+        COALESCE(SUM(CASE WHEN estado IN ('BORRADOR', 'ENVIADA') THEN total ELSE 0 END), 0) AS valor_abierto
       FROM cotizaciones
     `);
 
-    const [[reparacionesActivas]] = await connection.query(`
-      SELECT COUNT(*) as total FROM reparaciones
-      WHERE estado NOT IN ('ENTREGADA', 'CANCELADA')
+    // ── Reparaciones: activas + COMPLETADAS (listas para entregar) ────────────
+    const [[reparaciones]] = await connection.query(`
+      SELECT
+        COUNT(CASE WHEN estado NOT IN ('ENTREGADA', 'CANCELADA', 'COMPLETADA') THEN 1 END) AS activas,
+        COUNT(CASE WHEN estado = 'COMPLETADA' THEN 1 END) AS listas
+      FROM reparaciones
     `);
 
-    const [[stockBajo]] = await connection.query(`
-      SELECT COUNT(*) as total FROM productos
-      WHERE stock > 0 AND stock <= stock_minimo AND activo = 1
-    `);
-
-    const [[clientesHoy]] = await connection.query(`
-      SELECT COUNT(DISTINCT cliente_id) as total
+    // ── Ventas con saldo pendiente (PARCIAL) ──────────────────────────────────
+    const [[ventasParciales]] = await connection.query(`
+      SELECT COUNT(*) AS cantidad, COALESCE(SUM(saldo_pendiente), 0) AS saldo
       FROM ventas
-      WHERE DATE(created_at) = CURDATE() AND estado IN ('PAGADA', 'PARCIAL')
+      WHERE estado = 'PARCIAL'
+    `);
+
+    // ── Stock ─────────────────────────────────────────────────────────────────
+    const [[stockInfo]] = await connection.query(`
+      SELECT
+        SUM(CASE WHEN stock = 0 AND activo = 1 THEN 1 ELSE 0 END) AS sin_stock,
+        SUM(CASE WHEN stock > 0 AND stock <= stock_minimo AND activo = 1 THEN 1 ELSE 0 END) AS bajo_stock
+      FROM productos
+    `);
+
+    // ── Clientes únicos hoy y este mes ────────────────────────────────────────
+    const [[clientesInfo]] = await connection.query(`
+      SELECT
+        COUNT(DISTINCT CASE WHEN DATE(COALESCE(fecha_venta, created_at)) = CURDATE()
+          AND estado != 'ANULADA' THEN cliente_id END) AS hoy,
+        COUNT(DISTINCT CASE WHEN MONTH(COALESCE(fecha_venta, created_at)) = MONTH(CURDATE())
+          AND YEAR(COALESCE(fecha_venta, created_at)) = YEAR(CURDATE())
+          AND estado != 'ANULADA' THEN cliente_id END) AS mes
+      FROM ventas
+    `);
+
+    // ── Tendencia 7 días ──────────────────────────────────────────────────────
+    const [tendenciaRows] = await connection.query(`
+      SELECT
+        DATE(COALESCE(fecha_venta, created_at)) AS fecha,
+        COUNT(*) AS ventas,
+        COALESCE(SUM(total), 0) AS ingresos
+      FROM ventas
+      WHERE COALESCE(fecha_venta, created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        AND estado != 'ANULADA'
+      GROUP BY DATE(COALESCE(fecha_venta, created_at))
+      ORDER BY fecha ASC
     `);
 
     connection.release();
 
-    // NO se incluyen: ganancia, utilidad, margen, costo, saldo
+    // ── Cálculos derivados ────────────────────────────────────────────────────
+    const hoyCant  = Number(ventasHoy.cantidad)        || 0;
+    const hoyMonto = Number(ventasHoy.monto)           || 0;
+    const mesCant  = Number(ventasMes.cantidad)        || 0;
+    const mesMonto = Number(ventasMes.monto)           || 0;
+    const mesAntMonto = Number(ventasMesAnterior.monto) || 0;
+
+    const ticketHoy = hoyCant > 0 ? Math.round(hoyMonto / hoyCant / 100) : 0;
+    const ticketMes = mesCant > 0 ? Math.round(mesMonto / mesCant / 100) : 0;
+    const cambioMes = mesAntMonto > 0
+      ? Math.round(((mesMonto - mesAntMonto) / mesAntMonto) * 1000) / 10
+      : null;
+
+    // Gap-fill tendencia
+    const today = new Date();
+    const tendencia = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const row = tendenciaRows.find(r => {
+        const rDate = typeof r.fecha === 'string' ? r.fecha : new Date(r.fecha).toISOString().split('T')[0];
+        return rDate === key;
+      });
+      tendencia.push({
+        fecha:    key,
+        ventas:   row ? Number(row.ventas)   : 0,
+        ingresos: row ? Math.round(Number(row.ingresos) / 100) : 0,
+      });
+    }
+
     res.json({
       dashboardType: 'ventas',
-      ventasHoy:    { cantidad: ventasHoy.cantidad    || 0, total: Math.round((ventasHoy.monto    || 0) / 100) },
-      ventasMes:    { cantidad: ventasMes.cantidad    || 0, total: Math.round((ventasMes.monto    || 0) / 100) },
-      cotizaciones: { total: cotizaciones.total       || 0, abiertas: cotizaciones.abiertas || 0 },
-      reparaciones: { activas: reparacionesActivas.total || 0 },
-      stockBajo:    stockBajo.total   || 0,
-      clientesHoy:  clientesHoy.total || 0,
+      ventasHoy:         { cantidad: hoyCant, total: Math.round(hoyMonto / 100) },
+      ventasMes:         { cantidad: mesCant, total: Math.round(mesMonto / 100) },
+      ventasMesAnterior: { cantidad: Number(ventasMesAnterior.cantidad) || 0, total: Math.round(mesAntMonto / 100) },
+      cambioMes,
+      ticketHoy,
+      ticketMes,
+      cotizaciones: {
+        total:        Number(cotizaciones.total)        || 0,
+        abiertas:     Number(cotizaciones.abiertas)     || 0,
+        valor_abierto: Math.round(Number(cotizaciones.valor_abierto) || 0),
+      },
+      reparaciones: {
+        activas: Number(reparaciones.activas) || 0,
+        listas:  Number(reparaciones.listas)  || 0,
+      },
+      ventasParciales: {
+        cantidad: Number(ventasParciales.cantidad) || 0,
+        saldo:    Math.round((Number(ventasParciales.saldo) || 0) / 100),
+      },
+      stock: {
+        sin_stock:  Number(stockInfo.sin_stock)  || 0,
+        bajo_stock: Number(stockInfo.bajo_stock) || 0,
+      },
+      stockBajo:   Number(stockInfo.bajo_stock) || 0,  // legacy
+      clientesHoy: Number(clientesInfo.hoy) || 0,
+      clientesMes: Number(clientesInfo.mes) || 0,
+      tendencia,
     });
   } catch (error) {
     console.error('Error loading ventas dashboard stats:', error);
