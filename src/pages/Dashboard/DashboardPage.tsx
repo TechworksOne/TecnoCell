@@ -6,21 +6,53 @@ import { formatMoney } from "../../lib/format";
 import { useAuth } from "../../store/useAuth";
 import {
   ShoppingCart, Package, AlertTriangle, FileText, Wrench,
-  DollarSign, TrendingUp, Users, ClipboardCheck, ClipboardX,
+  DollarSign, TrendingUp, TrendingDown, Users, ClipboardCheck, ClipboardX,
   Receipt, Wallet, Plus, ArrowRight, BarChart3, Tag, Clock,
   Activity, Zap, CheckCircle2, AlertCircle, Timer, CalendarCheck,
   CalendarClock, ListChecks, Boxes, Search,
+  ArrowUpRight, ArrowDownRight, UserPlus, CreditCard, Percent,
+  BadgeDollarSign, PieChart, Minus,
 } from "lucide-react";
 
 // ─── Tipos generales ──────────────────────────────────────────────────────────
 
+interface TendenciaDia {
+  fecha:    string;
+  ventas:   number;
+  ingresos: number;
+  ganancia: number;
+}
+
+interface FinancieroStats {
+  ingresos_hoy:        number;
+  ganancia_hoy:        number;
+  ventas_hoy:          number;
+  ingresos_mes:        number;
+  costo_ventas_mes:    number;
+  ganancia_bruta_mes:  number;
+  ganancia_neta_mes:   number;
+  egresos_caja_mes:    number;
+  compras_mes:         number;
+  margen_bruto:        number;
+  ticket_promedio:     number;
+  ventas_mes:          number;
+  cambio_ingresos_pct: number | null;
+  cambio_ganancia_pct: number | null;
+}
+
 interface DashboardStats {
   ventas:       { hoy: number; mes: number; total: number; cantidad: number };
   productos:    { total: number; bajo_stock: number; sin_stock: number };
-  reparaciones: { total: number; con_checklist: number; sin_checklist: number; completadas: number };
-  cotizaciones: { total: number; abiertas: number };
+  reparaciones: {
+    total: number; con_checklist: number; sin_checklist: number;
+    completadas: number; completadas_mes?: number; atrasadas?: number;
+  };
+  cotizaciones: { total: number; abiertas: number; conversion_rate?: number };
   gastos:       { mes: number };
   ganancias:    { hoy: number; mes: number };
+  financiero?:  FinancieroStats;
+  tendencia?:   TendenciaDia[];
+  clientes?:    { nuevos_mes: number; total: number };
 }
 
 interface TecnicoStats {
@@ -206,6 +238,144 @@ function TecKpiCard({ label, value, sub, icon, accent, onClick, alert }: TecKpiC
 
 function SkeletonBlock({ h = "h-28" }: { h?: string }) {
   return <div className={`bg-slate-100 dark:bg-[#0A1220] animate-pulse rounded-2xl ${h}`} />;
+}
+
+// ─── Change indicator (%  vs mes anterior) ────────────────────────────────────
+
+function ChangeIndicator({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
+        <Minus size={10} /> sin datos anteriores
+      </span>
+    );
+  }
+  const up = value >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+      {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+      {up ? '+' : ''}{value.toFixed(1)}% vs mes ant.
+    </span>
+  );
+}
+
+// ─── Financial KPI card (admin only) ─────────────────────────────────────────
+
+interface FinancialKpiCardProps {
+  label:    string;
+  value:    string;
+  sub:      string;
+  change?:  number | null;
+  icon:     ReactNode;
+  accent:   string;
+  negative?: boolean;
+}
+function FinancialKpiCard({ label, value, sub, change, icon, accent, negative }: FinancialKpiCardProps) {
+  return (
+    <div
+      className="rounded-2xl p-5 flex flex-col gap-2.5 shadow-sm"
+      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+    >
+      <div className="flex items-start justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-sec)' }}>
+          {label}
+        </p>
+        <div className="p-2 rounded-xl shrink-0" style={{ background: `${accent}18` }}>
+          <span style={{ color: accent }}>{icon}</span>
+        </div>
+      </div>
+      <div>
+        <p
+          className="text-[1.65rem] font-bold leading-none tracking-tight"
+          style={{ color: negative ? '#EF4444' : 'var(--color-text)' }}
+        >
+          {value}
+        </p>
+        <div className="mt-1.5 flex flex-col gap-0.5">
+          <ChangeIndicator value={change} />
+          <p className="text-[11px]" style={{ color: 'var(--color-text-sec)' }}>{sub}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Operational KPI card ─────────────────────────────────────────────────────
+
+interface OpKpiCardProps {
+  label:   string;
+  value:   string | number;
+  sub:     string;
+  icon:    ReactNode;
+  accent:  string;
+  alert?:  boolean;
+  onClick?: () => void;
+}
+function OpKpiCard({ label, value, sub, icon, accent, alert, onClick }: OpKpiCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl p-4 text-left w-full transition-all hover:shadow-md"
+      style={{
+        background: 'var(--color-surface)',
+        border: alert ? `1.5px solid ${accent}` : '1px solid var(--color-border)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="p-2 rounded-xl shrink-0" style={{ background: `${accent}18` }}>
+          <span style={{ color: accent }}>{icon}</span>
+        </div>
+        <span className="text-[1.5rem] font-bold leading-none" style={{ color: 'var(--color-text)' }}>
+          {value}
+        </span>
+      </div>
+      <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>{label}</p>
+      <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-sec)' }}>{sub}</p>
+    </button>
+  );
+}
+
+// ─── Sparkline bar chart (7 días) ─────────────────────────────────────────────
+
+function SparklineChart({ data }: { data: TendenciaDia[] }) {
+  const maxIngresos = Math.max(...data.map(d => d.ingresos), 1);
+  const todayKey = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="flex items-end gap-1 sm:gap-2" style={{ height: 80 }}>
+      {data.map((d, i) => {
+        const ingH  = Math.max((d.ingresos / maxIngresos) * 64, 2);
+        const ganH  = d.ganancia > 0 ? Math.max((d.ganancia / maxIngresos) * 64, 2) : 2;
+        const isToday = d.fecha === todayKey;
+        const dayLabel = new Date(d.fecha + 'T12:00:00')
+          .toLocaleDateString('es-GT', { weekday: 'short' })
+          .replace('.', '').slice(0, 3);
+
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full flex items-end justify-center gap-0.5" style={{ height: 64 }}>
+              <div
+                className={`rounded-t-sm flex-1 transition-all ${isToday ? 'bg-blue-500' : 'bg-blue-400/40 dark:bg-blue-500/25'}`}
+                style={{ height: ingH }}
+                title={`Ingresos ${d.fecha}: Q${d.ingresos.toLocaleString()}`}
+              />
+              <div
+                className={`rounded-t-sm flex-1 transition-all ${isToday ? 'bg-emerald-500' : 'bg-emerald-400/40 dark:bg-emerald-500/25'}`}
+                style={{ height: ganH }}
+                title={`Ganancia ${d.fecha}: Q${d.ganancia.toLocaleString()}`}
+              />
+            </div>
+            <span
+              className={`text-[9px] font-medium capitalize ${isToday ? 'font-bold' : ''}`}
+              style={{ color: isToday ? 'var(--color-text)' : 'var(--color-text-sec)' }}
+            >
+              {dayLabel}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ─── Reloj ────────────────────────────────────────────────────────────────────
@@ -689,6 +859,11 @@ function VentasDashboard({ stats, time, userName }: { stats: VentasStats; time: 
 
 function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) {
   const navigate = useNavigate();
+  const fin  = stats.financiero;
+  const trend = stats.tendencia ?? [];
+  const cli  = stats.clientes;
+
+  const mesLabel = time.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' });
 
   const quickActions = [
     { icon: ShoppingCart, label: "Nueva Venta",  color: "bg-emerald-500", path: "/ventas/nueva" },
@@ -703,135 +878,244 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
 
   return (
     <div className="space-y-5 max-w-screen-2xl">
-      {/* Header */}
+
+      {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">
-            <Zap size={11} /> Panel de Control
+            <BarChart3 size={11} /> Panel de Control · Administrador
           </span>
-          <h1 className="text-xl font-bold text-[#14324A] dark:text-[#F8FAFC] leading-tight">Dashboard</h1>
-          <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1] mt-0.5">
-            Bienvenido, <span className="font-semibold text-[#14324A] dark:text-[#E2E8F0]">Administrador</span>
+          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text)' }}>
+            Dashboard Financiero
+          </h1>
+          <p className="text-sm mt-0.5 capitalize" style={{ color: 'var(--color-text-sec)' }}>
+            Resumen de negocio · {mesLabel}
           </p>
         </div>
         <ClockWidget time={time} />
       </div>
 
-      {/* KPIs financieros */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard
-          label="Ganancias Hoy"
-          value={formatMoney(stats.ganancias.hoy)}
-          footnote="+12% vs ayer"
-          footnoteIcon={<TrendingUp size={11} />}
-          icon={<DollarSign size={17} />}
-          gradient="bg-gradient-to-br from-emerald-500 to-green-600"
-        />
-        <KpiCard
-          label="Ganancias del Mes"
-          value={formatMoney(stats.ganancias.mes)}
-          footnote="Meta: Q25,000"
-          icon={<BarChart3 size={17} />}
-          gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
-        />
-        <KpiCard
-          label="Gastos del Mes"
-          value={formatMoney(stats.gastos.mes)}
-          footnote={`Balance: ${formatMoney(stats.ventas.mes - stats.gastos.mes)}`}
-          icon={<Wallet size={17} />}
-          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
-        />
-        <KpiCard
-          label="Ventas del Mes"
-          value={formatMoney(stats.ventas.mes)}
-          footnote={`${stats.ventas.cantidad} transacciones`}
-          icon={<Activity size={17} />}
-          gradient="bg-gradient-to-br from-orange-500 to-rose-500"
-        />
-      </div>
-
-      {/* Mini stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          label="Ventas Hoy"
-          value={formatMoney(stats.ventas.hoy)}
-          sub={`${stats.ventas.cantidad} transacciones`}
-          icon={<ShoppingCart size={17} className="text-emerald-600" />}
-          iconBg="bg-emerald-50 dark:bg-emerald-950/30"
-          footer={<span className="text-[#5E7184] dark:text-[#B8C2D1]">Mes: {formatMoney(stats.ventas.mes)}</span>}
-          onClick={() => navigate("/ventas")}
-        />
-        <StatCard
-          label="Inventario"
-          value={stats.productos.total}
-          sub="productos registrados"
-          icon={<Package size={17} className="text-blue-600" />}
-          iconBg="bg-blue-50 dark:bg-sky-950/30"
-          footer={
-            <div className="flex justify-between">
-              <span className="text-orange-500">⚠ Bajo: {stats.productos.bajo_stock}</span>
-              <span className="text-red-500">❌ {stats.productos.sin_stock}</span>
-            </div>
-          }
-          onClick={() => navigate("/productos")}
-        />
-        <StatCard
-          label="Reparaciones"
-          value={stats.reparaciones.total}
-          sub="activas"
-          icon={<Wrench size={17} className="text-violet-600" />}
-          iconBg="bg-violet-50 dark:bg-violet-950/30"
-          footer={
-            <div className="flex justify-between">
-              <span className="text-emerald-600">✓ {stats.reparaciones.con_checklist}</span>
-              <span className="text-red-500">✗ {stats.reparaciones.sin_checklist}</span>
-            </div>
-          }
-          onClick={() => navigate("/flujo-reparaciones")}
-        />
-        <StatCard
-          label="Cotizaciones"
-          value={stats.cotizaciones.total}
-          sub="registradas"
-          icon={<FileText size={17} className="text-amber-600" />}
-          iconBg="bg-amber-50 dark:bg-amber-950/30"
-          footer={<span className="text-amber-600 dark:text-amber-400">Abiertas: {stats.cotizaciones.abiertas}</span>}
-          onClick={() => navigate("/cotizaciones")}
-        />
-      </div>
-
-      {/* Acciones rápidas */}
-      <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm px-5 py-4">
-        <p className="text-[10px] font-bold text-[#5E7184] dark:text-[#7F8A99] uppercase tracking-widest mb-3">
-          Acciones Rápidas
-        </p>
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-          {quickActions.map(({ icon: Icon, label, color, path }, i) => (
-            <button
-              key={i}
-              onClick={() => navigate(path)}
-              className={`${color} text-white flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 hover:opacity-90 hover:shadow-lg transition-all`}
-            >
-              <Icon size={17} />
-              <span className="text-[10px] font-semibold leading-tight text-center">{label}</span>
-            </button>
-          ))}
+      {/* ── ROW 1: KPIs FINANCIEROS ── */}
+      {fin ? (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <FinancialKpiCard
+            label="Ingresos del Mes"
+            value={formatMoney(fin.ingresos_mes)}
+            change={fin.cambio_ingresos_pct}
+            sub={`${fin.ventas_mes} ventas · hoy ${formatMoney(fin.ingresos_hoy)}`}
+            icon={<TrendingUp size={16} />}
+            accent="#22C55E"
+          />
+          <FinancialKpiCard
+            label="Ganancia Bruta"
+            value={formatMoney(fin.ganancia_bruta_mes)}
+            change={fin.cambio_ganancia_pct}
+            sub={`Margen ${fin.margen_bruto.toFixed(1)}% · COGS ${formatMoney(fin.costo_ventas_mes)}`}
+            icon={<BarChart3 size={16} />}
+            accent="#3B82F6"
+          />
+          <FinancialKpiCard
+            label="Ganancia Neta"
+            value={formatMoney(fin.ganancia_neta_mes)}
+            sub={`Egresos operativos: ${formatMoney(fin.egresos_caja_mes)}`}
+            icon={<DollarSign size={16} />}
+            accent={fin.ganancia_neta_mes >= 0 ? "#6366F1" : "#EF4444"}
+            negative={fin.ganancia_neta_mes < 0}
+          />
+          <FinancialKpiCard
+            label="Ticket Promedio"
+            value={formatMoney(fin.ticket_promedio)}
+            sub={`Compras inventario: ${formatMoney(fin.compras_mes)}`}
+            icon={<CreditCard size={16} />}
+            accent="#8B5CF6"
+          />
         </div>
+      ) : (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <SkeletonBlock key={i} />)}
+        </div>
+      )}
+
+      {/* ── ROW 2: KPIs OPERACIONALES ── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <OpKpiCard
+          label="Reparaciones Activas"
+          value={stats.reparaciones.total}
+          sub={`${stats.reparaciones.completadas} completadas · ${stats.reparaciones.atrasadas ?? 0} atrasadas`}
+          icon={<Wrench size={15} />}
+          accent="#6366F1"
+          alert={(stats.reparaciones.atrasadas ?? 0) > 0}
+          onClick={() => navigate('/flujo-reparaciones')}
+        />
+        <OpKpiCard
+          label="Complet. este mes"
+          value={stats.reparaciones.completadas_mes ?? 0}
+          sub="reparaciones cerradas"
+          icon={<CheckCircle2 size={15} />}
+          accent="#22C55E"
+          onClick={() => navigate('/ordenes-trabajo')}
+        />
+        <OpKpiCard
+          label="Clientes Nuevos"
+          value={cli?.nuevos_mes ?? 0}
+          sub={`${(cli?.total ?? 0).toLocaleString()} clientes totales`}
+          icon={<UserPlus size={15} />}
+          accent="#48B9E6"
+          onClick={() => navigate('/clientes')}
+        />
+        <OpKpiCard
+          label="Conversión Cotiz."
+          value={`${stats.cotizaciones.conversion_rate ?? 0}%`}
+          sub={`${stats.cotizaciones.abiertas} pendientes de ${stats.cotizaciones.total} total`}
+          icon={<Percent size={15} />}
+          accent="#F59E0B"
+          alert={stats.cotizaciones.abiertas > 5}
+          onClick={() => navigate('/cotizaciones')}
+        />
       </div>
 
-      {/* Detalle inferior */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-6">
-        {/* Estado de Reparaciones */}
-        <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm p-5">
+      {/* ── ROW 3: TENDENCIA + RESUMEN FINANCIERO ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Sparkline 7 días */}
+        <div
+          className="lg:col-span-2 rounded-2xl p-5"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(20,50,74,0.06)' }}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg" style={{ background: '#3B82F618' }}>
+                <PieChart size={13} style={{ color: '#3B82F6' }} />
+              </div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                Tendencia 7 días
+              </h3>
+            </div>
+            <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--color-text-sec)' }}>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-blue-500 inline-block" /> Ingresos</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" /> Ganancia</span>
+            </div>
+          </div>
+
+          {/* Valores hoy */}
+          {fin && (
+            <div className="flex gap-4 mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-sec)' }}>Ingresos hoy</p>
+                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatMoney(fin.ingresos_hoy)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-sec)' }}>Ganancia hoy</p>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(fin.ganancia_hoy)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-sec)' }}>Ventas hoy</p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>{fin.ventas_hoy}</p>
+              </div>
+            </div>
+          )}
+
+          {trend.length > 0 ? (
+            <SparklineChart data={trend} />
+          ) : (
+            <div className="flex items-center justify-center h-20 rounded-xl" style={{ background: 'var(--color-bg)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-sec)' }}>Sin ventas en los últimos 7 días</p>
+            </div>
+          )}
+
+          {/* Eje de montos */}
+          {trend.length > 0 && fin && (
+            <div className="flex justify-between mt-2">
+              <p className="text-[9px]" style={{ color: 'var(--color-text-sec)' }}>Q0</p>
+              <p className="text-[9px]" style={{ color: 'var(--color-text-sec)' }}>
+                máx {formatMoney(Math.max(...trend.map(d => d.ingresos)))}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Resumen P&L del mes */}
+        {fin && (
+          <div
+            className="rounded-2xl p-5"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(20,50,74,0.06)' }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 rounded-lg" style={{ background: '#22C55E18' }}>
+                <BadgeDollarSign size={13} style={{ color: '#22C55E' }} />
+              </div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                P&L del Mes
+              </h3>
+            </div>
+
+            <div className="space-y-2.5">
+              {[
+                { label: 'Ingresos brutos',    value: fin.ingresos_mes,       color: '#22C55E', symbol: '+' },
+                { label: 'Costo de ventas',     value: fin.costo_ventas_mes,   color: '#EF4444', symbol: '−' },
+                { label: 'Ganancia bruta',      value: fin.ganancia_bruta_mes, color: '#3B82F6', symbol: '=', bold: true },
+                { label: 'Egresos operativos',  value: fin.egresos_caja_mes,   color: '#F59E0B', symbol: '−' },
+                { label: 'Ganancia neta',       value: fin.ganancia_neta_mes,  color: fin.ganancia_neta_mes >= 0 ? '#6366F1' : '#EF4444', symbol: '=', bold: true, divider: true },
+              ].map((row, i) => (
+                <div key={i}>
+                  {row.divider && <div className="border-t my-2" style={{ borderColor: 'var(--color-border)' }} />}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-mono w-3 text-center" style={{ color: row.color }}>{row.symbol}</span>
+                      <span
+                        className={`text-[12px] ${row.bold ? 'font-bold' : ''}`}
+                        style={{ color: row.bold ? 'var(--color-text)' : 'var(--color-text-sec)' }}
+                      >
+                        {row.label}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[12px] font-mono ${row.bold ? 'font-bold' : 'font-medium'}`}
+                      style={{ color: row.color }}
+                    >
+                      {formatMoney(Math.abs(row.value))}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Margen badge */}
+            <div
+              className="mt-4 rounded-xl px-3 py-2 flex items-center justify-between"
+              style={{ background: '#3B82F610', border: '1px solid #3B82F620' }}
+            >
+              <span className="text-[11px] font-semibold" style={{ color: '#3B82F6' }}>Margen bruto</span>
+              <span className="text-sm font-bold" style={{ color: '#3B82F6' }}>{fin.margen_bruto.toFixed(1)}%</span>
+            </div>
+            <div
+              className="mt-2 rounded-xl px-3 py-2 flex items-center justify-between"
+              style={{ background: '#8B5CF610', border: '1px solid #8B5CF620' }}
+            >
+              <span className="text-[11px] font-semibold" style={{ color: '#8B5CF6' }}>Ticket promedio</span>
+              <span className="text-sm font-bold" style={{ color: '#8B5CF6' }}>{formatMoney(fin.ticket_promedio)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── ROW 4: REPARACIONES + STOCK + QUICK ACTIONS ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pb-6">
+
+        {/* Reparaciones pipeline */}
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(20,50,74,0.06)' }}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="bg-violet-100 dark:bg-violet-950/30 p-1.5 rounded-lg">
                 <Wrench size={13} className="text-violet-600 dark:text-violet-400" />
               </div>
-              <h3 className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">Estado de Reparaciones</h3>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Pipeline Reparaciones</h3>
             </div>
             <button
-              onClick={() => navigate("/flujo-reparaciones")}
+              onClick={() => navigate('/flujo-reparaciones')}
               className="flex items-center gap-1 text-xs font-medium text-blue-500 hover:text-blue-700 transition-colors"
             >
               Ver todas <ArrowRight size={12} />
@@ -839,74 +1123,135 @@ function AdminDashboard({ stats, time }: { stats: DashboardStats; time: Date }) 
           </div>
           <div className="space-y-2">
             {[
-              { icon: <ClipboardCheck size={13} className="text-white" />, bg: "bg-emerald-500", rowBg: "bg-emerald-50 dark:bg-emerald-950/30", label: "Con Checklist",  sub: "Proceso completo",     value: stats.reparaciones.con_checklist,  numColor: "text-emerald-700 dark:text-emerald-300" },
-              { icon: <ClipboardX size={13} className="text-white" />,     bg: "bg-red-500",     rowBg: "bg-red-50 dark:bg-red-950/30",         label: "Sin Checklist",  sub: "Requiere atención",    value: stats.reparaciones.sin_checklist,  numColor: "text-red-700 dark:text-red-300"         },
-              { icon: <Wrench size={13} className="text-white" />,         bg: "bg-blue-500",    rowBg: "bg-sky-50 dark:bg-sky-950/30",          label: "Completadas",    sub: "Listas para entrega",  value: stats.reparaciones.completadas,    numColor: "text-blue-700 dark:text-blue-300"       },
+              { icon: <Activity size={13} className="text-white" />,     bg: 'bg-blue-500',    rowBg: 'bg-blue-50 dark:bg-blue-950/30',      label: 'Activas',        sub: 'en flujo',               value: stats.reparaciones.total,                     textColor: 'text-blue-700 dark:text-blue-300'    },
+              { icon: <CheckCircle2 size={13} className="text-white" />, bg: 'bg-emerald-500', rowBg: 'bg-emerald-50 dark:bg-emerald-950/30', label: 'Complet. mes',   sub: 'cerradas este mes',      value: stats.reparaciones.completadas_mes ?? 0,      textColor: 'text-emerald-700 dark:text-emerald-300'},
+              { icon: <ClipboardCheck size={13} className="text-white" />,bg:'bg-teal-500',    rowBg: 'bg-teal-50 dark:bg-teal-950/30',       label: 'Con checklist',  sub: 'proceso documentado',    value: stats.reparaciones.con_checklist,             textColor: 'text-teal-700 dark:text-teal-300'    },
+              { icon: <ClipboardX size={13} className="text-white" />,   bg: 'bg-orange-500',  rowBg: 'bg-orange-50 dark:bg-orange-950/30',  label: 'Sin checklist',  sub: 'requieren atención',     value: stats.reparaciones.sin_checklist,             textColor: 'text-orange-700 dark:text-orange-300'},
+              { icon: <AlertCircle size={13} className="text-white" />,  bg: 'bg-red-500',     rowBg: 'bg-red-50 dark:bg-red-950/30',        label: 'Atrasadas',      sub: 'pasaron fecha estimada', value: stats.reparaciones.atrasadas ?? 0,            textColor: 'text-red-700 dark:text-red-300'      },
             ].map((row, i) => (
-              <div key={i} className={`flex items-center justify-between ${row.rowBg} rounded-xl px-3 py-2.5`}>
-                <div className="flex items-center gap-2.5">
+              <div key={i} className={`flex items-center justify-between ${row.rowBg} rounded-xl px-3 py-2`}>
+                <div className="flex items-center gap-2">
                   <div className={`${row.bg} p-1.5 rounded-lg shrink-0`}>{row.icon}</div>
                   <div>
-                    <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">{row.label}</p>
-                    <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">{row.sub}</p>
+                    <p className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>{row.label}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--color-text-sec)' }}>{row.sub}</p>
                   </div>
                 </div>
-                <span className={`text-xl font-bold ${row.numColor}`}>{row.value}</span>
+                <span className={`text-lg font-bold ${row.textColor}`}>{row.value}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Alertas de Stock */}
-        <div className="bg-white dark:bg-[#0D1526] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-2xl shadow-sm p-5">
+        {/* Inventario + alertas stock */}
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(20,50,74,0.06)' }}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="bg-amber-100 dark:bg-amber-950/30 p-1.5 rounded-lg">
-                <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400" />
+                <Package size={13} className="text-amber-600 dark:text-amber-400" />
               </div>
-              <h3 className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">Alertas de Stock</h3>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Inventario</h3>
             </div>
             <button
-              onClick={() => navigate("/productos")}
+              onClick={() => navigate('/productos')}
               className="flex items-center gap-1 text-xs font-medium text-blue-500 hover:text-blue-700 transition-colors"
             >
               Ver productos <ArrowRight size={12} />
             </button>
           </div>
+
+          {/* Total productos */}
+          <div
+            className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
+            style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+          >
+            <div className="flex items-center gap-2">
+              <Boxes size={14} className="text-blue-500" />
+              <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>Total productos</span>
+            </div>
+            <span className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>{stats.productos.total}</span>
+          </div>
+
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800/40 rounded-xl px-3 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <AlertTriangle size={14} className="text-red-500 dark:text-red-400 shrink-0" />
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={13} className="text-red-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">Sin Stock</p>
-                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">Reposición inmediata</p>
+                  <p className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>Sin Stock</p>
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-sec)' }}>Reposición inmediata</p>
                 </div>
               </div>
-              <span className="text-xl font-bold text-red-700 dark:text-red-300">{stats.productos.sin_stock}</span>
+              <span className="text-lg font-bold text-red-700 dark:text-red-300">{stats.productos.sin_stock}</span>
             </div>
             <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-800/40 rounded-xl px-3 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <Package size={14} className="text-orange-500 dark:text-orange-400 shrink-0" />
+              <div className="flex items-center gap-2">
+                <Package size={13} className="text-orange-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-[#14324A] dark:text-[#F8FAFC]">Stock Bajo</p>
-                  <p className="text-[11px] text-[#5E7184] dark:text-[#B8C2D1]">Por debajo del mínimo</p>
+                  <p className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>Stock Bajo</p>
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-sec)' }}>Por debajo del mínimo</p>
                 </div>
               </div>
-              <span className="text-xl font-bold text-orange-700 dark:text-orange-300">{stats.productos.bajo_stock}</span>
+              <span className="text-lg font-bold text-orange-700 dark:text-orange-300">{stats.productos.bajo_stock}</span>
             </div>
           </div>
           <button
-            onClick={() => navigate("/compras")}
+            onClick={() => navigate('/compras')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
           >
-            <Plus size={15} /> Crear Orden de Compra
+            <Plus size={14} /> Crear Orden de Compra
           </button>
+        </div>
+
+        {/* Acciones rápidas */}
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 1px 6px rgba(20,50,74,0.06)' }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-text-sec)' }}>
+            Acciones Rápidas
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {quickActions.map(({ icon: Icon, label, color, path }, i) => (
+              <button
+                key={i}
+                onClick={() => navigate(path)}
+                className={`${color} text-white flex items-center gap-2 rounded-xl py-2.5 px-3 hover:opacity-90 hover:shadow-md transition-all`}
+              >
+                <Icon size={14} />
+                <span className="text-[11px] font-semibold leading-tight">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Mini cotizaciones */}
+          <div
+            className="mt-4 rounded-xl px-3 py-2.5"
+            style={{ background: '#F59E0B0D', border: '1px solid #F59E0B25' }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText size={13} className="text-amber-500" />
+                <span className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>Cotizaciones abiertas</span>
+              </div>
+              <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{stats.cotizaciones.abiertas}</span>
+            </div>
+            <button
+              onClick={() => navigate('/cotizaciones')}
+              className="mt-2 w-full text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1 hover:underline"
+            >
+              Ver cotizaciones <ArrowRight size={11} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+  return (
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENTRY POINT — Detecta rol y carga el dashboard correcto
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1006,10 +1351,11 @@ export default function DashboardPage() {
           setAdminStats({
             ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
             productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
-            reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0 },
-            cotizaciones: { total: 0, abiertas: 0 },
+            reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0, completadas_mes: 0, atrasadas: 0 },
+            cotizaciones: { total: 0, abiertas: 0, conversion_rate: 0 },
             gastos:       { mes: 0 },
             ganancias:    { hoy: 0, mes: 0 },
+            clientes:     { nuevos_mes: 0, total: 0 },
           });
         }
         setLoading(false);
@@ -1047,10 +1393,11 @@ export default function DashboardPage() {
           setAdminStats({
             ventas:       { hoy: 0, mes: 0, total: 0, cantidad: 0 },
             productos:    { total: 0, bajo_stock: 0, sin_stock: 0 },
-            reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0 },
-            cotizaciones: { total: 0, abiertas: 0 },
+            reparaciones: { total: 0, con_checklist: 0, sin_checklist: 0, completadas: 0, completadas_mes: 0, atrasadas: 0 },
+            cotizaciones: { total: 0, abiertas: 0, conversion_rate: 0 },
             gastos:       { mes: 0 },
             ganancias:    { hoy: 0, mes: 0 },
+            clientes:     { nuevos_mes: 0, total: 0 },
           });
         }
       } finally {

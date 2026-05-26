@@ -11,8 +11,6 @@ function resolveRole(user) {
 }
 
 exports.getDashboardStats = async (req, res) => {
-  // Solo admin puede ver este endpoint completo.
-  // Técnicos deben usar /dashboard/tecnico; ventas debe usar /dashboard.
   const callerRole = resolveRole(req.user);
   if (callerRole === 'tecnico') {
     return res.status(403).json({ error: 'Acceso denegado. Endpoint exclusivo para administradores.' });
@@ -21,130 +19,251 @@ exports.getDashboardStats = async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // Obtener ventas del día
-    const [ventasHoy] = await connection.query(`
-      SELECT 
-        COUNT(*) as cantidad,
-        COALESCE(SUM(total), 0) as total
+    // ── Ventas hoy ───────────────────────────────────────────────────────────
+    const [[ventasHoy]] = await connection.query(`
+      SELECT
+        COUNT(*) AS cantidad,
+        COALESCE(SUM(total), 0) AS ingresos,
+        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_estimada
       FROM ventas
-      WHERE DATE(created_at) = CURDATE()
-      AND estado IN ('PAGADA', 'PARCIAL')
+      WHERE DATE(COALESCE(fecha_venta, created_at)) = CURDATE()
+        AND estado != 'ANULADA'
     `);
 
-    // Obtener ventas del mes
-    const [ventasMes] = await connection.query(`
-      SELECT 
-        COALESCE(SUM(total), 0) as total
+    // ── Ventas mes actual ────────────────────────────────────────────────────
+    const [[ventasMes]] = await connection.query(`
+      SELECT
+        COUNT(*) AS cantidad,
+        COALESCE(SUM(total), 0) AS ingresos,
+        COALESCE(SUM(COALESCE(costo_total, 0)), 0) AS costo_total,
+        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_bruta
       FROM ventas
-      WHERE MONTH(created_at) = MONTH(CURDATE())
-      AND YEAR(created_at) = YEAR(CURDATE())
-      AND estado IN ('PAGADA', 'PARCIAL')
+      WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(CURDATE())
+        AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(CURDATE())
+        AND estado != 'ANULADA'
     `);
 
-    // Obtener total de ventas
-    const [ventasTotal] = await connection.query(`
-      SELECT 
-        COALESCE(SUM(total), 0) as total
+    // ── Ventas mes anterior (para comparación %) ─────────────────────────────
+    const [[ventasMesAnterior]] = await connection.query(`
+      SELECT
+        COALESCE(SUM(total), 0) AS ingresos,
+        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_bruta
       FROM ventas
-      WHERE estado IN ('PAGADA', 'PARCIAL')
+      WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND estado != 'ANULADA'
     `);
 
-    // Obtener productos
-    const [productos] = await connection.query(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN stock > 0 AND stock <= stock_minimo THEN 1 ELSE 0 END) as bajo_stock,
-        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as sin_stock
+    // ── Egresos de caja mes (gastos operativos) ──────────────────────────────
+    const [[egresosCaja]] = await connection.query(`
+      SELECT COALESCE(SUM(monto), 0) AS total
+      FROM caja_chica
+      WHERE tipo_movimiento = 'EGRESO'
+        AND estado = 'CONFIRMADO'
+        AND MONTH(fecha_movimiento) = MONTH(CURDATE())
+        AND YEAR(fecha_movimiento)  = YEAR(CURDATE())
+    `);
+
+    // ── Compras (COGS de inventario) mes actual ──────────────────────────────
+    const [[comprasMes]] = await connection.query(`
+      SELECT COALESCE(SUM(total), 0) AS total
+      FROM compras
+      WHERE MONTH(fecha_compra) = MONTH(CURDATE())
+        AND YEAR(fecha_compra)  = YEAR(CURDATE())
+        AND estado IN ('CONFIRMADA', 'RECIBIDA')
+    `);
+
+    // ── Tendencia 7 días ─────────────────────────────────────────────────────
+    const [tendenciaRows] = await connection.query(`
+      SELECT
+        DATE(COALESCE(fecha_venta, created_at)) AS fecha,
+        COUNT(*) AS ventas,
+        COALESCE(SUM(total), 0) AS ingresos,
+        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia
+      FROM ventas
+      WHERE COALESCE(fecha_venta, created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        AND estado != 'ANULADA'
+      GROUP BY DATE(COALESCE(fecha_venta, created_at))
+      ORDER BY fecha ASC
+    `);
+
+    // ── Productos ────────────────────────────────────────────────────────────
+    const [[productos]] = await connection.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN stock > 0 AND stock <= stock_minimo THEN 1 ELSE 0 END) AS bajo_stock,
+        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) AS sin_stock
       FROM productos
     `);
 
-    // Obtener reparaciones
-    const [reparaciones] = await connection.query(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN r.id IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) as con_checklist,
-        SUM(CASE WHEN r.id NOT IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) as sin_checklist,
-        SUM(CASE WHEN estado = 'COMPLETADA' THEN 1 ELSE 0 END) as completadas
+    // ── Reparaciones activas ─────────────────────────────────────────────────
+    const [[reparaciones]] = await connection.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN r.id IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) AS con_checklist,
+        SUM(CASE WHEN r.id NOT IN (SELECT DISTINCT reparacion_id FROM check_equipo) THEN 1 ELSE 0 END) AS sin_checklist,
+        SUM(CASE WHEN estado = 'COMPLETADA' THEN 1 ELSE 0 END) AS completadas
       FROM reparaciones r
       WHERE estado NOT IN ('ENTREGADA', 'CANCELADA')
     `);
 
-    // Obtener cotizaciones
-    const [cotizaciones] = await connection.query(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) as abiertas
+    // ── Reparaciones completadas este mes ────────────────────────────────────
+    const [[repsMes]] = await connection.query(`
+      SELECT COUNT(*) AS total
+      FROM reparaciones
+      WHERE estado IN ('COMPLETADA', 'ENTREGADA')
+        AND MONTH(COALESCE(fecha_cierre, updated_at)) = MONTH(CURDATE())
+        AND YEAR(COALESCE(fecha_cierre, updated_at))  = YEAR(CURDATE())
+    `);
+
+    // ── Reparaciones atrasadas ───────────────────────────────────────────────
+    const [[repsAtrasadas]] = await connection.query(`
+      SELECT COUNT(*) AS total
+      FROM reparaciones
+      WHERE estado NOT IN ('COMPLETADA', 'ENTREGADA', 'CANCELADA')
+        AND fecha_estimada_entrega IS NOT NULL
+        AND fecha_estimada_entrega < CURDATE()
+    `);
+
+    // ── Cotizaciones ─────────────────────────────────────────────────────────
+    const [[cotizaciones]] = await connection.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) AS abiertas
       FROM cotizaciones
     `);
 
-    // Obtener gastos del mes (desde compras)
-    const [gastosMes] = await connection.query(`
-      SELECT 
-        COALESCE(SUM(total), 0) as total
-      FROM compras
-      WHERE MONTH(fecha_compra) = MONTH(CURDATE())
-      AND YEAR(fecha_compra) = YEAR(CURDATE())
-      AND estado IN ('CONFIRMADA', 'RECIBIDA')
+    // ── Tasa conversión cotizaciones (mes actual) ────────────────────────────
+    const [[cotizMes]] = await connection.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN estado IN ('APROBADA', 'ACEPTADA') THEN 1 ELSE 0 END) AS aceptadas
+      FROM cotizaciones
+      WHERE MONTH(created_at) = MONTH(CURDATE())
+        AND YEAR(created_at)  = YEAR(CURDATE())
     `);
 
-    // Calcular ganancias (ventas - gastos) del día
-    const [ventasDiaDetalle] = await connection.query(`
-      SELECT 
-        COALESCE(SUM(total), 0) as total
-      FROM ventas
-      WHERE DATE(created_at) = CURDATE()
-      AND estado IN ('PAGADA', 'PARCIAL')
-    `);
-
-    const [gastosDia] = await connection.query(`
-      SELECT 
-        COALESCE(SUM(total), 0) as total
-      FROM compras
-      WHERE DATE(fecha_compra) = CURDATE()
-      AND estado IN ('CONFIRMADA', 'RECIBIDA')
-    `);
+    // ── Clientes nuevos este mes ─────────────────────────────────────────────
+    let clientesNuevosMes = 0;
+    let clientesTotal = 0;
+    try {
+      const [[cliNuevos]] = await connection.query(`
+        SELECT COUNT(*) AS total FROM clientes
+        WHERE MONTH(created_at) = MONTH(CURDATE())
+          AND YEAR(created_at)  = YEAR(CURDATE())
+      `);
+      const [[cliTotal]] = await connection.query(`SELECT COUNT(*) AS total FROM clientes`);
+      clientesNuevosMes = Number(cliNuevos.total) || 0;
+      clientesTotal     = Number(cliTotal.total)  || 0;
+    } catch (_) { /* tabla puede no tener created_at */ }
 
     connection.release();
 
-    // Convertir de centavos a quetzales
-    const stats = {
-      ventas: {
-        hoy: Math.round(ventasHoy[0].total /100),
-        mes: Math.round(ventasMes[0].total / 100),
-        total: Math.round(ventasTotal[0].total / 100),
-        cantidad: ventasHoy[0].cantidad
-      },
-      productos: {
-        total: productos[0].total || 0,
-        bajo_stock: productos[0].bajo_stock || 0,
-        sin_stock: productos[0].sin_stock || 0
-      },
-      reparaciones: {
-        total: reparaciones[0].total || 0,
-        con_checklist: reparaciones[0].con_checklist || 0,
-        sin_checklist: reparaciones[0].sin_checklist || 0,
-        completadas: reparaciones[0].completadas || 0
-      },
-      cotizaciones: {
-        total: cotizaciones[0].total || 0,
-        abiertas: cotizaciones[0].abiertas || 0
-      },
-      gastos: {
-        mes: Math.round(gastosMes[0].total / 100)
-      },
-      ganancias: {
-        hoy: Math.round((ventasDiaDetalle[0].total - gastosDia[0].total) / 100),
-        mes: Math.round((ventasMes[0].total - gastosMes[0].total) / 100)
-      }
-    };
+    // ── Cálculos financieros ─────────────────────────────────────────────────
+    const ingresosMes      = Number(ventasMes.ingresos)      || 0;
+    const costoVentasMes   = Number(ventasMes.costo_total)   || 0;
+    const gananciaBrutaMes = Number(ventasMes.ganancia_bruta)|| 0;
+    const egresosCajaMes   = Number(egresosCaja.total)       || 0;
+    const comprasMesTotal  = Number(comprasMes.total)        || 0;
+    const gananciaNeta     = gananciaBrutaMes - egresosCajaMes;
+    const margenBruto      = ingresosMes > 0 ? (gananciaBrutaMes / ingresosMes) * 100 : 0;
+    const ticketPromedio   = Number(ventasMes.cantidad) > 0
+      ? Math.round(ingresosMes / Number(ventasMes.cantidad)) : 0;
 
-    // Datos sensibles solo para admin — nunca enviar ganancias/costos a otros roles
-    if (callerRole !== 'admin') {
-      delete stats.ganancias;
-      delete stats.gastos;
+    // % cambio vs mes anterior
+    const ingresosMA   = Number(ventasMesAnterior.ingresos)      || 0;
+    const gananciMA    = Number(ventasMesAnterior.ganancia_bruta) || 0;
+    const cambioIngresos = ingresosMA > 0
+      ? ((ingresosMes - ingresosMA) / ingresosMA) * 100 : null;
+    const cambioGanancia = gananciMA > 0
+      ? ((gananciaBrutaMes - gananciMA) / gananciMA) * 100 : null;
+
+    // Tasa de conversión cotizaciones
+    const conversionRate = Number(cotizMes.total) > 0
+      ? Math.round((Number(cotizMes.aceptadas) / Number(cotizMes.total)) * 100) : 0;
+
+    // Tendencia — rellenar días sin ventas con cero
+    const today = new Date();
+    const tendencia = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const row = tendenciaRows.find(r => {
+        const rDate = typeof r.fecha === 'string' ? r.fecha : new Date(r.fecha).toISOString().split('T')[0];
+        return rDate === key;
+      });
+      tendencia.push({
+        fecha:    key,
+        ventas:   row ? Number(row.ventas)   : 0,
+        ingresos: row ? Math.round(Number(row.ingresos) / 100) : 0,
+        ganancia: row ? Math.round(Number(row.ganancia) / 100) : 0,
+      });
     }
 
-    res.json({ dashboardType: 'admin', ...stats });
+    const resultado = {
+      dashboardType: 'admin',
+
+      // ── Bloque financiero completo (solo admin) ──────────────────────────
+      financiero: {
+        ingresos_hoy:        Math.round(Number(ventasHoy.ingresos) / 100),
+        ganancia_hoy:        Math.round(Number(ventasHoy.ganancia_estimada) / 100),
+        ventas_hoy:          Number(ventasHoy.cantidad),
+        ingresos_mes:        Math.round(ingresosMes / 100),
+        costo_ventas_mes:    Math.round(costoVentasMes / 100),
+        ganancia_bruta_mes:  Math.round(gananciaBrutaMes / 100),
+        ganancia_neta_mes:   Math.round(gananciaNeta / 100),
+        egresos_caja_mes:    Math.round(egresosCajaMes / 100),
+        compras_mes:         Math.round(comprasMesTotal / 100),
+        margen_bruto:        Math.round(margenBruto * 10) / 10,
+        ticket_promedio:     Math.round(ticketPromedio / 100),
+        ventas_mes:          Number(ventasMes.cantidad),
+        cambio_ingresos_pct: cambioIngresos !== null ? Math.round(cambioIngresos * 10) / 10 : null,
+        cambio_ganancia_pct: cambioGanancia !== null ? Math.round(cambioGanancia * 10) / 10 : null,
+      },
+
+      // ── Tendencia 7 días ─────────────────────────────────────────────────
+      tendencia,
+
+      // ── Campos legacy (compatibilidad con el resto del frontend) ────────
+      ventas: {
+        hoy:      Math.round(Number(ventasHoy.ingresos) / 100),
+        mes:      Math.round(ingresosMes / 100),
+        total:    0,
+        cantidad: Number(ventasHoy.cantidad),
+      },
+      productos: {
+        total:      Number(productos.total)      || 0,
+        bajo_stock: Number(productos.bajo_stock) || 0,
+        sin_stock:  Number(productos.sin_stock)  || 0,
+      },
+      reparaciones: {
+        total:           Number(reparaciones.total)         || 0,
+        con_checklist:   Number(reparaciones.con_checklist) || 0,
+        sin_checklist:   Number(reparaciones.sin_checklist) || 0,
+        completadas:     Number(reparaciones.completadas)   || 0,
+        completadas_mes: Number(repsMes.total)              || 0,
+        atrasadas:       Number(repsAtrasadas.total)        || 0,
+      },
+      cotizaciones: {
+        total:           Number(cotizaciones.total)  || 0,
+        abiertas:        Number(cotizaciones.abiertas)|| 0,
+        conversion_rate: conversionRate,
+      },
+      gastos: {
+        mes: Math.round(comprasMesTotal / 100),
+      },
+      ganancias: {
+        hoy: Math.round(Number(ventasHoy.ganancia_estimada) / 100),
+        mes: Math.round(gananciaNeta / 100),
+      },
+      clientes: {
+        nuevos_mes: clientesNuevosMes,
+        total:      clientesTotal,
+      },
+    };
+
+    res.json(resultado);
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
     res.status(500).json({
