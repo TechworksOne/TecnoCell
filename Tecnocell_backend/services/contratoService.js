@@ -74,17 +74,30 @@ const FIRMA_CLIENTE_H = 35;
 function resolveFirmaPath(firmaClienteUrl) {
   if (!firmaClienteUrl) return null;
 
-  if (path.isAbsolute(firmaClienteUrl)) {
-    return firmaClienteUrl;
+  const raw = String(firmaClienteUrl).trim();
+
+  // Caso principal: BD guarda /uploads/firmas/...
+  if (raw.startsWith('/uploads/')) {
+    return path.join('/app', raw);
   }
 
-  let relative = String(firmaClienteUrl).replace(/^\/+/, '');
-
-  if (relative.startsWith('uploads/')) {
-    relative = relative.replace(/^uploads\//, '');
+  // Caso: BD guarda uploads/firmas/...
+  if (raw.startsWith('uploads/')) {
+    return path.join('/app', raw);
   }
 
-  return path.join('/app/uploads', relative);
+  // Caso: ya viene como /app/uploads/...
+  if (raw.startsWith('/app/uploads/')) {
+    return raw;
+  }
+
+  // Caso: ruta absoluta distinta
+  if (path.isAbsolute(raw)) {
+    return raw;
+  }
+
+  // Fallback: ruta relativa
+  return path.join('/app/uploads', raw);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
