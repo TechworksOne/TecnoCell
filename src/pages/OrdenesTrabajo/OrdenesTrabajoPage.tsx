@@ -660,6 +660,7 @@ export default function OrdenesTrabajoPage() {
   ];
 
   return (
+    <>
     <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'var(--color-text)' }}>
       <div className="max-w-6xl mx-auto px-4 py-6">
 
@@ -789,5 +790,6 @@ export default function OrdenesTrabajoPage() {
         onCancel={() => setConfirmOt(null)}
       />
     )}
+    </>
   );
 }

@@ -398,6 +398,7 @@ export default function ChecklistIngresoModal({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <>
     <div
       role="dialog"
       aria-modal="true"
@@ -779,5 +780,6 @@ export default function ChecklistIngresoModal({
       onConfirm={() => { setConfirmClose(false); onClose(); }}
       onCancel={() => setConfirmClose(false)}
     />
+    </>
   );
 }

@@ -273,6 +273,7 @@ export default function NuevaCompraModal({
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm"
       onClick={(e) => {
@@ -802,5 +803,6 @@ export default function NuevaCompraModal({
       onConfirm={() => { setConfirmDiscard(false); resetForm(); onClose(); }}
       onCancel={() => setConfirmDiscard(false)}
     />
+    </>
   );
 }

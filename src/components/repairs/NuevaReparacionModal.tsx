@@ -345,7 +345,8 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    /* Overlay */
+    <>
+    {/* Overlay */}
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/70 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
@@ -851,5 +852,6 @@ export default function NuevaReparacionModal({ isOpen, onClose, onCreated }: Pro
       onConfirm={() => { setConfirmClose(false); onClose(); }}
       onCancel={() => setConfirmClose(false)}
     />
+    </>
   );
 }

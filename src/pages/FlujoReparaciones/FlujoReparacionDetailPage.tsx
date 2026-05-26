@@ -446,6 +446,7 @@ export default function FlujoReparacionDetailPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 ml-0 md:ml-64 p-4 md:p-8">
       <div className="mb-6">
         <Button
@@ -950,6 +951,5 @@ export default function FlujoReparacionDetailPage() {
       variant="danger"
       onConfirm={quitarEntrega}
       onCancel={() => setConfirmQuitarEntrega(false)}
-    />
-  );
+    />    </>  );
 }
