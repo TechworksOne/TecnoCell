@@ -188,6 +188,7 @@ exports.getResumenOT = async (req, res) => {
            r.tecnico_asignado_id AS id,
            TRIM(CONCAT(COALESCE(pt.nombres,''), ' ', COALESCE(pt.apellidos,''))) AS nombre,
            ut.username,
+           pt.foto_perfil,
            COUNT(*) AS total_activas,
            SUM(CASE WHEN r.estado = 'EN_REPARACION'   THEN 1 ELSE 0 END) AS en_reparacion,
            SUM(CASE WHEN r.estado = 'ESPERANDO_PIEZA' THEN 1 ELSE 0 END) AS esperando_pieza,
@@ -198,7 +199,7 @@ exports.getResumenOT = async (req, res) => {
          LEFT JOIN user_profiles pt ON pt.user_id = r.tecnico_asignado_id
          WHERE r.tecnico_asignado_id IS NOT NULL
            AND r.estado NOT IN ('CANCELADA','ENTREGADA')
-         GROUP BY r.tecnico_asignado_id, pt.nombres, pt.apellidos, ut.username
+         GROUP BY r.tecnico_asignado_id, pt.nombres, pt.apellidos, pt.foto_perfil, ut.username
          ORDER BY total_activas DESC`
       );
 
@@ -209,6 +210,7 @@ exports.getResumenOT = async (req, res) => {
         id: t.id,
         nombre: (t.nombre && t.nombre.trim() !== '') ? t.nombre : t.username,
         username: t.username,
+        foto_perfil: t.foto_perfil || null,
         total_activas:  Number(t.total_activas  || 0),
         en_reparacion:  Number(t.en_reparacion  || 0),
         esperando_pieza: Number(t.esperando_pieza || 0),

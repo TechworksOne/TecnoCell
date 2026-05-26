@@ -28,6 +28,8 @@ import type {
 } from '../../types/ot';
 import Modal from '../../components/ui/Modal';
 import ConfirmModal from '../../components/ui/ConfirmModal';
+import ModalActualizarEstado from '../../components/repairs/ModalActualizarEstado';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 // ── Status maps ────────────────────────────────────────────────────────────
 const STATUS_PILL: Record<string, string> = {
@@ -392,9 +394,19 @@ function CargaTecnicos({ tecnicos, onFiltrar }: { tecnicos: CargaTecnico[]; onFi
           <div key={t.id} className="rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 p-4 hover:shadow-md transition-all">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                  {t.nombre.charAt(0).toUpperCase()}
-                </div>
+                {t.foto_perfil ? (
+                  <img
+                    src={getImageUrl(t.foto_perfil)}
+                    alt={t.nombre}
+                    loading="lazy"
+                    className="w-9 h-9 rounded-xl object-cover shrink-0"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                    {t.nombre.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{t.nombre}</p>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500">@{t.username}</p>
@@ -571,6 +583,7 @@ export default function OrdenesTrabajoPage() {
 
   // Modal
   const [asignarOT, setAsignarOT] = useState<OrdenTrabajo | null>(null);
+  const [flujoOT,   setFlujoOT]   = useState<OrdenTrabajo | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -722,7 +735,7 @@ export default function OrdenesTrabajoPage() {
               onAsignar={userIsAdmin ? setAsignarOT : undefined}
               onQuitar={userIsAdmin ? handleQuitarAsignacion : undefined}
               onVer={id => navigate('/reparaciones', { state: { highlightId: id } })}
-              onFlujo={id => navigate(`/flujo-reparaciones/${id}`)}
+              onFlujo={id => setFlujoOT(ots.find(o => o.id === id) ?? null)}
               emptyMsg={userIsAdmin ? 'No hay OT activas con esos filtros' : 'No tienes reparaciones activas asignadas'}
             />
           </>
@@ -748,12 +761,26 @@ export default function OrdenesTrabajoPage() {
             <OTList
               ots={historialFiltrado} loading={loadingH} userIsAdmin={userIsAdmin}
               onVer={id => navigate('/reparaciones', { state: { highlightId: id } })}
-              onFlujo={id => navigate(`/flujo-reparaciones/${id}`)}
+              onFlujo={id => setFlujoOT(historialFiltrado.find(o => o.id === id) ?? null)}
               emptyMsg={userIsAdmin ? 'No hay historial con esos filtros' : 'No tienes historial de OT'}
             />
           </>
         )}
       </div>
+
+      {/* Modal actualizar estado/flujo */}
+      {flujoOT && (
+        <ModalActualizarEstado
+          isOpen={!!flujoOT}
+          onClose={() => setFlujoOT(null)}
+          reparacion={{
+            id: flujoOT.id,
+            clienteNombre: flujoOT.cliente_nombre,
+            estado: flujoOT.estado,
+          }}
+          onSuccess={() => { setFlujoOT(null); showToast('Estado actualizado'); loadOts(); loadResumen(); }}
+        />
+      )}
 
       {/* Modal asignar técnico */}
       {asignarOT && (

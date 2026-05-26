@@ -41,6 +41,7 @@ export interface CargaTecnico {
   id: number;
   nombre: string;
   username: string;
+  foto_perfil?: string | null;
   total_activas: number;
   en_reparacion: number;
   esperando_pieza: number;
