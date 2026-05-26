@@ -19,7 +19,7 @@ export interface ItemCarritoVenta {
 }
 
 export interface ReparacionBusqueda {
-  id: number;
+  id: string;
   numero_reparacion?: string;
   cliente_nombre: string;
   cliente_telefono?: string;
@@ -49,7 +49,7 @@ export interface Deudor {
   fecha_primer_pago?: string;
   items_detalle?: string;
   referencia_venta_id?: number;
-  referencia_reparacion_id?: number;
+  referencia_reparacion_id?: string;
   notas?: string;
   created_by?: string;
   created_at: string;
@@ -118,7 +118,7 @@ export const deudoresService = {
     fecha_primer_pago?: string;
     items_detalle?: ItemCarritoVenta[] | null;
     referencia_venta_id?: number;
-    referencia_reparacion_id?: number;
+    referencia_reparacion_id?: string;
     notas?: string;
     created_by?: string;
   }): Promise<Deudor> => {
