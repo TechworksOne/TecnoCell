@@ -538,6 +538,7 @@ export default function ProductsPage() {
   const isSearching = searchTerm !== debouncedSearch;
 
   return (
+    <>
     <div className="space-y-5 max-w-screen-2xl">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -1240,6 +1241,7 @@ export default function ProductsPage() {
         )}
       </Modal>
     </div>
+
     {confirmState && (
       <ConfirmModal
         isOpen
@@ -1249,5 +1251,6 @@ export default function ProductsPage() {
         onCancel={() => setConfirmState(null)}
       />
     )}
+    </>
   );
 }
