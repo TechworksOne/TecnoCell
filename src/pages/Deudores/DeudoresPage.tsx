@@ -92,6 +92,7 @@ interface WizardState {
   reparacion?: ReparacionBusqueda;
   descripcion: string;
   montoManual: string;
+  montoReparacion: string;  // monto editable para tipo REPARACION
   numeroCuotas: number;
   frecuenciaPago: FrecuenciaPago;
   fechaPrimerPago: string;
@@ -100,7 +101,7 @@ interface WizardState {
 }
 
 const INITIAL_WIZARD: WizardState = {
-  tipoOrigen: 'MANUAL', carrito: [], descripcion: '', montoManual: '',
+  tipoOrigen: 'MANUAL', carrito: [], descripcion: '', montoManual: '', montoReparacion: '',
   numeroCuotas: 1, frecuenciaPago: 'MENSUAL', fechaPrimerPago: '', fechaVencimiento: '', notas: '',
 };
 
@@ -121,7 +122,7 @@ function Step1({ state, setState }: { state: WizardState; setState: React.Dispat
             { key: 'MANUAL' as TipoOrigen, icon: <FileText size={18} />, label: 'Manual', desc: 'Libre' },
           ] as const).map(({ key, icon, label, desc }) => (
             <button key={key} type="button"
-              onClick={() => setState(s => ({ ...s, tipoOrigen: key, carrito: [], reparacion: undefined, montoManual: '', descripcion: '' }))}
+              onClick={() => setState(s => ({ ...s, tipoOrigen: key, carrito: [], reparacion: undefined, montoManual: '', montoReparacion: '', descripcion: '' }))}
               className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all ${
                 state.tipoOrigen === key
                   ? 'border-[#48B9E6] bg-[#48B9E6]/10 text-[#48B9E6]'
@@ -189,13 +190,27 @@ function Step2({ state, setState }: { state: WizardState; setState: React.Dispat
                   {(state.reparacion.monto_anticipo ?? 0) > 0 && (
                     <p className="text-xs text-violet-600 dark:text-violet-400">Anticipo pagado: <span className="font-semibold text-emerald-600 dark:text-emerald-400">− {fmt(state.reparacion.monto_anticipo ?? 0)}</span></p>
                   )}
-                  <p className="text-sm font-bold text-violet-900 dark:text-violet-100">Saldo a crédito: {fmt(Math.max(0, toNum(state.reparacion.total) - toNum(state.reparacion.monto_anticipo)))}</p>
+                  <p className="text-sm font-bold text-violet-900 dark:text-violet-100">Saldo calculado: {fmt(Math.max(0, toNum(state.reparacion.total) - toNum(state.reparacion.monto_anticipo)))}</p>
                 </div>
               </div>
-              <button onClick={() => { setState(s => ({ ...s, reparacion: undefined })); setQ(''); }}
+              <button onClick={() => { setState(s => ({ ...s, reparacion: undefined, montoReparacion: '' })); setQ(''); }}
                 className="p-1.5 rounded-lg hover:bg-violet-100 dark:hover:bg-violet-900/30 text-violet-400 shrink-0">
                 <X size={16} />
               </button>
+            </div>
+            {/* ── Monto a financiar editable ── */}
+            <div className="mt-3 pt-3 border-t border-violet-200 dark:border-violet-800/40">
+              <label className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1.5 block">Monto a financiar (Q) *</label>
+              <input
+                type="number" min="0.01" step="0.01"
+                className={inputCls}
+                value={state.montoReparacion}
+                onChange={e => setState(s => ({ ...s, montoReparacion: e.target.value }))}
+                placeholder="0.00"
+              />
+              <p className="text-[11px] text-violet-400 dark:text-violet-500 mt-1">
+                Puedes ajustar el monto si difiere del saldo calculado.
+              </p>
             </div>
           </div>
         ) : (
@@ -211,7 +226,11 @@ function Step2({ state, setState }: { state: WizardState; setState: React.Dispat
                   const saldo = Math.max(0, toNum(r.total) - toNum(r.monto_anticipo));
                   return (
                     <button key={r.id} type="button"
-                      onClick={() => { setState(s => ({ ...s, reparacion: r })); setQ(''); setResults([]); }}
+                      onClick={() => {
+                        const saldo = Math.max(0, toNum(r.total) - toNum(r.monto_anticipo));
+                        setState(s => ({ ...s, reparacion: r, montoReparacion: String(saldo) }));
+                        setQ(''); setResults([]);
+                      }}
                       className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-[#0A1220] border-b last:border-b-0 border-slate-100 dark:border-[rgba(72,185,230,0.08)]">
                       <div>
                         <p className="text-sm font-medium text-slate-800 dark:text-[#F8FAFC]">{r.cliente_nombre}</p>
@@ -541,6 +560,7 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
   const montoTotal = (() => {
     if (state.tipoOrigen === 'MANUAL') return toNum(state.montoManual);
     if (state.tipoOrigen === 'REPARACION') {
+      if (state.montoReparacion && toNum(state.montoReparacion) > 0) return toNum(state.montoReparacion);
       const total = toNum(state.reparacion?.total);
       const anticipo = toNum(state.reparacion?.monto_anticipo);
       return Math.max(0, total - anticipo);
@@ -552,7 +572,7 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
     if (step === 1) return !!state.cliente;
     if (step === 2) {
       if (state.tipoOrigen === 'MANUAL') return toNum(state.montoManual) > 0;
-      if (state.tipoOrigen === 'REPARACION') return !!state.reparacion;
+      if (state.tipoOrigen === 'REPARACION') return !!state.reparacion && montoTotal > 0;
       return state.carrito.length > 0;
     }
     if (step === 3) {
