@@ -1,13 +1,13 @@
 /**
  * contratoService.js
  * ──────────────────────────────────────────────────────────────────────────
- * Genera el contrato de reparación en PDF sobreponiendo datos y firma del
- * cliente sobre la plantilla `contrato_tecnocell_2_paginas.pdf`.
+ * Rellena la plantilla `contrato_tecnocell_2_paginas.pdf` con los datos
+ * dinámicos de la reparación y la firma del cliente.
  *
- * Solo se usan las 2 primeras páginas del template (páginas 3 y 4 se
- * descartan automáticamente).
+ * REGLA: NO se genera diseño desde cero. Solo se escriben textos e imagen
+ * de firma encima de la plantilla existente.
  *
- * Dependencia:  npm install pdf-lib
+ * Dependencia:  pdf-lib  (ya instalado)
  * ──────────────────────────────────────────────────────────────────────────
  */
 
@@ -17,19 +17,16 @@ const path = require('path');
 const fs   = require('fs');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 
-// ── Rutas de archivos ────────────────────────────────────────────────────────
+// ── Rutas ────────────────────────────────────────────────────────────────────
 const TEMPLATE_PATH = path.join(
-  __dirname, '..', 'templates', 'contrato_tecnocell_2_paginas.pdf.pdf'
+  __dirname, '..', 'templates', 'contrato_tecnocell_2_paginas.pdf'
 );
 const CONTRATOS_DIR = path.join(__dirname, '..', 'uploads', 'contratos');
 
-// ── Base de uploads (dentro del contenedor Docker) ───────────────────────────
-//    Docker mount: /var/www/Tecnocell_storage/uploads → /app/uploads
-const UPLOADS_BASE = process.env.UPLOADS_BASE || '/app/uploads';
-
 // ══════════════════════════════════════════════════════════════════════════════
 // COORDENADAS TEXTO — PÁGINA 1
-// Origen: esquina inferior-izquierda. A4: 595 × 842 pts.
+// Sistema de coordenadas: origen esquina inferior-izquierda.
+// Ajustar según la plantilla real.
 // ══════════════════════════════════════════════════════════════════════════════
 const C1 = {
   fecha:         { x: 398, y: 703 },
@@ -44,75 +41,68 @@ const C1 = {
   imei:          { x: 148, y: 505 },
   acceso:        { x: 148, y: 485 },
   descripcion:   { x: 80,  y: 440, maxWidth: 450 },
-  costoTotal:    { x: 420, y: 285 },
-  anticipo:      { x: 420, y: 262 },
-  saldo:         { x: 420, y: 240 },
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// COORDENADAS FIRMA — PÁGINA 2
-// Ajustar según el layout real del template.
+// COORDENADAS COSTOS — PÁGINA 2
+// Ajustar según la plantilla real.
 // ══════════════════════════════════════════════════════════════════════════════
-const FIRMA_CLIENTE_X = 410;
+const COSTO_X      = 420;
+const COSTO_Y      = 285;
+const ANTICIPO_X   = 420;
+const ANTICIPO_Y   = 262;
+const DIFERENCIA_X = 420;
+const DIFERENCIA_Y = 240;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COORDENADAS FIRMA DEL CLIENTE — PÁGINA 2
+// Ajustar para que quede sobre la línea "Cliente:" de la plantilla.
+// ══════════════════════════════════════════════════════════════════════════════
+const FIRMA_CLIENTE_X = 500;
 const FIRMA_CLIENTE_Y = 18;
-const FIRMA_CLIENTE_W = 130;
-const FIRMA_CLIENTE_H = 45;
+const FIRMA_CLIENTE_W = 120;
+const FIRMA_CLIENTE_H = 35;
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Convierte la URL relativa almacenada en BD a ruta física absoluta.
+ * Convierte la URL relativa guardada en BD a ruta física absoluta.
  *
- * Ejemplos:
- *   '/uploads/firmas/...'  → '/app/uploads/firmas/...'   (Docker)
- *   'uploads/firmas/...'   → '/app/uploads/firmas/...'
- *   ruta absoluta válida   → devuelve como está
- *
- * Busca primero en UPLOADS_BASE (producción/Docker), luego en la ruta
- * local relativa al backend (desarrollo).
+ *   /uploads/firmas/...  →  /app/uploads/firmas/...
+ *   uploads/firmas/...   →  /app/uploads/firmas/...
+ *   ruta absoluta        →  se devuelve como está
  */
 function resolveFirmaPath(firmaClienteUrl) {
   if (!firmaClienteUrl) return null;
 
-  // Si ya es absoluta y existe, usarla directamente
-  if (path.isAbsolute(firmaClienteUrl) && fs.existsSync(firmaClienteUrl)) {
+  if (path.isAbsolute(firmaClienteUrl)) {
     return firmaClienteUrl;
   }
 
-  // Quitar barra inicial y prefijo redundante 'uploads/'
   let relative = String(firmaClienteUrl).replace(/^\/+/, '');
+
   if (relative.startsWith('uploads/')) {
-    relative = relative.slice('uploads/'.length);
+    relative = relative.replace(/^uploads\//, '');
   }
 
-  // Intentar en UPLOADS_BASE (Docker / producción)
-  const fromBase = path.join(UPLOADS_BASE, relative);
-  if (fs.existsSync(fromBase)) return fromBase;
-
-  // Fallback: relativo al directorio del backend (desarrollo local)
-  const fromLocal = path.join(__dirname, '..', 'uploads', relative);
-  if (fs.existsSync(fromLocal)) return fromLocal;
-
-  // Devolver la ruta principal para que el log muestre dónde se buscó
-  return fromBase;
+  return path.join('/app/uploads', relative);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Inserta la imagen de firma del cliente en la página 2 del PDF.
- * No lanza excepción si la firma no existe — el PDF se genera igual.
+ * Embebe la imagen de firma en la página 2.
+ * Si la firma no existe o falla, el PDF se genera igual sin ella.
  */
 async function insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl) {
-  console.log('[ContratoPDF] firma_cliente_url recibida:', firmaClienteUrl);
+  console.log('[ContratoPDF] firma_cliente_url:', firmaClienteUrl);
 
   const firmaPath = resolveFirmaPath(firmaClienteUrl);
-  console.log('[ContratoPDF] firmaPath resuelto:', firmaPath);
+  console.log('[ContratoPDF] firmaPath:', firmaPath);
+  console.log('[ContratoPDF] existe firma:', firmaPath ? fs.existsSync(firmaPath) : false);
 
   if (!firmaPath || !fs.existsSync(firmaPath)) {
     console.warn('[ContratoPDF] ⚠️  Firma no encontrada — PDF generado sin firma.');
     return;
   }
-
-  console.log('[ContratoPDF] ✅ Archivo de firma encontrado.');
 
   try {
     const firmaBytes = fs.readFileSync(firmaPath);
@@ -125,7 +115,7 @@ async function insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl) {
       height: FIRMA_CLIENTE_H,
     });
 
-    console.log('[ContratoPDF] ✅ Firma insertada correctamente.');
+    console.log('[ContratoPDF] firma insertada correctamente');
   } catch (err) {
     console.error('[ContratoPDF] ❌ Error insertando firma:', err.message);
   }
@@ -133,11 +123,11 @@ async function insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Genera el contrato PDF para una reparación.
+ * Genera el contrato PDF rellenando la plantilla con los datos de la reparación.
  *
- * @param {object} datos
- * @param {string}      datos.reparacionId      - ID (REP1769280424892)
- * @param {string}      datos.fecha             - Fecha DD/MM/YYYY
+ * @param {object}      datos
+ * @param {string}      datos.reparacionId
+ * @param {string}      datos.fecha             DD/MM/YYYY
  * @param {string}      datos.clienteNombre
  * @param {string}      datos.clienteTel
  * @param {string}      datos.clienteEmail
@@ -148,90 +138,99 @@ async function insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl) {
  * @param {string}      datos.imei
  * @param {string}      datos.acceso
  * @param {string}      datos.descripcion
- * @param {number}      datos.costoTotal        - En quetzales
- * @param {number}      datos.anticipo          - En quetzales
- * @param {number}      datos.saldo             - En quetzales
- * @param {string|null} datos.firmaClienteUrl   - URL relativa guardada en BD
+ * @param {number}      datos.costoTotal        En quetzales
+ * @param {number}      datos.anticipo          En quetzales
+ * @param {number}      datos.saldo             En quetzales
+ * @param {string|null} datos.firmaClienteUrl   URL relativa guardada en BD
  *
  * @returns {Promise<{absolutePath: string, relativePath: string}>}
  */
 async function generarContrato(datos) {
   const {
     reparacionId,
-    fecha         = new Date().toLocaleDateString('es-GT'),
-    clienteNombre = '',
-    clienteTel    = '',
-    clienteEmail  = '',
-    tipoEquipo    = '',
-    marca         = '',
-    modelo        = '',
-    color         = '',
-    imei          = '',
-    acceso        = '',
-    descripcion   = '',
-    costoTotal    = 0,
-    anticipo      = 0,
-    saldo         = 0,
+    fecha           = new Date().toLocaleDateString('es-GT'),
+    clienteNombre   = '',
+    clienteTel      = '',
+    clienteEmail    = '',
+    tipoEquipo      = '',
+    marca           = '',
+    modelo          = '',
+    color           = '',
+    imei            = '',
+    acceso          = '',
+    descripcion     = '',
+    costoTotal      = 0,
+    anticipo        = 0,
+    saldo           = 0,
     firmaClienteUrl = null,
   } = datos;
 
-  // ── 1. Cargar template ────────────────────────────────────────────────────
+  // ── 1. Cargar plantilla ───────────────────────────────────────────────────
+  console.log('[ContratoPDF] templatePath:', TEMPLATE_PATH);
+
   if (!fs.existsSync(TEMPLATE_PATH)) {
-    throw new Error(`[ContratoPDF] Template no encontrado: ${TEMPLATE_PATH}`);
+    throw new Error(`[ContratoPDF] Plantilla no encontrada: ${TEMPLATE_PATH}`);
   }
-  const templateBytes = fs.readFileSync(TEMPLATE_PATH);
-  const templateDoc   = await PDFDocument.load(templateBytes);
 
-  // ── 2. Nuevo PDF con solo las 2 primeras páginas ──────────────────────────
-  const doc = await PDFDocument.create();
-  const [pag1, pag2] = await doc.copyPages(templateDoc, [0, 1]);
-  doc.addPage(pag1);
-  doc.addPage(pag2);
+  const existingPdfBytes = fs.readFileSync(TEMPLATE_PATH);
+  const pdfDoc = await PDFDocument.load(existingPdfBytes);
 
-  const font     = await doc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  console.log('[ContratoPDF] páginas:', pdfDoc.getPageCount());
+
+  // ── 2. Asegurar exactamente 2 páginas ────────────────────────────────────
+  while (pdfDoc.getPageCount() > 2) {
+    pdfDoc.removePage(2);
+  }
+
+  const pages = pdfDoc.getPages();
+  const page1 = pages[0];
+  const page2 = pages[1];
+
+  // ── 3. Fuentes ────────────────────────────────────────────────────────────
+  const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const COLOR    = rgb(0.05, 0.05, 0.05);
 
   const drawText = (page, text, x, y, opts = {}) => {
     page.drawText(String(text ?? ''), {
-      x, y,
-      size:     opts.size  || 9,
-      font:     opts.bold  ? fontBold : font,
-      color:    opts.color || COLOR,
+      x,
+      y,
+      size:     opts.size     || 9,
+      font:     opts.bold     ? fontBold : font,
+      color:    opts.color    || COLOR,
       maxWidth: opts.maxWidth,
     });
   };
 
   const fmtQ = (n) => `Q ${Number(n).toFixed(2)}`;
 
-  // ── 3. Datos en página 1 ──────────────────────────────────────────────────
-  const p1 = doc.getPage(0);
-  drawText(p1, fecha,              C1.fecha.x,         C1.fecha.y,         { bold: true });
-  drawText(p1, reparacionId,       C1.noOrden.x,       C1.noOrden.y,       { bold: true });
-  drawText(p1, clienteNombre,      C1.clienteNombre.x, C1.clienteNombre.y);
-  drawText(p1, clienteTel,         C1.clienteTel.x,    C1.clienteTel.y);
-  drawText(p1, clienteEmail,       C1.clienteEmail.x,  C1.clienteEmail.y);
-  drawText(p1, tipoEquipo,         C1.tipoEquipo.x,    C1.tipoEquipo.y);
-  drawText(p1, marca,              C1.marca.x,         C1.marca.y);
-  drawText(p1, modelo,             C1.modelo.x,        C1.modelo.y);
-  drawText(p1, color,              C1.color.x,         C1.color.y);
-  drawText(p1, imei || '—',        C1.imei.x,          C1.imei.y);
-  drawText(p1, acceso || 'ninguno',C1.acceso.x,        C1.acceso.y);
-  drawText(p1, descripcion,        C1.descripcion.x,   C1.descripcion.y,   { maxWidth: C1.descripcion.maxWidth });
-  drawText(p1, fmtQ(costoTotal),   C1.costoTotal.x,    C1.costoTotal.y,    { bold: true });
-  drawText(p1, fmtQ(anticipo),     C1.anticipo.x,      C1.anticipo.y);
-  drawText(p1, fmtQ(saldo),        C1.saldo.x,         C1.saldo.y);
+  // ── 4. Rellenar Página 1 ──────────────────────────────────────────────────
+  drawText(page1, fecha,               C1.fecha.x,         C1.fecha.y,         { bold: true });
+  drawText(page1, reparacionId,        C1.noOrden.x,       C1.noOrden.y,       { bold: true });
+  drawText(page1, clienteNombre,       C1.clienteNombre.x, C1.clienteNombre.y);
+  drawText(page1, clienteTel,          C1.clienteTel.x,    C1.clienteTel.y);
+  drawText(page1, clienteEmail,        C1.clienteEmail.x,  C1.clienteEmail.y);
+  drawText(page1, tipoEquipo,          C1.tipoEquipo.x,    C1.tipoEquipo.y);
+  drawText(page1, marca,               C1.marca.x,         C1.marca.y);
+  drawText(page1, modelo,              C1.modelo.x,        C1.modelo.y);
+  drawText(page1, color,               C1.color.x,         C1.color.y);
+  drawText(page1, imei || '—',         C1.imei.x,          C1.imei.y);
+  drawText(page1, acceso || 'ninguno', C1.acceso.x,        C1.acceso.y);
+  drawText(page1, descripcion,         C1.descripcion.x,   C1.descripcion.y,   { maxWidth: C1.descripcion.maxWidth });
 
-  // ── 4. Firma en página 2 ──────────────────────────────────────────────────
-  const p2 = doc.getPage(1);
-  await insertarFirmaCliente(doc, p2, firmaClienteUrl);
+  // ── 5. Rellenar Página 2 (costos + firma) ─────────────────────────────────
+  drawText(page2, fmtQ(costoTotal), COSTO_X,      COSTO_Y,      { bold: true });
+  drawText(page2, fmtQ(anticipo),   ANTICIPO_X,   ANTICIPO_Y);
+  drawText(page2, fmtQ(saldo),      DIFERENCIA_X, DIFERENCIA_Y);
 
-  // ── 5. Guardar PDF ────────────────────────────────────────────────────────
+  await insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl);
+
+  // ── 6. Guardar PDF ────────────────────────────────────────────────────────
   const outputDir  = path.join(CONTRATOS_DIR, reparacionId);
   const outputFile = path.join(outputDir, `contrato_reparacion_${reparacionId}.pdf`);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const pdfBytes = await doc.save();
+  const pdfBytes = await pdfDoc.save();
   fs.writeFileSync(outputFile, pdfBytes);
 
   const relativePath = `/uploads/contratos/${reparacionId}/contrato_reparacion_${reparacionId}.pdf`;
