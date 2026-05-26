@@ -58,10 +58,10 @@ const DIFERENCIA_Y = 240;
 // COORDENADAS FIRMA DEL CLIENTE — PÁGINA 2
 // Ajustar para que quede sobre la línea "Cliente:" de la plantilla.
 // ══════════════════════════════════════════════════════════════════════════════
-const FIRMA_CLIENTE_X = 500;
-const FIRMA_CLIENTE_Y = 18;
-const FIRMA_CLIENTE_W = 120;
-const FIRMA_CLIENTE_H = 35;
+const FIRMA_CLIENTE_X = 440;  // DEBUG — ajustar tras confirmar posición
+const FIRMA_CLIENTE_Y = 20;   // DEBUG
+const FIRMA_CLIENTE_W = 190;  // DEBUG
+const FIRMA_CLIENTE_H = 70;   // DEBUG
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
@@ -120,6 +120,16 @@ async function insertarFirmaCliente(pdfDoc, page2, firmaClienteUrl) {
   try {
     const firmaBytes = fs.readFileSync(firmaPath);
     const firmaImage = await pdfDoc.embedPng(firmaBytes);
+
+    // DEBUG: rectángulo rojo para confirmar posición — quitar después
+    page2.drawRectangle({
+      x:           FIRMA_CLIENTE_X,
+      y:           FIRMA_CLIENTE_Y,
+      width:       FIRMA_CLIENTE_W,
+      height:      FIRMA_CLIENTE_H,
+      borderColor: rgb(1, 0, 0),
+      borderWidth: 1,
+    });
 
     page2.drawImage(firmaImage, {
       x:      FIRMA_CLIENTE_X,
