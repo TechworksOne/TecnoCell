@@ -1,4 +1,5 @@
 import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
+import tecnocellLogo from "../../assets/tecnocell-logo.png";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../store/useAuth";
@@ -43,19 +44,12 @@ export default function Topbar() {
         >
           <Menu size={18} />
         </button>
-        <div
-          className="shrink-0 flex items-center justify-center rounded-lg font-black text-white text-sm select-none"
-          style={{
-            width: 34,
-            height: 34,
-            background: "linear-gradient(135deg, #48B9E6 0%, #2563EB 100%)",
-            boxShadow: "0 2px 8px rgba(72,185,230,0.35)",
-            letterSpacing: "-0.5px",
-            fontSize: 13,
-          }}
-        >
-          TC
-        </div>
+        <img
+          src={tecnocellLogo}
+          alt="Tecnocell"
+          className="shrink-0 rounded-lg object-contain"
+          style={{ width: 34, height: 34 }}
+        />
 
         <div className="flex flex-col leading-tight">
           <span
