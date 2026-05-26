@@ -136,11 +136,11 @@ export default function KanbanCard({
         <div className="flex items-center gap-1.5 min-w-0">
           <Wrench size={10} className="text-slate-400 shrink-0" />
           <span className={`text-[11px] truncate leading-tight ${
-            rep.tecnicoAsignado
+            (rep.tecnicoNombre?.trim() || rep.tecnicoAsignado)
               ? 'text-slate-500 dark:text-slate-400'
               : 'text-slate-400 dark:text-slate-500 italic'
           }`}>
-            {rep.tecnicoAsignado || 'Sin asignar'}
+            {rep.tecnicoNombre?.trim() || rep.tecnicoAsignado || 'Sin asignar'}
           </span>
         </div>
 
