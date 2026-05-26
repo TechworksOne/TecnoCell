@@ -23,8 +23,7 @@ exports.getDashboardStats = async (req, res) => {
     const [[ventasHoy]] = await connection.query(`
       SELECT
         COUNT(*) AS cantidad,
-        COALESCE(SUM(total), 0) AS ingresos,
-        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_estimada
+        COALESCE(SUM(total), 0) AS ingresos
       FROM ventas
       WHERE DATE(COALESCE(fecha_venta, created_at)) = CURDATE()
         AND estado != 'ANULADA'
@@ -34,9 +33,7 @@ exports.getDashboardStats = async (req, res) => {
     const [[ventasMes]] = await connection.query(`
       SELECT
         COUNT(*) AS cantidad,
-        COALESCE(SUM(total), 0) AS ingresos,
-        COALESCE(SUM(COALESCE(costo_total, 0)), 0) AS costo_total,
-        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_bruta
+        COALESCE(SUM(total), 0) AS ingresos
       FROM ventas
       WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(CURDATE())
         AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(CURDATE())
@@ -45,9 +42,7 @@ exports.getDashboardStats = async (req, res) => {
 
     // ── Ventas mes anterior (para comparación %) ─────────────────────────────
     const [[ventasMesAnterior]] = await connection.query(`
-      SELECT
-        COALESCE(SUM(total), 0) AS ingresos,
-        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia_bruta
+      SELECT COALESCE(SUM(total), 0) AS ingresos
       FROM ventas
       WHERE MONTH(COALESCE(fecha_venta, created_at)) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
         AND YEAR(COALESCE(fecha_venta, created_at))  = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
@@ -64,7 +59,7 @@ exports.getDashboardStats = async (req, res) => {
         AND YEAR(fecha_movimiento)  = YEAR(CURDATE())
     `);
 
-    // ── Compras (COGS de inventario) mes actual ──────────────────────────────
+    // ── Compras mes actual ───────────────────────────────────────────────────
     const [[comprasMes]] = await connection.query(`
       SELECT COALESCE(SUM(total), 0) AS total
       FROM compras
@@ -73,13 +68,21 @@ exports.getDashboardStats = async (req, res) => {
         AND estado IN ('CONFIRMADA', 'RECIBIDA')
     `);
 
+    // ── Compras mes anterior ─────────────────────────────────────────────────
+    const [[comprasMesAnterior]] = await connection.query(`
+      SELECT COALESCE(SUM(total), 0) AS total
+      FROM compras
+      WHERE MONTH(fecha_compra) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND YEAR(fecha_compra)  = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        AND estado IN ('CONFIRMADA', 'RECIBIDA')
+    `);
+
     // ── Tendencia 7 días ─────────────────────────────────────────────────────
     const [tendenciaRows] = await connection.query(`
       SELECT
         DATE(COALESCE(fecha_venta, created_at)) AS fecha,
         COUNT(*) AS ventas,
-        COALESCE(SUM(total), 0) AS ingresos,
-        COALESCE(SUM(COALESCE(ganancia_estimada, 0)), 0) AS ganancia
+        COALESCE(SUM(total), 0) AS ingresos
       FROM ventas
       WHERE COALESCE(fecha_venta, created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
         AND estado != 'ANULADA'
@@ -159,24 +162,29 @@ exports.getDashboardStats = async (req, res) => {
 
     connection.release();
 
-    // ── Cálculos financieros ─────────────────────────────────────────────────
-    const ingresosMes      = Number(ventasMes.ingresos)      || 0;
-    const costoVentasMes   = Number(ventasMes.costo_total)   || 0;
-    const gananciaBrutaMes = Number(ventasMes.ganancia_bruta)|| 0;
-    const egresosCajaMes   = Number(egresosCaja.total)       || 0;
-    const comprasMesTotal  = Number(comprasMes.total)        || 0;
+    // ── Cálculos financieros (método periódico: ganancia = ingresos - compras) ─
+    const ingresosMes      = Number(ventasMes.ingresos) || 0;
+    const comprasMesTotal  = Number(comprasMes.total)   || 0;
+    const egresosCajaMes   = Number(egresosCaja.total)  || 0;
+    const gananciaBrutaMes = ingresosMes - comprasMesTotal;          // P&L periódico
     const gananciaNeta     = gananciaBrutaMes - egresosCajaMes;
     const margenBruto      = ingresosMes > 0 ? (gananciaBrutaMes / ingresosMes) * 100 : 0;
     const ticketPromedio   = Number(ventasMes.cantidad) > 0
       ? Math.round(ingresosMes / Number(ventasMes.cantidad)) : 0;
 
-    // % cambio vs mes anterior
-    const ingresosMA   = Number(ventasMesAnterior.ingresos)      || 0;
-    const gananciMA    = Number(ventasMesAnterior.ganancia_bruta) || 0;
-    const cambioIngresos = ingresosMA > 0
+    // % cambio vs mes anterior (mismo método periódico)
+    const ingresosMA      = Number(ventasMesAnterior.ingresos)    || 0;
+    const comprasMA       = Number(comprasMesAnterior.total)      || 0;
+    const gananciMA       = ingresosMA - comprasMA;
+    const cambioIngresos  = ingresosMA > 0
       ? ((ingresosMes - ingresosMA) / ingresosMA) * 100 : null;
-    const cambioGanancia = gananciMA > 0
-      ? ((gananciaBrutaMes - gananciMA) / gananciMA) * 100 : null;
+    const cambioGanancia  = gananciMA !== 0
+      ? ((gananciaBrutaMes - gananciMA) / Math.abs(gananciMA)) * 100 : null;
+
+    // Ganancia estimada hoy: aplica margen del mes a los ingresos de hoy
+    const ingresosHoy = Number(ventasHoy.ingresos) || 0;
+    const gananciaHoyEstimada = margenBruto > 0
+      ? Math.round(ingresosHoy * (margenBruto / 100)) : 0;
 
     // Tasa de conversión cotizaciones
     const conversionRate = Number(cotizMes.total) > 0
@@ -197,7 +205,7 @@ exports.getDashboardStats = async (req, res) => {
         fecha:    key,
         ventas:   row ? Number(row.ventas)   : 0,
         ingresos: row ? Math.round(Number(row.ingresos) / 100) : 0,
-        ganancia: row ? Math.round(Number(row.ganancia) / 100) : 0,
+        ganancia: row ? Math.round(Number(row.ingresos) * (margenBruto / 100) / 100) : 0,
       });
     }
 
@@ -206,11 +214,11 @@ exports.getDashboardStats = async (req, res) => {
 
       // ── Bloque financiero completo (solo admin) ──────────────────────────
       financiero: {
-        ingresos_hoy:        Math.round(Number(ventasHoy.ingresos) / 100),
-        ganancia_hoy:        Math.round(Number(ventasHoy.ganancia_estimada) / 100),
+        ingresos_hoy:        Math.round(ingresosHoy / 100),
+        ganancia_hoy:        Math.round(gananciaHoyEstimada / 100),
         ventas_hoy:          Number(ventasHoy.cantidad),
         ingresos_mes:        Math.round(ingresosMes / 100),
-        costo_ventas_mes:    Math.round(costoVentasMes / 100),
+        costo_ventas_mes:    Math.round(comprasMesTotal / 100),
         ganancia_bruta_mes:  Math.round(gananciaBrutaMes / 100),
         ganancia_neta_mes:   Math.round(gananciaNeta / 100),
         egresos_caja_mes:    Math.round(egresosCajaMes / 100),
@@ -254,7 +262,7 @@ exports.getDashboardStats = async (req, res) => {
         mes: Math.round(comprasMesTotal / 100),
       },
       ganancias: {
-        hoy: Math.round(Number(ventasHoy.ganancia_estimada) / 100),
+        hoy: Math.round(gananciaHoyEstimada / 100),
         mes: Math.round(gananciaNeta / 100),
       },
       clientes: {
