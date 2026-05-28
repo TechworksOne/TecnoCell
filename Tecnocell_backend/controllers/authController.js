@@ -180,12 +180,15 @@ const uploadMe = multer({
 const updateMePerfil = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { telefono, direccion } = req.body;
+    const { telefono, direccion, nombres, apellidos, firma } = req.body;
     const updateFields = [];
     const updateValues = [];
 
+    if (nombres !== undefined) { updateFields.push('nombres = ?'); updateValues.push(nombres || null); }
+    if (apellidos !== undefined) { updateFields.push('apellidos = ?'); updateValues.push(apellidos || null); }
     if (telefono !== undefined) { updateFields.push('telefono = ?'); updateValues.push(telefono || null); }
     if (direccion !== undefined) { updateFields.push('direccion = ?'); updateValues.push(direccion || null); }
+    if (firma !== undefined) { updateFields.push('firma = ?'); updateValues.push(firma || null); }
     if (req.file) {
       const foto_perfil = `/uploads/usuarios/${userId}/perfil/${req.file.filename}`;
       updateFields.push('foto_perfil = ?');
@@ -205,7 +208,7 @@ const updateMePerfil = async (req, res) => {
     }
 
     const [[perfil]] = await db.query(
-      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil FROM user_profiles WHERE user_id = ?',
+      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil, firma FROM user_profiles WHERE user_id = ?',
       [userId]
     );
     res.json({ success: true, data: { perfil: perfil || null } });

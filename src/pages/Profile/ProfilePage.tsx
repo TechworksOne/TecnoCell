@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   User, Mail, Phone, MapPin, Shield, Clock, Calendar,
   Edit2, Save, X, Camera, CheckCircle, Key, Tag,
-  Loader2, AlertTriangle,
+  Loader2, AlertTriangle, Pen,
 } from 'lucide-react';
 import { useAuth } from '../../store/useAuth';
 import { useToast } from '../../components/ui/Toast';
@@ -30,6 +30,7 @@ interface UserProfile {
     dpi: string | null;
     direccion: string | null;
     foto_perfil: string | null;
+    firma: string | null;
   } | null;
   roles: string[];
 }
@@ -83,6 +84,116 @@ const cardStyle = {
   borderColor: 'var(--color-border)',
 };
 
+// ─── Signature Pad ────────────────────────────────────────────────────────────
+
+function SignaturePad({
+  initialValue,
+  onChange,
+}: {
+  initialValue: string | null;
+  onChange: (dataUrl: string | null) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!initialValue || !canvasRef.current) return;
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx) ctx.drawImage(img, 0, 0);
+    };
+    img.src = initialValue;
+  }, []);
+
+  const getXY = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const onStart = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    e.preventDefault();
+    drawing.current = true;
+    lastPos.current = getXY(e);
+  };
+
+  const onMove = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    e.preventDefault();
+    if (!drawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const pos = getXY(e);
+    ctx.beginPath();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (lastPos.current) {
+      ctx.moveTo(lastPos.current.x, lastPos.current.y);
+      ctx.lineTo(pos.x, pos.y);
+    }
+    ctx.stroke();
+    lastPos.current = pos;
+    onChange(canvasRef.current.toDataURL('image/png'));
+  };
+
+  const onEnd = () => {
+    drawing.current = false;
+    lastPos.current = null;
+  };
+
+  const clear = () => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    onChange(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <canvas
+        ref={canvasRef}
+        width={580}
+        height={130}
+        className="w-full rounded-xl border cursor-crosshair touch-none block"
+        style={{ background: '#ffffff', borderColor: 'var(--color-border)' }}
+        onMouseDown={onStart}
+        onMouseMove={onMove}
+        onMouseUp={onEnd}
+        onMouseLeave={onEnd}
+        onTouchStart={onStart}
+        onTouchMove={onMove}
+        onTouchEnd={onEnd}
+      />
+      <button
+        type="button"
+        onClick={clear}
+        className="text-xs font-semibold text-red-500 hover:underline cursor-pointer"
+      >
+        Limpiar firma
+      </button>
+    </div>
+  );
+}
+
 // ─── Avatar component ─────────────────────────────────────────────────────────
 
 function AvatarImage({
@@ -121,6 +232,7 @@ interface EditForm {
   direccion: string;
   foto: File | null;
   fotoPreview: string | null;
+  firma: string | null;
 }
 
 function ModalEditar({
@@ -142,6 +254,7 @@ function ModalEditar({
     direccion: profile.perfil?.direccion ?? '',
     foto: null,
     fotoPreview: buildAvatarUrl(profile.perfil?.foto_perfil),
+    firma: profile.perfil?.firma ?? null,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -170,6 +283,8 @@ function ModalEditar({
       fd.append('telefono', form.telefono);
       fd.append('direccion', form.direccion);
       if (form.foto) fd.append('foto_perfil', form.foto);
+
+      if (form.firma !== undefined) fd.append('firma', form.firma ?? '');
 
       await axios.put(`${API_URL}/auth/me/perfil`, fd, {
         headers: {
@@ -326,6 +441,22 @@ function ModalEditar({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Firma */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] mb-3 flex items-center gap-2">
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+              Firma digital
+              <span className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
+            </p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-2">
+              Dibuja tu firma en el area de abajo
+            </p>
+            <SignaturePad
+              initialValue={form.firma}
+              onChange={v => set('firma', v)}
+            />
           </div>
 
           {error && (
@@ -656,6 +787,28 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Firma */}
+          <div className="rounded-2xl border p-5" style={cardStyle}>
+            <SectionTitle icon={<Pen size={14} />} label="Firma digital" />
+            {profile.perfil?.firma ? (
+              <div
+                className="rounded-xl overflow-hidden border"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <img
+                  src={profile.perfil.firma}
+                  alt="Firma"
+                  className="w-full block"
+                  style={{ background: '#ffffff', maxHeight: 120, objectFit: 'contain' }}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Sin firma registrada. Haz clic en &quot;Editar perfil&quot; para agregar una.
+              </p>
+            )}
           </div>
         </div>
       </div>
