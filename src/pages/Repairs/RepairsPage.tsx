@@ -950,6 +950,7 @@ export default function RepairsPage() {
     <div class="row"><span class="b">Ingreso: </span>${esc(fechaIngreso)}</div>
     <div class="row"><span class="b">T\u00e9cnico: </span>${esc(tecnico)}</div>
     <div class="row"><span class="b">Prioridad: </span>${esc(r.prioridad)}</div>
+    <div class="row"><span class="b">Recibido por: </span>${esc(creadoPor)}</div>
     <div class="row full nota"><span class="b">Nota: </span>${esc(problema)}</div>
   </div>
 </div>
