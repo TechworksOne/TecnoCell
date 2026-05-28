@@ -7,9 +7,9 @@ import {
   DollarSign,
   Activity,
   Eye,
-  Edit,
-  Trash2,
-  Copy,
+  Pencil,
+  Power,
+  PowerOff,
   Wrench,
   Battery,
   Monitor,
@@ -18,6 +18,7 @@ import {
   Speaker,
   Smartphone,
   Building2,
+  History,
 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
@@ -123,12 +124,14 @@ const getCondicionBadge = (condicion: string) => {
   return map[condicion] || 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400';
 };
 
-function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
+const actionBtn = "p-1.5 rounded-lg transition-colors text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#48B9E6] hover:bg-[rgba(72,185,230,0.10)]";
+
+function RepuestoRow({ repuesto, onView, onEdit, onToggle, onKardex }: {
   repuesto: Repuesto;
   onView: (r: Repuesto) => void;
   onEdit: (r: Repuesto) => void;
-  onDelete: (id: string) => void;
-  onDuplicate: (r: Repuesto) => void;
+  onToggle: (r: Repuesto) => void;
+  onKardex: (r: Repuesto) => void;
 }) {
   const { user } = useAuth();
   const showCost = canViewCosts(user?.roles);
@@ -189,10 +192,12 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={() => onView(repuesto)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Ver detalles"><Eye size={14} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-          <button onClick={() => onEdit(repuesto)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Editar"><Edit size={14} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-          <button onClick={() => onDuplicate(repuesto)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Duplicar"><Copy size={14} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-          <button onClick={() => onDelete(repuesto.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors" title="Eliminar"><Trash2 size={14} className="text-red-400 dark:text-red-500" /></button>
+          <button onClick={() => onView(repuesto)} className={actionBtn} title="Ver detalles"><Eye size={14} /></button>
+          <button onClick={() => onEdit(repuesto)} className={actionBtn} title="Editar repuesto"><Pencil size={14} /></button>
+          <button onClick={() => onToggle(repuesto)} className={actionBtn} title={repuesto.activo ? 'Desactivar repuesto' : 'Activar repuesto'}>
+            {repuesto.activo ? <PowerOff size={14} className="text-orange-400 dark:text-orange-300" /> : <Power size={14} className="text-emerald-500 dark:text-emerald-400" />}
+          </button>
+          <button onClick={() => onKardex(repuesto)} className={actionBtn} title="Ver movimientos"><History size={14} /></button>
         </div>
       </div>
 
@@ -247,10 +252,12 @@ function RepuestoRow({ repuesto, onView, onEdit, onDelete, onDuplicate }: {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => onView(repuesto)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Ver"><Eye size={16} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-            <button onClick={() => onEdit(repuesto)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Editar"><Edit size={16} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-            <button onClick={() => onDuplicate(repuesto)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Duplicar"><Copy size={16} className="text-[#5E7184] dark:text-[#B8C2D1]" /></button>
-            <button onClick={() => onDelete(repuesto.id)} className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors" title="Eliminar"><Trash2 size={16} className="text-red-400 dark:text-red-500" /></button>
+            <button onClick={() => onView(repuesto)} className={actionBtn} title="Ver detalles"><Eye size={16} /></button>
+            <button onClick={() => onEdit(repuesto)} className={actionBtn} title="Editar repuesto"><Pencil size={16} /></button>
+            <button onClick={() => onToggle(repuesto)} className={actionBtn} title={repuesto.activo ? 'Desactivar repuesto' : 'Activar repuesto'}>
+              {repuesto.activo ? <PowerOff size={16} className="text-orange-400 dark:text-orange-300" /> : <Power size={16} className="text-emerald-500 dark:text-emerald-400" />}
+            </button>
+            <button onClick={() => onKardex(repuesto)} className={actionBtn} title="Ver movimientos"><History size={16} /></button>
           </div>
         </div>
       </div>
@@ -277,12 +284,16 @@ export function RepuestosPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showKardexModal, setShowKardexModal] = useState(false);
 
   // Selection
   const [selectedRepuesto, setSelectedRepuesto] = useState<Repuesto | null>(null);
   const [repuestoToDelete, setRepuestoToDelete] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [kardexRepuesto, setKardexRepuesto] = useState<Repuesto | null>(null);
+  const [kardexData, setKardexData] = useState<any[]>([]);
+  const [kardexLoading, setKardexLoading] = useState(false);
 
   useEffect(() => { loadRepuestos(); }, [loadRepuestos]);
 
@@ -360,6 +371,21 @@ export function RepuestosPage() {
     }
   };
 
+  const handleKardex = async (r: Repuesto) => {
+    setKardexRepuesto(r);
+    setKardexData([]);
+    setShowKardexModal(true);
+    setKardexLoading(true);
+    try {
+      const data = await repuestoService.getMovimientosRepuesto(Number(r.id));
+      setKardexData(data);
+    } catch {
+      toast.add('Error al cargar movimientos', 'error');
+    } finally {
+      setKardexLoading(false);
+    }
+  };
+
   const openNewModal = () => { setFormEditId(null); setShowFormModal(true); };
 
   const selectedRepuestoImageUrls = getSafeImageUrls(selectedRepuesto?.imagenes);
@@ -417,7 +443,7 @@ export function RepuestosPage() {
           <option value="available">Disponible</option>
           <option value="low">Stock bajo</option>
           <option value="out">Sin stock</option>
-        </Select>z
+        </Select>
         {hasFilters && (
           <Button variant="ghost" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setCategoryFilter('all'); setStockFilter('all'); }} className="text-sm text-[#5E7184] dark:text-[#B8C2D1] hover:text-[#14324A] dark:hover:text-[#F8FAFC] border border-[#D6EEF8] dark:border-[rgba(72,185,230,0.16)] rounded-xl px-3 py-2 whitespace-nowrap shrink-0">
             Limpiar
@@ -453,8 +479,8 @@ export function RepuestosPage() {
                 repuesto={r}
                 onView={handleViewDetails}
                 onEdit={handleEditRepuesto}
-                onDelete={handleDeleteRepuesto}
-                onDuplicate={handleDuplicateRepuesto}
+                onToggle={handleToggleActive}
+                onKardex={handleKardex}
               />
             ))}
           </div>
@@ -678,6 +704,65 @@ export function RepuestosPage() {
         message="¿Estás seguro de que deseas eliminar este repuesto? Esta acción no se puede deshacer."
         confirmText="Eliminar"
       />
+
+      {/* ── Kardex / Movimientos Modal ───────────────────────────────── */}
+      <Modal open={showKardexModal} onClose={() => setShowKardexModal(false)} title={`Movimientos — ${kardexRepuesto?.nombre ?? ''}`}>
+        {kardexLoading ? (
+          <div className="flex items-center justify-center py-10 gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#48B9E6] border-t-transparent" />
+            <p className="text-sm text-[#5E7184] dark:text-[#B8C2D1]">Cargando movimientos...</p>
+          </div>
+        ) : kardexData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <History size={28} className="text-[#48B9E6] mb-2" />
+            <p className="text-sm font-semibold text-[#14324A] dark:text-[#F8FAFC]">Sin movimientos</p>
+            <p className="text-xs text-[#5E7184] dark:text-[#B8C2D1] mt-1">No hay movimientos de stock registrados para este repuesto.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.12)]">
+                  <th className="text-left py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Fecha</th>
+                  <th className="text-left py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Tipo</th>
+                  <th className="text-right py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Cant.</th>
+                  <th className="text-right py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Stock anterior</th>
+                  <th className="text-right py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Stock nuevo</th>
+                  <th className="text-left py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Usuario</th>
+                  <th className="text-left py-2 px-3 text-[11px] font-semibold text-[#5E7184] dark:text-[#B8C2D1] uppercase tracking-wide">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kardexData.map((mov: any) => {
+                  const isEntrada = ['ENTRADA', 'DEVOLUCION'].includes(mov.tipo_movimiento);
+                  const isSalida = ['SALIDA', 'VENTA', 'REPARACION'].includes(mov.tipo_movimiento);
+                  return (
+                    <tr key={mov.id} className="border-b border-[#D6EEF8] dark:border-[rgba(72,185,230,0.06)] hover:bg-slate-50 dark:hover:bg-[#0A1220] transition-colors">
+                      <td className="py-2 px-3 text-[12px] text-[#5E7184] dark:text-[#B8C2D1] whitespace-nowrap">
+                        {new Date(mov.created_at).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          isEntrada ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' :
+                          isSalida ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300' :
+                          'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
+                        }`}>{mov.tipo_movimiento}</span>
+                      </td>
+                      <td className={`py-2 px-3 text-right text-[12px] font-bold ${isEntrada ? 'text-emerald-600 dark:text-emerald-400' : isSalida ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                        {isEntrada ? '+' : isSalida ? '-' : ''}{mov.cantidad}
+                      </td>
+                      <td className="py-2 px-3 text-right text-[12px] text-[#5E7184] dark:text-[#B8C2D1]">{mov.stock_anterior}</td>
+                      <td className="py-2 px-3 text-right text-[12px] font-semibold text-[#14324A] dark:text-[#F8FAFC]">{mov.stock_nuevo}</td>
+                      <td className="py-2 px-3 text-[12px] text-[#5E7184] dark:text-[#B8C2D1]">{mov.usuario_nombre ?? '—'}</td>
+                      <td className="py-2 px-3 text-[12px] text-[#7F8A99] max-w-[160px] truncate">{mov.notas ?? '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

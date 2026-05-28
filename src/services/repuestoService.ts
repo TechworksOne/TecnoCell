@@ -189,6 +189,14 @@ export const registrarMovimientoStock = async (
   return response.data;
 };
 
+/**
+ * Obtener historial de movimientos de un repuesto
+ */
+export const getMovimientosRepuesto = async (repuestoId: number): Promise<any[]> => {
+  const response = await api.get(`/repuestos/${repuestoId}/movimientos`);
+  return response.data;
+};
+
 // ============================================
 // FUNCIONES HELPER
 // ============================================

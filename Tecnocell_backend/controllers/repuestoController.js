@@ -804,6 +804,29 @@ exports.createModeloRepuesto = async (req, res) => {
 exports.getLineasRepuesto = exports.getModelosRepuesto;
 exports.createLineaRepuesto = exports.createModeloRepuesto;
 
+/**
+ * GET /api/repuestos/:id/movimientos
+ * Obtener historial de movimientos de un repuesto
+ */
+exports.getMovimientosRepuesto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query(
+      `SELECT rm.*, u.username AS usuario_nombre
+       FROM repuestos_movimientos rm
+       LEFT JOIN users u ON u.id = rm.usuario_id
+       WHERE rm.repuesto_id = ?
+       ORDER BY rm.created_at DESC
+       LIMIT 200`,
+      [id]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener movimientos de repuesto:', error);
+    res.status(500).json({ error: 'Error al obtener movimientos', details: error.message });
+  }
+};
+
 // ============================================================================
 
 /**

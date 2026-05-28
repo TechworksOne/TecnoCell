@@ -45,6 +45,9 @@ router.put('/:id', repuestoController.uploadRepuestos, repuestoController.update
 // DELETE /api/repuestos/:id - Eliminar repuesto
 router.delete('/:id', repuestoController.deleteRepuesto);
 
+// GET /api/repuestos/:id/movimientos - Historial de movimientos de stock
+router.get('/:id/movimientos', verifyToken, repuestoController.getMovimientosRepuesto);
+
 // POST /api/repuestos/:id/movimiento - Registrar movimiento de stock
 router.post('/:id/movimiento', repuestoController.registrarMovimiento);
 
