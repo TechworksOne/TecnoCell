@@ -208,8 +208,12 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
 
     if (hasLoadedPurchases) {
       const quotes = purchases.filter((p) => p.type === 'quote');
-      const completedPurchases = purchases.filter((p) => 
-        p.status === 'PAGADA' || p.status === 'PARCIAL' || p.status === 'won' || p.status === 'completed'
+      const REPAIR_EXCLUDED = ['CANCELADA'];
+      const SALE_INCLUDED = ['PAGADA', 'PARCIAL', 'won', 'completed'];
+      const completedPurchases = purchases.filter((p) =>
+        p.type === 'repair'
+          ? !REPAIR_EXCLUDED.includes(p.status)
+          : SALE_INCLUDED.includes(p.status)
       );
       totalSpent = completedPurchases.reduce((sum, p) => sum + (p.total || 0), 0);
       totalQuotes = customerAny.totalCotizaciones || quotes.length;

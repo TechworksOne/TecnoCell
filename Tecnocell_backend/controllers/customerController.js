@@ -6,8 +6,8 @@ const getAllCustomers = async (req, res) => {
     const [customers] = await db.query(
       `SELECT 
         c.*,
-        COALESCE(v.total_ventas, 0) AS total_ventas,
-        COALESCE(v.total_gastado, 0) AS total_gastado,
+        COALESCE(v.total_ventas, 0) + COALESCE(rep.total_reparaciones, 0) AS total_ventas,
+        COALESCE(v.total_gastado, 0) + COALESCE(rep.total_gastado_rep, 0) AS total_gastado,
         COALESCE(cot.total_cotizaciones, 0) AS total_cotizaciones
        FROM clientes c
        LEFT JOIN (
@@ -18,6 +18,14 @@ const getAllCustomers = async (req, res) => {
          WHERE estado != 'ANULADA'
          GROUP BY cliente_id
        ) v ON v.cliente_id = c.id
+       LEFT JOIN (
+         SELECT cliente_id,
+           COUNT(*) AS total_reparaciones,
+           SUM(total) AS total_gastado_rep
+         FROM reparaciones
+         WHERE cliente_id IS NOT NULL AND estado != 'CANCELADA'
+         GROUP BY cliente_id
+       ) rep ON rep.cliente_id = c.id
        LEFT JOIN (
          SELECT cliente_id,
            COUNT(*) AS total_cotizaciones
@@ -239,11 +247,24 @@ const getCustomerPurchases = async (req, res) => {
         v.metodo_pago as paymentMethod,
         v.items,
         v.observaciones as notes,
-        v.tipo_venta as type
+        'sale' as type
        FROM ventas v
        WHERE v.cliente_id = ?
-       ORDER BY v.fecha_venta DESC`,
-      [id]
+       UNION ALL
+       SELECT
+        r.id,
+        r.id as reference,
+        r.fecha_ingreso as date,
+        r.total,
+        r.estado as status,
+        NULL as paymentMethod,
+        NULL as items,
+        r.observaciones as notes,
+        'repair' as type
+       FROM reparaciones r
+       WHERE r.cliente_id = ? AND r.estado != 'CANCELADA'
+       ORDER BY date DESC`,
+      [id, id]
     );
     
     // Parsear items JSON y formatear datos
@@ -274,7 +295,7 @@ const getCustomerPurchases = async (req, res) => {
         status: purchase.status,
         paymentMethod: purchase.paymentMethod,
         notes: purchase.notes,
-        type: 'sale',
+        type: purchase.type || 'sale',
         items: itemCount,
         products: products
       };

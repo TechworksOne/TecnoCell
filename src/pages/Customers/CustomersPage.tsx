@@ -207,7 +207,7 @@ export default function CustomersPage() {
       {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] font-bold text-[#48B9E6] mb-1">CRM Â· CLIENTES</p>
+          <p className="text-xs uppercase tracking-[0.22em] font-bold text-[#48B9E6] mb-1">CRM · CLIENTES</p>
           <h1 className="text-2xl font-bold text-[#14324A] dark:text-[#F8FAFC] flex items-center gap-2">
             <Users size={22} className="text-[#48B9E6]" />
             Clientes
