@@ -916,64 +916,41 @@ export default function RepairsPage() {
   <meta charset="UTF-8" />
   <title>Ticket ${r.id}</title>
   <style>
-    @page { size: 2in 1in; margin: 1mm; }
+    @page { size: 2in 1in; margin: 0.8mm; }
     * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
-      font-size: 7px;
+      font-size: 6px;
       color: #000;
       background: #fff;
       margin: 0;
       padding: 0;
-      -webkit-print-color-adjust: exact;
     }
-    .ticket { width: 2in; padding: 0.5mm; }
-    .center { text-align: center; }
-    .title  { font-size: 9px; font-weight: bold; letter-spacing: 0.5px; }
-    .subtitle { font-size: 7px; margin-bottom: 2px; }
-    .line { border: none; border-top: 1px dashed #000; margin: 2px 0; }
-    .row { margin-bottom: 1px; line-height: 1.3; }
-    .label { font-weight: bold; }
-    .problem { white-space: pre-wrap; word-break: break-word; margin-top: 1px; }
-    .footer { font-size: 6px; margin-top: 1px; }
+    .ticket { width: 100%; }
+    .header { text-align: center; font-size: 8px; font-weight: bold; line-height: 1.2; border-bottom: 1px solid #000; padding-bottom: 0.5mm; margin-bottom: 0.5mm; }
+    .header span { font-size: 6px; font-weight: normal; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1mm; }
+    .row { line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .row.full { grid-column: span 2; white-space: normal; word-break: break-word; }
+    .b { font-weight: bold; }
+    .nota { font-size: 5.5px; line-height: 1.3; max-height: 10mm; overflow: hidden; }
     @media print {
       body { background: #fff !important; color: #000 !important; }
-      button { display: none !important; }
     }
   </style>
 </head>
 <body>
 <div class="ticket">
-  <div class="center">
-    <div class="title">TECNO CELL</div>
-    <div class="subtitle">Ticket de reparaci\u00f3n</div>
-  </div>
-  <hr class="line" />
-  <div class="row"><span class="label">C\u00f3digo:</span> ${esc(r.id)}</div>
-  <div class="row"><span class="label">Estado:</span> ${esc(estadoLabel)}</div>
-  <div class="row"><span class="label">Prioridad:</span> ${esc(r.prioridad)}</div>
-  <div class="row"><span class="label">Garant\u00eda:</span> ${esc(garantia)}</div>
-  <hr class="line" />
-  <div class="row"><span class="label">Cliente:</span> ${esc(r.clienteNombre || 'N/A')}</div>
-  <div class="row"><span class="label">Tel\u00e9fono:</span> ${esc(r.clienteTelefono || 'N/A')}</div>
-  <hr class="line" />
-  <div class="row"><span class="label">Equipo:</span> ${esc(equipo)}</div>
-  ${detalle ? `<div class="row"><span class="label">Detalle:</span> ${esc(detalle)}</div>` : ''}
-  ${imei ? `<div class="row"><span class="label">IMEI/Serie:</span> ${esc(imei)}</div>` : ''}
-  <hr class="line" />
-  <div class="row"><span class="label">Ingreso:</span> ${esc(fechaIngreso)}</div>
-  <div class="row"><span class="label">Recibido por:</span> ${esc(creadoPor)}</div>
-  <div class="row"><span class="label">Técnico:</span> ${esc(tecnico)}</div>
-  <hr class="line" />
-  <div class="row label">Problema reportado:</div>
-  <div class="problem">${esc(problema)}</div>
-  <hr class="line" />
-  <div class="row"><span class="label">Anticipo:</span> Q${anticipo.toFixed(2)}</div>
-  <div class="row"><span class="label">Saldo pendiente:</span> Q${saldo.toFixed(2)}</div>
-  <hr class="line" />
-  <div class="center footer">
-    <div>Gracias por confiar en TecnoCell</div>
-    <div>Conserve este ticket</div>
+  <div class="header">TECNO CELL <span>- Ticket de reparaci\u00f3n</span></div>
+  <div class="grid">
+    <div class="row full"><span class="b"># </span>${esc(r.id)}</div>
+    <div class="row"><span class="b">Cliente: </span>${esc(r.clienteNombre || 'N/A')}</div>
+    <div class="row"><span class="b">Tel: </span>${esc(r.clienteTelefono || 'N/A')}</div>
+    <div class="row"><span class="b">Equipo: </span>${esc(equipo)}</div>
+    <div class="row"><span class="b">Ingreso: </span>${esc(fechaIngreso)}</div>
+    <div class="row"><span class="b">T\u00e9cnico: </span>${esc(tecnico)}</div>
+    <div class="row"><span class="b">Prioridad: </span>${esc(r.prioridad)}</div>
+    <div class="row full nota"><span class="b">Nota: </span>${esc(problema)}</div>
   </div>
 </div>
 <script>
