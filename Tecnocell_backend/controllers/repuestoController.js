@@ -288,16 +288,8 @@ exports.getAllRepuestos = async (req, res) => {
 
     const [repuestos] = await db.query(query, params);
 
-    const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
-    const canSeeCosts = isAdmin || req.user?.roles?.includes('TECNICO');
-
     const repuestosParsed = repuestos.map((r) => {
       const parsed = parseRepuestoJSON(r);
-
-      if (!canSeeCosts) {
-        delete parsed.precio_costo;
-      }
-
       return parsed;
     });
 
@@ -330,13 +322,6 @@ exports.getRepuestoById = async (req, res) => {
     }
 
     const repuesto = parseRepuestoJSON(repuestos[0]);
-
-    const isAdmin = req.user?.roles?.includes('ADMINISTRADOR') || req.user?.role === 'admin';
-    const canSeeCosts = isAdmin || req.user?.roles?.includes('TECNICO');
-
-    if (!canSeeCosts) {
-      delete repuesto.precio_costo;
-    }
 
     res.json(repuesto);
   } catch (error) {
