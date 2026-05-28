@@ -209,10 +209,13 @@ export default function ModalActualizarEstado({
   // ── Repuesto handlers ────────────────────────────────────────────────────────
   const addRepuestoUsado = () => {
     if (!repuestoSel) return;
+    console.log('Repuesto seleccionado:', repuestoSel);
+    console.log('precio_costo detectado:', repuestoSel.precio_costo);
     const stock = repuestoSel.stock ?? 0;
     if (cantRepuesto <= 0) { toast.error('Cantidad debe ser mayor a 0'); return; }
     if (cantRepuesto > stock) { toast.error(`Stock insuficiente. Disponible: ${stock}`); return; }
-    const costoUnit = (repuestoSel.precio_costo ?? 0) / 100;
+    // precio_costo en repuestos está almacenado en centavos → convertir a quetzales
+    const costoUnit = Number(repuestoSel.precio_costo ?? 0) / 100;
     setRepuestosUsados(prev => [...prev, {
       repuestoId: repuestoSel.id, nombre: repuestoSel.nombre,
       cantidad: cantRepuesto, costoUnitario: costoUnit,
@@ -225,12 +228,15 @@ export default function ModalActualizarEstado({
   // ── Regalía handlers ─────────────────────────────────────────────────────────
   const addRegalia = () => {
     if (!regaliaSel) return;
+    console.log('Producto/repuesto seleccionado para regalía:', regaliaSel);
+    console.log('precio_costo detectado:', regaliaSel.precio_costo);
     const stock = regaliaSel.stock ?? 0;
     if (cantRegalia <= 0) { toast.error('Cantidad debe ser mayor a 0'); return; }
     if (cantRegalia > stock) { toast.error(`Stock insuficiente. Disponible: ${stock}`); return; }
+    // repuestos: precio_costo en centavos → quetzales; productos: ya en quetzales
     const costoUnit = tipoRegalia === 'repuesto'
-      ? (regaliaSel.precio_costo ?? 0) / 100
-      : (regaliaSel.precio_costo ?? 0);
+      ? Number(regaliaSel.precio_costo ?? 0) / 100
+      : Number(regaliaSel.precio_costo ?? 0);
     setRegaliasUsadas(prev => [...prev, {
       itemId: regaliaSel.id, tipo: tipoRegalia, nombre: regaliaSel.nombre,
       cantidad: cantRegalia, costoUnitario: costoUnit,
