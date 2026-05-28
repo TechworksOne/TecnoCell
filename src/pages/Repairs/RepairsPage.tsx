@@ -542,6 +542,7 @@ function RepairCard({
   onHistory,
   onFlowManage,
   onPrintPDF,
+  onPrintTicket,
   onEditPriority,
   onPayBalance,
   onCancel,
@@ -553,6 +554,7 @@ function RepairCard({
   onHistory: (id: string) => void;
   onFlowManage: () => void;
   onPrintPDF: (r: Repair) => void;
+  onPrintTicket: (r: Repair) => void;
   onEditPriority: (r: Repair) => void;
   onPayBalance: (r: Repair) => void;
   onCancel: (r: Repair) => void;
@@ -713,6 +715,9 @@ function RepairCard({
           <button onClick={() => onPrintPDF(repair)} className="flex-1 lg:flex-none h-9 flex items-center justify-center gap-1.5 px-2.5 rounded-xl text-xs font-semibold border transition-colors bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
             <Printer size={12} /> PDF
           </button>
+          <button onClick={() => onPrintTicket(repair)} className="flex-1 lg:flex-none h-9 flex items-center justify-center gap-1.5 px-2.5 rounded-xl text-xs font-semibold border transition-colors bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" title="Imprimir ticket térmico">
+            <Printer size={12} /> Ticket
+          </button>
           {!isCancelled && (
             <button onClick={() => onEditPriority(repair)} className="flex-1 lg:flex-none h-9 flex items-center justify-center gap-1.5 px-2.5 rounded-xl text-xs font-semibold border transition-colors bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800">
               <ChevronDown size={12} /> Prioridad
@@ -870,6 +875,122 @@ export default function RepairsPage() {
   const handleGeneratePDF = (r: Repair) => generarPDFRecepcion(buildPayload(r), false);
   const handlePreviewPDF  = (r: Repair) => generarPDFRecepcion(buildPayload(r), true);
 
+  const handleImprimirTicket = (r: Repair) => {
+    const printWindow = window.open('', '_blank', 'width=420,height=650');
+    if (!printWindow) return;
+
+    const ra = r as any;
+    const tecnico = (ra.tecnicoNombre?.trim() && ra.tecnicoNombre.trim() !== '')
+      ? ra.tecnicoNombre.trim()
+      : ra.tecnicoUsername || r.tecnicoAsignado || 'Sin asignar';
+
+    const equipo = [r.recepcion.marca, r.recepcion.modelo].filter(Boolean).join(' ') || 'N/A';
+    const detalle = [r.recepcion.tipoEquipo, r.recepcion.color].filter(Boolean).join(' / ') || '';
+    const imei = r.recepcion.imei || r.recepcion.imeiSerie || '';
+
+    const anticipo = r.recepcion.montoAnticipo ?? 0;
+    const pagadoAdicional = r.montoPagadoAdicional ?? 0;
+    const saldo = Math.max(0, (r.total || 0) - anticipo - pagadoAdicional);
+
+    const fechaIngreso = (() => {
+      const v = r.recepcion.fechaRecepcion || r.fechaIngreso;
+      if (!v) return 'N/A';
+      const match = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return String(v);
+      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      return isNaN(d.getTime()) ? String(v)
+        : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    })();
+
+    const problema = r.recepcion.diagnosticoInicial || r.observaciones || 'N/A';
+    const estadoLabel = STATUS_LABEL[r.estado] || r.estado.replace(/_/g, ' ');
+    const creadoPor = r.recepcion.userRecepcion || 'N/A';
+    const garantia = r.garantiaDias ? `${r.garantiaDias} días` : 'N/A';
+
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ticket ${r.id}</title>
+  <style>
+    @page { size: 58mm auto; margin: 3mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      color: #000;
+      background: #fff;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+    }
+    .ticket { width: 100%; padding: 1mm 0; }
+    .center { text-align: center; }
+    .title  { font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+    .subtitle { font-size: 11px; margin-bottom: 4px; }
+    .line { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+    .row { margin-bottom: 2px; line-height: 1.4; }
+    .label { font-weight: bold; }
+    .problem { white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+    .footer { font-size: 10px; margin-top: 2px; }
+    @media print {
+      body { background: #fff !important; color: #000 !important; }
+      button { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="ticket">
+  <div class="center">
+    <div class="title">TECNO CELL</div>
+    <div class="subtitle">Ticket de reparación</div>
+  </div>
+  <hr class="line" />
+  <div class="row"><span class="label">Código:</span> ${esc(r.id)}</div>
+  <div class="row"><span class="label">Estado:</span> ${esc(estadoLabel)}</div>
+  <div class="row"><span class="label">Prioridad:</span> ${esc(r.prioridad)}</div>
+  <div class="row"><span class="label">Garantía:</span> ${esc(garantia)}</div>
+  <hr class="line" />
+  <div class="row"><span class="label">Cliente:</span> ${esc(r.clienteNombre || 'N/A')}</div>
+  <div class="row"><span class="label">Teléfono:</span> ${esc(r.clienteTelefono || 'N/A')}</div>
+  <hr class="line" />
+  <div class="row"><span class="label">Equipo:</span> ${esc(equipo)}</div>
+  ${detalle ? `<div class="row"><span class="label">Detalle:</span> ${esc(detalle)}</div>` : ''}
+  ${imei ? `<div class="row"><span class="label">IMEI/Serie:</span> ${esc(imei)}</div>` : ''}
+  <hr class="line" />
+  <div class="row"><span class="label">Ingreso:</span> ${esc(fechaIngreso)}</div>
+  <div class="row"><span class="label">Recibido por:</span> ${esc(creadoPor)}</div>
+  <div class="row"><span class="label">Técnico:</span> ${esc(tecnico)}</div>
+  <hr class="line" />
+  <div class="row label">Problema reportado:</div>
+  <div class="problem">${esc(problema)}</div>
+  <hr class="line" />
+  <div class="row"><span class="label">Total:</span> Q${(r.total || 0).toFixed(2)}</div>
+  <div class="row"><span class="label">Anticipo:</span> Q${anticipo.toFixed(2)}</div>
+  <div class="row"><span class="label">Saldo pendiente:</span> Q${saldo.toFixed(2)}</div>
+  <hr class="line" />
+  <div class="center footer">
+    <div>Gracias por confiar en TecnoCell</div>
+    <div>Conserve este ticket</div>
+  </div>
+</div>
+<script>
+  window.onload = function() {
+    window.print();
+    setTimeout(function() { window.close(); }, 500);
+  };
+</script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-4">
       {/* Toast notification */}
@@ -998,6 +1119,7 @@ export default function RepairsPage() {
             onHistory={id => setShowHistoryModal(id)}
             onFlowManage={() => navigate('/flujo-reparaciones')}
             onPrintPDF={handleGeneratePDF}
+            onPrintTicket={handleImprimirTicket}
             onEditPriority={rep => setShowPriorityModal(rep)}
             onPayBalance={rep => setShowPayModal(rep)}
             onCancel={rep => setShowCancelModal(rep)}
@@ -1227,6 +1349,9 @@ export default function RepairsPage() {
                 </button>
                 <button onClick={() => handleGeneratePDF(r)} className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
                   <Printer size={13} /> Imprimir PDF
+                </button>
+                <button onClick={() => handleImprimirTicket(r)} className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-amber-700 dark:text-amber-300 transition-colors">
+                  <Printer size={13} /> Imprimir Ticket
                 </button>
                 {!isCancelled && (
                   <button onClick={() => navigate('/flujo-reparaciones')} className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors">
