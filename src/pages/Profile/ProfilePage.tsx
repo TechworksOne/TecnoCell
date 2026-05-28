@@ -244,7 +244,7 @@ function ModalEditar({
   profile: UserProfile;
   token: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (updatedPerfil: UserProfile['perfil']) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<EditForm>({
@@ -283,15 +283,15 @@ function ModalEditar({
       fd.append('telefono', form.telefono);
       fd.append('direccion', form.direccion);
       if (form.foto) fd.append('foto_perfil', form.foto);
+      // Always send firma so it is not overwritten with NULL
+      fd.append('firma', form.firma ?? '');
 
-      if (form.firma !== undefined) fd.append('firma', form.firma ?? '');
-
-      await axios.put(`${API_URL}/auth/me/perfil`, fd, {
+      const res = await axios.put(`${API_URL}/auth/me/perfil`, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      onSaved();
+      onSaved(res.data?.data?.perfil ?? null);
     } catch {
       setError('Error al actualizar el perfil. Intenta nuevamente.');
     } finally {
@@ -819,9 +819,15 @@ export default function ProfilePage() {
           profile={profile}
           token={token ?? ''}
           onClose={() => setEditOpen(false)}
-          onSaved={async () => {
+          onSaved={async (updatedPerfil) => {
             setEditOpen(false);
+            // Update profile state immediately with the PUT response
+            // (avoids a second GET that could return stale or missing firma)
+            if (updatedPerfil) {
+              setProfile(prev => prev ? { ...prev, perfil: updatedPerfil } : prev);
+            }
             toast.add('Perfil actualizado exitosamente', 'success');
+            // Full re-fetch to keep everything in sync
             await loadProfile();
           }}
         />

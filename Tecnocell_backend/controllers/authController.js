@@ -39,7 +39,7 @@ const login = async (req, res) => {
 
     // Obtener perfil y roles del sistema de roles nuevo
     const [[perfil]] = await db.query(
-      'SELECT nombres, apellidos, telefono, foto_perfil FROM user_profiles WHERE user_id = ?',
+      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil, firma FROM user_profiles WHERE user_id = ?',
       [user.id]
     );
     const [rolesRows] = await db.query(
@@ -121,7 +121,7 @@ const getMe = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     const [[perfil]] = await db.query(
-      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil FROM user_profiles WHERE user_id = ?',
+      'SELECT nombres, apellidos, telefono, dpi, direccion, foto_perfil, firma FROM user_profiles WHERE user_id = ?',
       [userId]
     );
     const [rolesRows] = await db.query(
@@ -170,7 +170,7 @@ const uploadMe = multer({
       cb(null, `perfil${ext}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, fieldSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (/^image\//.test(file.mimetype)) cb(null, true);
     else cb(new Error('Solo se permiten imágenes'));
@@ -180,6 +180,8 @@ const uploadMe = multer({
 const updateMePerfil = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('[updateMePerfil] body keys:', Object.keys(req.body));
+    console.log('[updateMePerfil] firma recibida:', req.body.firma ? `[data URL, length=${req.body.firma.length}]` : req.body.firma);
     const { telefono, direccion, nombres, apellidos, firma } = req.body;
     const updateFields = [];
     const updateValues = [];
