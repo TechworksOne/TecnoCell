@@ -876,7 +876,7 @@ export default function RepairsPage() {
   const handlePreviewPDF  = (r: Repair) => generarPDFRecepcion(buildPayload(r), true);
 
   const handleImprimirTicket = (r: Repair) => {
-    const printWindow = window.open('', '_blank', 'width=420,height=650');
+    const printWindow = window.open('', '_blank', 'width=220,height=130');
     if (!printWindow) return;
 
     const ra = r as any;
@@ -916,26 +916,26 @@ export default function RepairsPage() {
   <meta charset="UTF-8" />
   <title>Ticket ${r.id}</title>
   <style>
-    @page { size: 58mm auto; margin: 3mm; }
+    @page { size: 2in 1in; margin: 1mm; }
     * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
-      font-size: 11px;
+      font-size: 7px;
       color: #000;
       background: #fff;
       margin: 0;
       padding: 0;
       -webkit-print-color-adjust: exact;
     }
-    .ticket { width: 100%; padding: 1mm 0; }
+    .ticket { width: 2in; padding: 0.5mm; }
     .center { text-align: center; }
-    .title  { font-size: 15px; font-weight: bold; letter-spacing: 1px; }
-    .subtitle { font-size: 11px; margin-bottom: 4px; }
-    .line { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-    .row { margin-bottom: 2px; line-height: 1.4; }
+    .title  { font-size: 9px; font-weight: bold; letter-spacing: 0.5px; }
+    .subtitle { font-size: 7px; margin-bottom: 2px; }
+    .line { border: none; border-top: 1px dashed #000; margin: 2px 0; }
+    .row { margin-bottom: 1px; line-height: 1.3; }
     .label { font-weight: bold; }
-    .problem { white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
-    .footer { font-size: 10px; margin-top: 2px; }
+    .problem { white-space: pre-wrap; word-break: break-word; margin-top: 1px; }
+    .footer { font-size: 6px; margin-top: 1px; }
     @media print {
       body { background: #fff !important; color: #000 !important; }
       button { display: none !important; }
@@ -946,16 +946,16 @@ export default function RepairsPage() {
 <div class="ticket">
   <div class="center">
     <div class="title">TECNO CELL</div>
-    <div class="subtitle">Ticket de reparación</div>
+    <div class="subtitle">Ticket de reparaci\u00f3n</div>
   </div>
   <hr class="line" />
-  <div class="row"><span class="label">Código:</span> ${esc(r.id)}</div>
+  <div class="row"><span class="label">C\u00f3digo:</span> ${esc(r.id)}</div>
   <div class="row"><span class="label">Estado:</span> ${esc(estadoLabel)}</div>
   <div class="row"><span class="label">Prioridad:</span> ${esc(r.prioridad)}</div>
-  <div class="row"><span class="label">Garantía:</span> ${esc(garantia)}</div>
+  <div class="row"><span class="label">Garant\u00eda:</span> ${esc(garantia)}</div>
   <hr class="line" />
   <div class="row"><span class="label">Cliente:</span> ${esc(r.clienteNombre || 'N/A')}</div>
-  <div class="row"><span class="label">Teléfono:</span> ${esc(r.clienteTelefono || 'N/A')}</div>
+  <div class="row"><span class="label">Tel\u00e9fono:</span> ${esc(r.clienteTelefono || 'N/A')}</div>
   <hr class="line" />
   <div class="row"><span class="label">Equipo:</span> ${esc(equipo)}</div>
   ${detalle ? `<div class="row"><span class="label">Detalle:</span> ${esc(detalle)}</div>` : ''}
@@ -968,7 +968,6 @@ export default function RepairsPage() {
   <div class="row label">Problema reportado:</div>
   <div class="problem">${esc(problema)}</div>
   <hr class="line" />
-  <div class="row"><span class="label">Total:</span> Q${(r.total || 0).toFixed(2)}</div>
   <div class="row"><span class="label">Anticipo:</span> Q${anticipo.toFixed(2)}</div>
   <div class="row"><span class="label">Saldo pendiente:</span> Q${saldo.toFixed(2)}</div>
   <hr class="line" />
