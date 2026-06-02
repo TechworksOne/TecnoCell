@@ -916,7 +916,7 @@ export default function RepairsPage() {
   <meta charset="UTF-8" />
   <title>Ticket ${r.id}</title>
   <style>
-    @page { size: 2in 1in; margin: 0.8mm; }
+    @page { size: 2in 1in landscape; margin: 0.8mm; }
     * { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
