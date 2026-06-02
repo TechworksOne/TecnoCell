@@ -331,7 +331,10 @@ export default function CajaBancosPage() {
       setMonto(''); setConcepto(''); setObservaciones('');
       setCuentaDestino(''); setCuentaOrigen(''); setACajaChica(false);
       setIngresoDestino('caja');
-      loadData();
+      await loadData();
+      if (cuentaSeleccionada) {
+        await seleccionarCuenta(cuentaSeleccionada);
+      }
     } catch (error: any) {
       console.error('Error registrando movimiento:', error);
       if (error.response?.status === 401) {
