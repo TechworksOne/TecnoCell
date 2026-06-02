@@ -240,7 +240,8 @@ export default function RepairFormSimple() {
     setIsCreatingRepair(true);
     try {
       const customerName = selectedCustomer.nombre
-        || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim();
+        ? `${selectedCustomer.nombre}${selectedCustomer.apellido ? ' ' + selectedCustomer.apellido : ''}`.trim()
+        : `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim();
       const isFrequent = selectedCustomer.frecuente
         || !!(selectedCustomer.loyaltyPoints && selectedCustomer.loyaltyPoints > 100);
 
@@ -650,7 +651,9 @@ export default function RepairFormSimple() {
                   <User size={20} className="text-blue-600 shrink-0" />
                   <div>
                     <p className="font-medium text-blue-900">
-                      {selectedCustomer?.nombre || `${selectedCustomer?.firstName || ''} ${selectedCustomer?.lastName || ''}`.trim()}
+                      {selectedCustomer?.nombre
+                        ? `${selectedCustomer.nombre}${selectedCustomer.apellido ? ' ' + selectedCustomer.apellido : ''}`.trim()
+                        : `${selectedCustomer?.firstName || ''} ${selectedCustomer?.lastName || ''}`.trim()}
                     </p>
                     <div className="flex gap-4 text-sm text-blue-700 mt-0.5">
                       {(selectedCustomer?.telefono || selectedCustomer?.phone) && <span>{selectedCustomer?.telefono || selectedCustomer?.phone}</span>}
