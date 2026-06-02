@@ -23,6 +23,7 @@ import { getTecnicos, asignarTecnico } from '../../services/otService';
 import type { Tecnico } from '../../types/ot';
 import { isAdmin } from '../../lib/permissions';
 import { useAuth } from '../../store/useAuth';
+import logoUrl from '../../assets/tecnocell-logo.png';
 
 // ── Style maps ────────────────────────────────────────────────────────────
 const STATUS_PILL: Record<string, string> = {
@@ -927,8 +928,10 @@ export default function RepairsPage() {
       padding: 0;
     }
     .ticket { width: 100%; }
-    .header { text-align: center; font-size: 8px; font-weight: bold; line-height: 1.2; border-bottom: 1px solid #000; padding-bottom: 0.5mm; margin-bottom: 0.5mm; }
-    .header span { font-size: 6px; font-weight: normal; }
+    .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 0.5mm; margin-bottom: 0.5mm; display: flex; align-items: center; gap: 1mm; }
+    .header img { height: 7mm; width: auto; flex-shrink: 0; }
+    .header-text { font-size: 8px; font-weight: bold; line-height: 1.2; }
+    .header-text span { font-size: 6px; font-weight: normal; display: block; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1mm; }
     .row { line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .row.full { grid-column: span 2; white-space: normal; word-break: break-word; }
@@ -941,7 +944,7 @@ export default function RepairsPage() {
 </head>
 <body>
 <div class="ticket">
-  <div class="header">TECNO CELL <span>- Ticket de reparaci\u00f3n</span></div>
+  <div class="header"><img src="${logoUrl}" alt="Logo" /><div class="header-text">TECNO CELL<span>Ticket de reparaci\u00f3n</span></div></div>
   <div class="grid">
     <div class="row full"><span class="b"># </span>${esc(r.id)}</div>
     <div class="row"><span class="b">Cliente: </span>${esc(r.clienteNombre || 'N/A')}</div>
