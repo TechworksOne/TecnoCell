@@ -20,18 +20,21 @@ export function printBarcode(sku: string, name: string, type?: string): void {
   <style>
     @page { size: 2in 1in; margin: 1mm; }
     * { box-sizing: border-box; }
-    body {
+    html, body {
       font-family: Arial, sans-serif;
       font-size: 6px;
       color: #000;
       background: #fff;
       margin: 0;
       padding: 0;
+      width: 2in;
+      height: 1in;
+      max-height: 1in;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 2in;
-      height: 1in;
+      page-break-after: avoid;
     }
     .label {
       width: 100%;
