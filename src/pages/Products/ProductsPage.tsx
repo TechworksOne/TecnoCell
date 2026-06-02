@@ -1,4 +1,4 @@
-import { Package, Plus, Search, Eye, AlertTriangle, Tag, Sparkles, ChevronDown, Trash2, Pencil, Power, PowerOff, Barcode } from "lucide-react";
+import { Package, Plus, Search, Eye, AlertTriangle, Tag, Sparkles, ChevronDown, Trash2, Pencil, Power, PowerOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
@@ -119,7 +119,7 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
             {product.active ? <PowerOff size={14} className="text-orange-400 dark:text-orange-300" /> : <Power size={14} className="text-emerald-500 dark:text-emerald-400" />}
           </button>
           <button onClick={() => onStock(product.id)} className={actionBtn} title="Ajustar stock"><Package size={14} /></button>
-          <button onClick={() => printBarcode(product.sku, product.name, 'Producto')} className={actionBtn} title="Imprimir código de barras"><Barcode size={14} /></button>
+          <button onClick={() => printBarcode(product.sku, product.name, 'Producto')} className={actionBtn} title="Imprimir código de barras"><Tag size={14} /></button>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ function ProductRow({ product, onEdit, onView, onToggle, onStock, getImage, capi
               {product.active ? <PowerOff size={15} className="text-orange-400 dark:text-orange-300" /> : <Power size={15} className="text-emerald-500 dark:text-emerald-400" />}
             </button>
             <button onClick={() => onStock(product.id)} className={actionBtn} title="Ajustar stock"><Package size={15} /></button>
-            <button onClick={() => printBarcode(product.sku, product.name, 'Producto')} className={actionBtn} title="Imprimir código de barras"><Barcode size={15} /></button>
+            <button onClick={() => printBarcode(product.sku, product.name, 'Producto')} className={actionBtn} title="Imprimir código de barras"><Tag size={15} /></button>
           </div>
         </div>
       </div>

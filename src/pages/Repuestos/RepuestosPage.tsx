@@ -19,7 +19,7 @@ import {
   Smartphone,
   Building2,
   History,
-  Barcode,
+  Tag,
 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
@@ -200,7 +200,7 @@ function RepuestoRow({ repuesto, onView, onEdit, onToggle, onKardex }: {
             {repuesto.activo ? <PowerOff size={14} className="text-orange-400 dark:text-orange-300" /> : <Power size={14} className="text-emerald-500 dark:text-emerald-400" />}
           </button>
           <button onClick={() => onKardex(repuesto)} className={actionBtn} title="Ver movimientos"><History size={14} /></button>
-          <button onClick={() => printBarcode(repuesto.sku || repuesto.codigo || repuesto.id, repuesto.nombre, 'Repuesto')} className={actionBtn} title="Imprimir código de barras"><Barcode size={14} /></button>
+          <button onClick={() => printBarcode(repuesto.sku || repuesto.codigo || repuesto.id, repuesto.nombre, 'Repuesto')} className={actionBtn} title="Imprimir código de barras"><Tag size={14} /></button>
         </div>
       </div>
 
@@ -261,7 +261,7 @@ function RepuestoRow({ repuesto, onView, onEdit, onToggle, onKardex }: {
               {repuesto.activo ? <PowerOff size={16} className="text-orange-400 dark:text-orange-300" /> : <Power size={16} className="text-emerald-500 dark:text-emerald-400" />}
             </button>
             <button onClick={() => onKardex(repuesto)} className={actionBtn} title="Ver movimientos"><History size={16} /></button>
-            <button onClick={() => printBarcode(repuesto.sku || repuesto.codigo || repuesto.id, repuesto.nombre, 'Repuesto')} className={actionBtn} title="Imprimir código de barras"><Barcode size={16} /></button>
+            <button onClick={() => printBarcode(repuesto.sku || repuesto.codigo || repuesto.id, repuesto.nombre, 'Repuesto')} className={actionBtn} title="Imprimir código de barras"><Tag size={16} /></button>
           </div>
         </div>
       </div>
