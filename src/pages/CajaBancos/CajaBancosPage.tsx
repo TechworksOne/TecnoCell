@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Wallet, Building2, Plus, Check, Clock, X,
   ArrowUpCircle, ArrowDownCircle, ArrowRightLeft,
   RefreshCw, AlertCircle, TrendingUp, TrendingDown,
   CreditCard, Banknote, Search, Filter, ChevronDown,
-  ShieldCheck, Landmark, FileText, Pencil, Trash2
+  ShieldCheck, Landmark, FileText, Pencil, Trash2, Eye
 } from 'lucide-react';
 import API_URL from '../../services/config';
 import { useAuth } from '../../store/useAuth';
@@ -16,6 +16,8 @@ import Select from '../../components/ui/Select';
 import Modal from '../../components/ui/Modal';
 import axios from 'axios';
 import { useToast } from '../../components/ui/Toast';
+import * as TarjetaService from '../../services/tarjetaCreditoService';
+import type { TarjetaCredito, TarjetaMovimiento, TarjetaForm, PagoTarjetaForm } from '../../services/tarjetaCreditoService';
 
 interface CuentaBancaria {
   id: number;
@@ -54,7 +56,25 @@ export default function CajaBancosPage() {
   const [movimientosBancos, setMovimientosBancos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vistaActual, setVistaActual] = useState<'caja' | 'bancos'>('caja');
+  const [vistaActual, setVistaActual] = useState<'caja' | 'bancos' | 'tarjetas'>('caja');
+
+  // ── Tarjetas de Crédito ─────────────────────────────────────────────────
+  const [tarjetas, setTarjetas] = useState<TarjetaCredito[]>([]);
+  const [loadingTarjetas, setLoadingTarjetas] = useState(false);
+  const [showTarjetaModal, setShowTarjetaModal] = useState(false);
+  const [tarjetaEditando, setTarjetaEditando] = useState<TarjetaCredito | null>(null);
+  const [tarjetaForm, setTarjetaForm] = useState<TarjetaForm>({
+    banco: '', alias: '', ultimos4: '', tasa_interes: 0,
+    dia_corte: 1, dia_pago: 15, limite_credito: 0, moneda: 'GTQ', notas: ''
+  });
+  const [savingTarjeta, setSavingTarjeta] = useState(false);
+  const [tarjetaDetalle, setTarjetaDetalle] = useState<TarjetaCredito | null>(null);
+  const [movsTarjeta, setMovsTarjeta] = useState<TarjetaMovimiento[]>([]);
+  const [loadingMovsTarjeta, setLoadingMovsTarjeta] = useState(false);
+  const [showPagoModal, setShowPagoModal] = useState(false);
+  const [tarjetaAPagar, setTarjetaAPagar] = useState<TarjetaCredito | null>(null);
+  const [pagoForm, setPagoForm] = useState<PagoTarjetaForm>({ tipo_cuenta_origen: 'caja', monto: 0 });
+  const [savingPago, setSavingPago] = useState(false);
   const [estadoFiltro, setEstadoFiltro] = useState<'PENDIENTE' | 'CONFIRMADO' | 'ANULADO'>('PENDIENTE');
 
   // Filtros
@@ -145,6 +165,50 @@ export default function CajaBancosPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Tarjetas helpers ─────────────────────────────────────────────────────
+  const cargarTarjetas = useCallback(async () => {
+    setLoadingTarjetas(true);
+    try { setTarjetas(await TarjetaService.getTarjetas()); } catch { toast.error('Error al cargar tarjetas'); }
+    finally { setLoadingTarjetas(false); }
+  }, []);
+
+  const handleGuardarTarjeta = async () => {
+    setSavingTarjeta(true);
+    try {
+      const payload: TarjetaForm = {
+        ...tarjetaForm,
+        limite_credito: Math.round((Number(tarjetaForm.limite_credito) || 0) * 100),
+      };
+      if (tarjetaEditando) await TarjetaService.updateTarjeta(tarjetaEditando.id, payload);
+      else await TarjetaService.createTarjeta(payload);
+      toast.success(tarjetaEditando ? 'Tarjeta actualizada' : 'Tarjeta creada');
+      setShowTarjetaModal(false);
+      cargarTarjetas();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Error al guardar tarjeta');
+    } finally { setSavingTarjeta(false); }
+  };
+
+  const handlePagarTarjeta = async () => {
+    if (!tarjetaAPagar) return;
+    setSavingPago(true);
+    try {
+      const payload: PagoTarjetaForm = {
+        ...pagoForm,
+        monto: Math.round((Number(pagoForm.monto) || 0) * 100),
+      };
+      await TarjetaService.registrarPago(tarjetaAPagar.id, payload);
+      toast.success('Pago registrado exitosamente');
+      setShowPagoModal(false);
+      cargarTarjetas();
+      if (tarjetaDetalle?.id === tarjetaAPagar.id) {
+        setMovsTarjeta(await TarjetaService.getMovimientos(tarjetaAPagar.id));
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Error al registrar pago');
+    } finally { setSavingPago(false); }
   };
 
   const abrirModalBanco = (cuenta?: CuentaBancaria) => {
@@ -571,13 +635,18 @@ export default function CajaBancosPage() {
             {[
               { key: 'caja', label: 'Caja Chica', icon: <Wallet size={16} />, badge: pendientesCaja },
               ...(isAdmin ? [{ key: 'bancos', label: 'Bancos', icon: <Landmark size={16} />, badge: pendientesBancos }] : []),
+              ...(isAdmin ? [{ key: 'tarjetas', label: 'Tarjetas de Crédito', icon: <CreditCard size={16} />, badge: 0 }] : []),
             ].map(({ key, label, icon, badge }) => (
               <button
                 key={key}
-                onClick={() => setVistaActual(key as 'caja' | 'bancos')}
+                onClick={() => {
+                  setVistaActual(key as 'caja' | 'bancos' | 'tarjetas');
+                  if (key === 'tarjetas' && tarjetas.length === 0) cargarTarjetas();
+                }}
                 className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors flex-1 sm:flex-none justify-center sm:justify-start ${
                   vistaActual === key
                     ? 'border-blue-600 text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-950'
+                    // eslint-disable-next-line no-constant-binary-expression
                     : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                 }`}
               >
@@ -592,8 +661,8 @@ export default function CajaBancosPage() {
             ))}
           </div>
 
-          {/* Sub-pestañas estado */}
-          <div className="flex gap-1 p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex-wrap">
+          {/* Sub-pestañas estado — solo para caja y bancos */}
+          {vistaActual !== 'tarjetas' && <div className="flex gap-1 p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex-wrap">
             {([
               { key: 'PENDIENTE', label: 'Pendientes de confirmar', icon: <Clock size={14} />, activeClass: 'bg-yellow-50 text-yellow-700 border border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800', count: vistaActual === 'caja' ? pendientesCaja : pendientesBancos },
               { key: 'CONFIRMADO', label: 'Confirmados', icon: <ShieldCheck size={14} />, activeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800', count: null },
@@ -625,10 +694,10 @@ export default function CajaBancosPage() {
                 <ChevronDown size={13} className={`transition-transform ${mostrarFiltros ? 'rotate-180' : ''}`} />
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Barra de filtros expandible */}
-          {mostrarFiltros && (
+          {vistaActual !== 'tarjetas' && mostrarFiltros && (
             <div className="flex flex-col sm:flex-row gap-2 p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
               <div className="relative flex-1">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
@@ -666,6 +735,54 @@ export default function CajaBancosPage() {
               movimientos={movsCajaFiltrados}
               estadoFiltro={estadoFiltro}
               onConfirmar={(mov) => solicitarConfirmacion(mov.id, 'caja', mov)}
+            />
+          )}
+
+          {/* ── VISTA TARJETAS DE CRÉDITO ────────────────────────────── */}
+          {vistaActual === 'tarjetas' && (
+            <TarjetasCreditoPanel
+              tarjetas={tarjetas}
+              loading={loadingTarjetas}
+              cuentasBancarias={cuentasBancarias}
+              tarjetaDetalle={tarjetaDetalle}
+              movsTarjeta={movsTarjeta}
+              loadingMovs={loadingMovsTarjeta}
+              onVerDetalle={async (t) => {
+                setTarjetaDetalle(t);
+                setLoadingMovsTarjeta(true);
+                try { setMovsTarjeta(await TarjetaService.getMovimientos(t.id)); } catch { setMovsTarjeta([]); }
+                finally { setLoadingMovsTarjeta(false); }
+              }}
+              onCerrarDetalle={() => { setTarjetaDetalle(null); setMovsTarjeta([]); }}
+              onNueva={() => {
+                setTarjetaEditando(null);
+                setTarjetaForm({ banco: '', alias: '', ultimos4: '', tasa_interes: 0, dia_corte: 1, dia_pago: 15, limite_credito: 0, moneda: 'GTQ', notas: '' });
+                setShowTarjetaModal(true);
+              }}
+              onEditar={(t) => {
+                setTarjetaEditando(t);
+                setTarjetaForm({
+                  banco: t.banco, alias: t.alias || '', ultimos4: t.ultimos4,
+                  tasa_interes: t.tasa_interes, dia_corte: t.dia_corte, dia_pago: t.dia_pago,
+                  limite_credito: TarjetaService.centsToQ(t.limite_credito),
+                  moneda: t.moneda, notas: t.notas || ''
+                });
+                setShowTarjetaModal(true);
+              }}
+              onPagar={(t) => {
+                setTarjetaAPagar(t);
+                setPagoForm({ tipo_cuenta_origen: 'caja', monto: 0 });
+                setShowPagoModal(true);
+              }}
+              onDesactivar={async (t) => {
+                if (!confirm(`¿Desactivar tarjeta ${TarjetaService.formatTarjeta(t)}?`)) return;
+                try {
+                  await TarjetaService.desactivarTarjeta(t.id);
+                  toast.success('Tarjeta desactivada');
+                  cargarTarjetas();
+                  if (tarjetaDetalle?.id === t.id) { setTarjetaDetalle(null); setMovsTarjeta([]); }
+                } catch { toast.error('Error al desactivar tarjeta'); }
+              }}
             />
           )}
 
@@ -1247,7 +1364,382 @@ export default function CajaBancosPage() {
         )}
       </Modal>
 
+      {/* ── MODAL TARJETA CRÉDITO: CREAR / EDITAR ─────────────────────────── */}
+      <Modal
+        isOpen={showTarjetaModal}
+        onClose={() => setShowTarjetaModal(false)}
+        title={tarjetaEditando ? 'Editar tarjeta' : 'Nueva tarjeta de crédito'}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Banco *</label>
+              <input
+                type="text"
+                value={tarjetaForm.banco}
+                onChange={e => setTarjetaForm(f => ({ ...f, banco: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+                placeholder="Ej: Banrural"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Alias (opcional)</label>
+              <input
+                type="text"
+                value={tarjetaForm.alias || ''}
+                onChange={e => setTarjetaForm(f => ({ ...f, alias: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+                placeholder="Ej: Visa Empresarial"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Últimos 4 dígitos *</label>
+              <input
+                type="text"
+                maxLength={4}
+                value={tarjetaForm.ultimos4}
+                onChange={e => setTarjetaForm(f => ({ ...f, ultimos4: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+                placeholder="1234"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tasa de interés (%)</label>
+              <input
+                type="number" min="0" step="0.01"
+                value={tarjetaForm.tasa_interes}
+                onChange={e => setTarjetaForm(f => ({ ...f, tasa_interes: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Día de corte *</label>
+              <input
+                type="number" min="1" max="31"
+                value={tarjetaForm.dia_corte}
+                onChange={e => setTarjetaForm(f => ({ ...f, dia_corte: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Día de pago *</label>
+              <input
+                type="number" min="1" max="31"
+                value={tarjetaForm.dia_pago}
+                onChange={e => setTarjetaForm(f => ({ ...f, dia_pago: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Límite de crédito (Q)</label>
+              <input
+                type="number" min="0" step="0.01"
+                value={tarjetaForm.limite_credito || 0}
+                onChange={e => setTarjetaForm(f => ({ ...f, limite_credito: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Moneda</label>
+              <select
+                value={tarjetaForm.moneda || 'GTQ'}
+                onChange={e => setTarjetaForm(f => ({ ...f, moneda: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              >
+                <option value="GTQ">GTQ</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notas</label>
+              <textarea
+                rows={2}
+                value={tarjetaForm.notas || ''}
+                onChange={e => setTarjetaForm(f => ({ ...f, notas: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setShowTarjetaModal(false)} className="flex-1">Cancelar</Button>
+            <Button
+              onClick={handleGuardarTarjeta}
+              disabled={savingTarjeta}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {savingTarjeta ? 'Guardando...' : tarjetaEditando ? 'Guardar cambios' : 'Crear tarjeta'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
+      {/* ── MODAL PAGAR TARJETA ────────────────────────────────────────────── */}
+      <Modal
+        isOpen={showPagoModal}
+        onClose={() => setShowPagoModal(false)}
+        title={`Pagar tarjeta${tarjetaAPagar ? ` — ${TarjetaService.formatTarjeta(tarjetaAPagar)}` : ''}`}
+      >
+        {tarjetaAPagar && (
+          <div className="space-y-4">
+            {/* Saldo actual */}
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-3 flex items-center justify-between">
+              <span className="text-sm text-red-700 dark:text-red-300 font-medium">Saldo pendiente</span>
+              <span className="text-base font-bold text-red-700 dark:text-red-300">
+                Q{TarjetaService.centsToQ(tarjetaAPagar.saldo_centavos).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Origen del pago *</label>
+              <select
+                value={pagoForm.tipo_cuenta_origen}
+                onChange={e => setPagoForm(f => ({ ...f, tipo_cuenta_origen: e.target.value as 'banco' | 'caja', cuenta_origen_id: undefined }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              >
+                <option value="caja">Caja Chica</option>
+                <option value="banco">Banco</option>
+              </select>
+            </div>
+
+            {pagoForm.tipo_cuenta_origen === 'banco' && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Cuenta bancaria *</label>
+                <select
+                  value={pagoForm.cuenta_origen_id ?? ''}
+                  onChange={e => setPagoForm(f => ({ ...f, cuenta_origen_id: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500/40 outline-none"
+                >
+                  <option value="">— Seleccionar —</option>
+                  {cuentasBancarias.filter(c => c.activa).map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Monto a pagar (Q) *</label>
+              <input
+                type="number" min="0.01" step="0.01"
+                value={pagoForm.monto || ''}
+                onChange={e => setPagoForm(f => ({ ...f, monto: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Observaciones</label>
+              <input
+                type="text"
+                value={pagoForm.observaciones || ''}
+                onChange={e => setPagoForm(f => ({ ...f, observaciones: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/40 outline-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setShowPagoModal(false)} className="flex-1">Cancelar</Button>
+              <Button
+                onClick={handlePagarTarjeta}
+                disabled={savingPago}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {savingPago ? 'Registrando...' : 'Registrar pago'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+
+    </div>
+  );
+}
+
+// ─── Subcomponente: Tarjetas de Crédito ──────────────────────────────────────
+interface TarjetasCreditoPanelProps {
+  tarjetas: TarjetaCredito[];
+  loading: boolean;
+  cuentasBancarias: { id: number; nombre: string; activa: boolean }[];
+  tarjetaDetalle: TarjetaCredito | null;
+  movsTarjeta: TarjetaMovimiento[];
+  loadingMovs: boolean;
+  onVerDetalle: (t: TarjetaCredito) => void;
+  onCerrarDetalle: () => void;
+  onNueva: () => void;
+  onEditar: (t: TarjetaCredito) => void;
+  onPagar: (t: TarjetaCredito) => void;
+  onDesactivar: (t: TarjetaCredito) => void;
+}
+
+function TarjetasCreditoPanel({
+  tarjetas, loading, tarjetaDetalle, movsTarjeta, loadingMovs,
+  onVerDetalle, onCerrarDetalle, onNueva, onEditar, onPagar, onDesactivar
+}: TarjetasCreditoPanelProps) {
+  const fmtQ = (cents: number) =>
+    `Q${TarjetaService.centsToQ(cents).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`;
+  const fmtFecha = (d: string) =>
+    new Date(d).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+  const tipoColor = (tipo: TarjetaMovimiento['tipo']) => {
+    if (tipo === 'compra') return 'text-red-600 dark:text-red-400';
+    if (tipo === 'pago') return 'text-emerald-600 dark:text-emerald-400';
+    return 'text-slate-600 dark:text-slate-400';
+  };
+  const totalSaldo = tarjetas.reduce((s, t) => s + Number(t.saldo_centavos || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-14">
+        <RefreshCw size={28} className="animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (tarjetaDetalle) {
+    return (
+      <div>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 flex-wrap">
+          <button
+            onClick={onCerrarDetalle}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          >
+            <ArrowDownCircle size={13} className="rotate-90" /> Volver
+          </button>
+          <div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Movimientos</p>
+            <p className="text-base font-bold text-slate-900 dark:text-slate-100">{TarjetaService.formatTarjeta(tarjetaDetalle)}</p>
+          </div>
+          <div className="ml-auto flex gap-2">
+            <button onClick={() => onPagar(tarjetaDetalle)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+              <Banknote size={13} /> Pagar
+            </button>
+            <button onClick={() => onEditar(tarjetaDetalle)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+              <Pencil size={13} /> Editar
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-slate-100 dark:border-slate-800">
+          {[
+            { label: 'Saldo pendiente', value: fmtQ(tarjetaDetalle.saldo_centavos), color: 'text-red-600 dark:text-red-400' },
+            { label: 'Límite', value: fmtQ(tarjetaDetalle.limite_credito), color: 'text-slate-800 dark:text-slate-200' },
+            { label: 'Día de corte', value: `Día ${tarjetaDetalle.dia_corte}`, color: 'text-slate-800 dark:text-slate-200' },
+            { label: 'Día de pago', value: `Día ${tarjetaDetalle.dia_pago}`, color: 'text-slate-800 dark:text-slate-200' },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3">
+              <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">{stat.label}</p>
+              <p className={`text-sm font-bold ${stat.color}`}>{stat.value}</p>
+            </div>
+          ))}
+        </div>
+        {loadingMovs ? (
+          <div className="flex justify-center py-8"><RefreshCw size={22} className="animate-spin text-blue-500" /></div>
+        ) : movsTarjeta.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FileText size={36} className="text-slate-300 mb-2" />
+            <p className="text-slate-500 font-medium">Sin movimientos registrados</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Tipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Descripción</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Monto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                {movsTarjeta.map(m => (
+                  <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{fmtFecha(m.fecha_movimiento)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-semibold capitalize px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 ${tipoColor(m.tipo)}`}>{m.tipo}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 max-w-xs truncate">{m.descripcion || '—'}</td>
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${tipoColor(m.tipo)}`}>
+                      {m.tipo === 'pago' ? '+' : '−'}{fmtQ(m.monto)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Total pendiente</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">Q{TarjetaService.centsToQ(totalSaldo).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</p>
+        </div>
+        <button onClick={onNueva} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+          <Plus size={16} /> Nueva tarjeta
+        </button>
+      </div>
+      {tarjetas.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-14 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+          <CreditCard size={40} className="text-slate-300 mb-3" />
+          <p className="text-slate-500 font-medium">No hay tarjetas de crédito registradas</p>
+          <p className="text-slate-400 text-sm mt-1">Registra una nueva tarjeta para comenzar.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {tarjetas.map(t => {
+            const saldoQ = TarjetaService.centsToQ(t.saldo_centavos);
+            const limiteQ = TarjetaService.centsToQ(t.limite_credito);
+            const usoPct = limiteQ > 0 ? Math.min(100, (saldoQ / limiteQ) * 100) : 0;
+            return (
+              <div key={t.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{TarjetaService.formatTarjeta(t)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.moneda} · Corte día {t.dia_corte} · Pago día {t.dia_pago}</p>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${t.activo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    {t.activo ? 'Activa' : 'Inactiva'}
+                  </span>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Saldo pendiente</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">Q{saldoQ.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {limiteQ > 0 && (
+                    <>
+                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${usoPct > 80 ? 'bg-red-500' : usoPct > 50 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${usoPct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 text-right">Límite: Q{limiteQ.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</p>
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button onClick={() => onVerDetalle(t)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <Eye size={11} /> Movimientos
+                  </button>
+                  <button onClick={() => onPagar(t)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                    <Banknote size={11} /> Pagar
+                  </button>
+                  <button onClick={() => onEditar(t)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <Pencil size={11} /> Editar
+                  </button>
+                  {t.activo === 1 && (
+                    <button onClick={() => onDesactivar(t)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                      <Trash2 size={11} /> Desactivar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

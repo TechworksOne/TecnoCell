@@ -1,6 +1,6 @@
 import {
   ShoppingCart, Plus, Search, Package, Hash, X, Save,
-  Building2, ChevronDown, Wrench, Loader2,
+  Building2, ChevronDown, Wrench, Loader2, CreditCard,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "../../components/ui/Toast";
@@ -10,6 +10,8 @@ import { useCatalog } from "../../store/useCatalog";
 import { useSuppliersStore } from "../../store/useSuppliers";
 import { useRepuestosStore } from "../../store/useRepuestosStore";
 import * as purchaseService from "../../services/purchaseService";
+import * as TarjetaService from "../../services/tarjetaCreditoService";
+import type { TarjetaCredito } from "../../services/tarjetaCreditoService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 interface CompraItem {
@@ -73,6 +75,9 @@ export default function NuevaCompraModal({
   const [items, setItems] = useState<CompraItem[]>([]);
   const supplierBtnRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia' | 'tarjeta_credito'>('efectivo');
+  const [tarjetaId, setTarjetaId] = useState<number | ''>('');
+  const [tarjetas, setTarjetas] = useState<TarjetaCredito[]>([]);
 
   const isDirty = items.length > 0 || compraForm.proveedor_nombre !== "";
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -83,6 +88,7 @@ export default function NuevaCompraModal({
       loadProducts(1, 9999);
       loadSuppliers();
       loadRepuestos();
+      TarjetaService.getTarjetas().then(setTarjetas).catch(() => {});
     }
   }, [isOpen]);
 
@@ -113,6 +119,8 @@ export default function NuevaCompraModal({
     setItems([]);
     setSearchProduct("");
     setShowSupplierDrop(false);
+    setMetodoPago('efectivo');
+    setTarjetaId('');
   }
 
   function attemptClose() {
@@ -229,6 +237,10 @@ export default function NuevaCompraModal({
         return;
       }
     }
+    if (metodoPago === 'tarjeta_credito' && !tarjetaId) {
+      toast.add('Selecciona una tarjeta de crédito', 'error');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -243,14 +255,18 @@ export default function NuevaCompraModal({
             ...i,
             series: i.aplica_serie ? i.series : [],
           })),
-        });
+          metodo_pago: metodoPago,
+          tarjeta_id: metodoPago === 'tarjeta_credito' ? tarjetaId || undefined : undefined,
+        } as any);
         creadas++;
       }
       if (repuestosItems.length > 0) {
         await purchaseService.createCompraRepuestos({
           ...compraForm,
           items: repuestosItems.map((i) => ({ ...i, series: [] })),
-        });
+          metodo_pago: metodoPago,
+          tarjeta_id: metodoPago === 'tarjeta_credito' ? tarjetaId || undefined : undefined,
+        } as any);
         creadas++;
       }
 
@@ -724,6 +740,44 @@ export default function NuevaCompraModal({
               placeholder="Observaciones adicionales sobre esta compra..."
               className="w-full px-3.5 py-3 bg-[#0D1526] border border-[rgba(72,185,230,0.18)] rounded-xl text-sm text-[#F8FAFC] placeholder:text-[#5E7184] focus:outline-none focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 transition-all resize-none"
             />
+          </section>
+
+          {/* ── MÉTODO DE PAGO ───────────────────────────────────────────── */}
+          <section className="space-y-3 border-t border-[rgba(72,185,230,0.14)] pt-5">
+            <h3 className="text-xs font-bold text-[#7F8A99] uppercase tracking-widest flex items-center gap-2">
+              <CreditCard size={13} /> Método de pago
+            </h3>
+            <div className="flex gap-2 flex-wrap">
+              {(['efectivo', 'transferencia', 'tarjeta_credito'] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodoPago(m)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                    metodoPago === m
+                      ? 'bg-[#48B9E6]/20 border-[#48B9E6] text-[#48B9E6]'
+                      : 'border-[rgba(72,185,230,0.18)] text-[#7F8A99] hover:border-[#48B9E6]/40 hover:text-[#B8C2D1]'
+                  }`}
+                >
+                  {m === 'efectivo' ? 'Efectivo' : m === 'transferencia' ? 'Transferencia' : 'Tarjeta de Crédito'}
+                </button>
+              ))}
+            </div>
+            {metodoPago === 'tarjeta_credito' && (
+              <div>
+                <label className="block text-[10px] font-semibold text-[#7F8A99] uppercase tracking-widest mb-1.5">Tarjeta *</label>
+                <select
+                  value={tarjetaId}
+                  onChange={e => setTarjetaId(Number(e.target.value) || '')}
+                  className="w-full px-3.5 py-2.5 bg-[#0D1526] border border-[rgba(72,185,230,0.18)] rounded-xl text-sm text-[#F8FAFC] focus:outline-none focus:border-[#48B9E6] focus:ring-2 focus:ring-[#48B9E6]/20 transition-all"
+                >
+                  <option value="">— Seleccionar tarjeta —</option>
+                  {tarjetas.map(t => (
+                    <option key={t.id} value={t.id}>{TarjetaService.formatTarjeta(t)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
         </div>
 

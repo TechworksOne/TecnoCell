@@ -1,5 +1,6 @@
 // Controller para gestionar compras de productos y repuestos
 const db = require('../config/database');
+const tarjetaCtrl = require('./tarjetaCreditoController');
 
 // ========== CREAR COMPRA DE PRODUCTOS ==========
 exports.createCompraProductos = async (req, res) => {
@@ -17,7 +18,9 @@ exports.createCompraProductos = async (req, res) => {
       proveedor_direccion,
       items,
       notas,
-      estado = 'CONFIRMADA'
+      estado = 'CONFIRMADA',
+      metodo_pago,
+      tarjeta_id
     } = req.body;
     
     if (!fecha_compra || !proveedor_nombre || !items || items.length === 0) {
@@ -55,6 +58,26 @@ exports.createCompraProductos = async (req, res) => {
     );
     
     const compraId = compraResult.insertId;
+
+    // Si el pago es con tarjeta de crédito, validar tarjeta y registrar movimiento
+    if (metodo_pago === 'tarjeta_credito') {
+      if (!tarjeta_id) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Debes seleccionar una tarjeta de crédito' });
+      }
+      const [tarjetas] = await connection.query('SELECT * FROM tarjetas_credito WHERE id = ? AND activo = 1', [tarjeta_id]);
+      if (!tarjetas.length) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Tarjeta no encontrada o inactiva' });
+      }
+      const t = tarjetas[0];
+      const montoCentavos = Math.round(total * 100);
+      await tarjetaCtrl.registrarCompra(
+        connection, tarjeta_id, montoCentavos, compraId,
+        `Compra ${numero_compra} con tarjeta ${t.banco} ****${t.ultimos4}`,
+        req.user?.id
+      );
+    }
     
     // Procesar items
     for (const item of items) {
@@ -136,7 +159,9 @@ exports.createCompraRepuestos = async (req, res) => {
       proveedor_direccion,
       items,
       notas,
-      estado = 'CONFIRMADA'
+      estado = 'CONFIRMADA',
+      metodo_pago,
+      tarjeta_id
     } = req.body;
     
     if (!fecha_compra || !proveedor_nombre || !items || items.length === 0) {
@@ -174,6 +199,26 @@ exports.createCompraRepuestos = async (req, res) => {
     );
     
     const compraId = compraResult.insertId;
+
+    // Si el pago es con tarjeta de crédito
+    if (metodo_pago === 'tarjeta_credito') {
+      if (!tarjeta_id) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Debes seleccionar una tarjeta de crédito' });
+      }
+      const [tarjetas] = await connection.query('SELECT * FROM tarjetas_credito WHERE id = ? AND activo = 1', [tarjeta_id]);
+      if (!tarjetas.length) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Tarjeta no encontrada o inactiva' });
+      }
+      const t = tarjetas[0];
+      const montoCentavos = Math.round(total * 100);
+      await tarjetaCtrl.registrarCompra(
+        connection, tarjeta_id, montoCentavos, compraId,
+        `Compra ${numero_compra} con tarjeta ${t.banco} ****${t.ultimos4}`,
+        req.user?.id
+      );
+    }
     
     // Procesar items
     for (const item of items) {
