@@ -6,6 +6,8 @@ const getAllCustomers = async (req, res) => {
     const [customers] = await db.query(
       `SELECT 
         c.*,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(c.nombre), ''), NULLIF(TRIM(c.apellido), ''))) AS nombre_completo,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(c.nombre), ''), NULLIF(TRIM(c.apellido), ''))) AS name,
         COALESCE(v.total_ventas, 0) + COALESCE(rep.total_reparaciones, 0) AS total_ventas,
         COALESCE(v.total_gastado, 0) + COALESCE(rep.total_gastado_rep, 0) AS total_gastado,
         COALESCE(cot.total_cotizaciones, 0) AS total_cotizaciones
@@ -61,7 +63,10 @@ const searchCustomers = async (req, res) => {
     }
 
     const [customers] = await db.query(
-      `SELECT * FROM clientes 
+      `SELECT *,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(nombre), ''), NULLIF(TRIM(apellido), ''))) AS nombre_completo,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(nombre), ''), NULLIF(TRIM(apellido), ''))) AS name
+       FROM clientes 
        WHERE activo = true 
        AND (nombre LIKE ? OR apellido LIKE ? OR email LIKE ? OR telefono LIKE ? OR nit LIKE ?)
        ORDER BY nombre ASC`,
@@ -85,7 +90,13 @@ const searchCustomers = async (req, res) => {
 const getCustomerById = async (req, res) => {
   try {
     const { id } = req.params;
-    const [customers] = await db.query('SELECT * FROM clientes WHERE id = ? AND activo = true', [id]);
+    const [customers] = await db.query(
+      `SELECT *,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(nombre), ''), NULLIF(TRIM(apellido), ''))) AS nombre_completo,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(nombre), ''), NULLIF(TRIM(apellido), ''))) AS name
+       FROM clientes WHERE id = ? AND activo = true`,
+      [id]
+    );
 
     if (customers.length === 0) {
       return res.status(404).json({ 

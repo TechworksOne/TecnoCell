@@ -183,11 +183,15 @@ export default function QuoteFormPage() {
 
   // Seleccionar cliente
   const handleSelectCliente = (customer: typeof customers[0]) => {
+    const fullName = (
+      customer.nombre_completo ||
+      `${customer.firstName || ''} ${customer.lastName || ''}`
+    ).replace(/\s+/g, ' ').trim();
     setFormState({
       ...formState,
       cliente: {
         id: customer.id,
-        name: `${customer.firstName} ${customer.lastName}`,
+        name: fullName,
         phone: customer.phone,
         email: customer.email,
         nit: customer.nit,
@@ -573,7 +577,7 @@ export default function QuoteFormPage() {
                           className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                         >
                           <p className="font-medium">
-                            {customer.firstName} {customer.lastName}
+                            {customer.nombre_completo || `${customer.firstName} ${customer.lastName}`.trim()}
                           </p>
                           <div className="flex gap-4 text-sm text-gray-600">
                             <span>📱 {customer.phone || 'Sin teléfono'}</span>

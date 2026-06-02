@@ -32,10 +32,15 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
       const response = await customerService.getAllCustomers();
       if (response.success) {
         // Mapear de BD a formato frontend
-        const mappedCustomers = response.data.map((c: any) => ({
+        const mappedCustomers = response.data.map((c: any) => {
+          const nombreCompleto = [c.nombre, c.apellido]
+            .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+          return {
           id: c.id.toString(),
           firstName: c.nombre || '',
           lastName: c.apellido || '',
+          name: nombreCompleto || c.nombre || '',
+          nombre_completo: nombreCompleto || c.nombre || '',
           phone: c.telefono || '',
           nit: c.nit || '',
           email: c.email || '',
@@ -56,7 +61,8 @@ export const useCustomers = create<CustomerStore>((set, get) => ({
           telefono: c.telefono,
           correo: c.email,
           metodo_pago_preferido: c.metodo_pago_preferido
-        }));
+          };
+        });
         set({ customers: mappedCustomers, isLoading: false });
       }
     } catch (error) {

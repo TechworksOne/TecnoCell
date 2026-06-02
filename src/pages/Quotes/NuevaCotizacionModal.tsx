@@ -141,11 +141,15 @@ export default function NuevaCotizacionModal({ open, onClose }: Props) {
   });
 
   const handleSelectCliente = (customer: typeof customers[0]) => {
+    const fullName = (
+      customer.nombre_completo ||
+      `${customer.firstName || ''} ${customer.lastName || ''}`
+    ).replace(/\s+/g, ' ').trim();
     setFormState(prev => ({
       ...prev,
       cliente: {
         id: customer.id,
-        name: `${customer.firstName} ${customer.lastName}`,
+        name: fullName,
         phone: customer.phone,
         email: customer.email,
         nit: customer.nit,
@@ -392,7 +396,7 @@ export default function NuevaCotizacionModal({ open, onClose }: Props) {
                         >
                           <div>
                             <p className="text-sm font-semibold text-[var(--color-text)]">
-                              {customer.firstName} {customer.lastName}
+                              {customer.nombre_completo || `${customer.firstName} ${customer.lastName}`.trim()}
                             </p>
                             <div className="flex gap-3 text-[11px] text-[var(--color-text-sec)] mt-0.5">
                               {customer.phone && <span>📱 {customer.phone}</span>}

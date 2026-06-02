@@ -8,7 +8,7 @@ exports.getDeudores = async (req, res) => {
     let query = `
       SELECT 
         d.*,
-        c.nombre AS cliente_nombre_actual,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(c.nombre), ''), NULLIF(TRIM(c.apellido), ''))) AS cliente_nombre_actual,
         c.telefono AS cliente_telefono_actual
       FROM deudores d
       LEFT JOIN clientes c ON d.cliente_id = c.id
@@ -48,7 +48,7 @@ exports.getDeudorById = async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await db.query(
-      `SELECT d.*, c.nombre AS cliente_nombre_actual, c.telefono AS cliente_telefono_actual
+      `SELECT d.*, TRIM(CONCAT_WS(' ', NULLIF(TRIM(c.nombre), ''), NULLIF(TRIM(c.apellido), ''))) AS cliente_nombre_actual, c.telefono AS cliente_telefono_actual
        FROM deudores d
        LEFT JOIN clientes c ON d.cliente_id = c.id
        WHERE d.id = ?`,
