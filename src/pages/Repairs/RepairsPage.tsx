@@ -907,6 +907,12 @@ export default function RepairsPage() {
     const estadoLabel = STATUS_LABEL[r.estado] || r.estado.replace(/_/g, ' ');
     const creadoPor = r.recepcion.userRecepcion || 'N/A';
     const garantia = r.garantiaDias ? `${r.garantiaDias} días` : 'N/A';
+    const accesoTipo = r.recepcion.accesoTipo;
+    const accesoLabel = !accesoTipo || accesoTipo === 'ninguno'
+      ? null
+      : accesoTipo === 'patron'
+        ? 'Patrón'
+        : `PIN: ${r.recepcion.contraseña || r.recepcion.patronContraseña || ''}`;
 
     const esc = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -954,6 +960,7 @@ export default function RepairsPage() {
     <div class="row"><span class="b">T\u00e9cnico: </span>${esc(tecnico)}</div>
     <div class="row"><span class="b">Prioridad: </span>${esc(r.prioridad)}</div>
     <div class="row"><span class="b">Recibido por: </span>${esc(creadoPor)}</div>
+    ${accesoLabel ? `<div class="row"><span class="b">Acceso: </span>${esc(accesoLabel)}</div>` : ''}
     <div class="row full nota"><span class="b">Nota: </span>${esc(problema)}</div>
   </div>
 </div>
