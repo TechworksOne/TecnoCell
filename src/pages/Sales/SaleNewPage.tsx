@@ -239,7 +239,9 @@ export default function SaleNewPage() {
   const handleSelectCliente = (clienteSeleccionado: any) => {
     setCliente({
       id: clienteSeleccionado.id?.toString() || '',
-      name: clienteSeleccionado.nombre || `${clienteSeleccionado.firstName || ''} ${clienteSeleccionado.lastName || ''}`.trim(),
+      name: clienteSeleccionado.nombre
+        ? `${clienteSeleccionado.nombre}${clienteSeleccionado.apellido ? ' ' + clienteSeleccionado.apellido : ''}`.trim()
+        : `${clienteSeleccionado.firstName || ''} ${clienteSeleccionado.lastName || ''}`.trim(),
       phone: clienteSeleccionado.telefono || clienteSeleccionado.phone || '',
       email: clienteSeleccionado.correo || clienteSeleccionado.email || '',
       nit: clienteSeleccionado.nit || '',
@@ -248,7 +250,10 @@ export default function SaleNewPage() {
     setShowCustomerPicker(false);
     setSearchCliente('');
     setClientes([]);
-    toast.add(`Cliente ${clienteSeleccionado.nombre} seleccionado`, 'success');
+    const _nombreToast = clienteSeleccionado.nombre
+      ? `${clienteSeleccionado.nombre}${clienteSeleccionado.apellido ? ' ' + clienteSeleccionado.apellido : ''}`.trim()
+      : `${clienteSeleccionado.firstName || ''} ${clienteSeleccionado.lastName || ''}`.trim();
+    toast.add(`Cliente ${_nombreToast} seleccionado`, 'success');
   };
 
   const handleAddItem = (item: any) => {
@@ -1394,7 +1399,9 @@ export default function SaleNewPage() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="font-semibold">
-                          {clienteItem.nombre || `${clienteItem.firstName || ''} ${clienteItem.lastName || ''}`.trim()}
+                          {clienteItem.nombre
+                            ? `${clienteItem.nombre}${clienteItem.apellido ? ' ' + clienteItem.apellido : ''}`.trim()
+                            : `${clienteItem.firstName || ''} ${clienteItem.lastName || ''}`.trim()}
                         </p>
                         <div className="text-sm text-gray-600 space-y-1 mt-1">
                           {(clienteItem.telefono || clienteItem.phone) && (

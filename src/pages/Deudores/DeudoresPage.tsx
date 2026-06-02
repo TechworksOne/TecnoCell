@@ -504,7 +504,9 @@ function Step4({ state, montoTotal }: { state: WizardState; montoTotal: number }
       <span className="font-semibold text-slate-800 dark:text-[#F8FAFC]">{value}</span>
     </div>
   );
-  const nombreCliente = state.cliente?.nombre || `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim() || '—';
+  const nombreCliente = state.cliente?.nombre
+    ? `${state.cliente.nombre}${state.cliente.apellido ? ' ' + state.cliente.apellido : ''}`.trim()
+    : `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim() || '—';
   return (
     <div className="space-y-4">
       <div className="bg-white dark:bg-[#0A1220] border border-slate-200 dark:border-[rgba(72,185,230,0.16)] rounded-xl p-4 space-y-0.5">
@@ -589,7 +591,9 @@ function WizardNuevoCredito({ onClose, onCreated }: { onClose: () => void; onCre
   const handleSubmit = async () => {
     setLoading(true); setErr('');
     try {
-      const nombre = state.cliente!.nombre || `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim();
+      const nombre = state.cliente!.nombre
+        ? `${state.cliente!.nombre}${(state.cliente as any).apellido ? ' ' + (state.cliente as any).apellido : ''}`.trim()
+        : `${state.cliente?.firstName || ''} ${state.cliente?.lastName || ''}`.trim();
       await deudoresService.create({
         cliente_id: state.cliente!.id ? parseInt(String(state.cliente!.id)) : null,
         cliente_nombre: nombre,

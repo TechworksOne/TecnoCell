@@ -221,7 +221,9 @@ export default function SaleFormModal({ isOpen, onClose, onSuccess, origenVenta,
   const handleSelectCliente = (c: any) => {
     setCliente({
       id: c.id?.toString() ?? '',
-      name: c.nombre || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+      name: c.nombre
+        ? `${c.nombre}${c.apellido ? ' ' + c.apellido : ''}`.trim()
+        : `${c.firstName || ''} ${c.lastName || ''}`.trim(),
       phone: c.telefono || c.phone || '',
       email: c.correo || c.email || '',
       nit: c.nit || '',
@@ -902,7 +904,9 @@ export default function SaleFormModal({ isOpen, onClose, onSuccess, origenVenta,
                   className="w-full p-3 rounded-xl border text-left transition-colors hover:bg-[var(--color-row-hover)]"
                   style={{ borderColor: 'var(--color-border)' }}>
                   <p className="font-medium text-sm text-[var(--color-text)]">
-                    {c.nombre || `${c.firstName || ''} ${c.lastName || ''}`.trim()}
+                    {c.nombre
+                      ? `${c.nombre}${c.apellido ? ' ' + c.apellido : ''}`.trim()
+                      : `${c.firstName || ''} ${c.lastName || ''}`.trim()}
                   </p>
                   <div className="text-xs text-[var(--color-text-muted)] mt-0.5 space-y-0.5">
                     {(c.telefono || c.phone) && <p>📱 {c.telefono || c.phone}</p>}
