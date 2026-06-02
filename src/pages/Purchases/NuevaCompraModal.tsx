@@ -205,6 +205,7 @@ export default function NuevaCompraModal({
   const filteredRepuestos = repuestos.filter(
     (r) =>
       r.nombre.toLowerCase().includes(q) ||
+      (r.sku || "").toLowerCase().includes(q) ||
       (r.codigo || "").toLowerCase().includes(q)
   );
   const hasResults = filteredProducts.length > 0 || filteredRepuestos.length > 0;
