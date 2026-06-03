@@ -28,7 +28,13 @@ export function hasAnyRole(roles: string[] | undefined, allowedRoles: string[]):
 
 /** El usuario es administrador (soporta el rol legacy 'admin' y el nuevo 'ADMINISTRADOR') */
 export function isAdmin(roles: string[] | undefined, legacyRole?: string): boolean {
-  return hasRole(roles, ROLES.ADMINISTRADOR) || legacyRole === 'admin';
+  const lower = legacyRole?.toLowerCase();
+  return (
+    hasRole(roles, ROLES.ADMINISTRADOR) ||
+    hasRole(roles, 'admin') ||
+    lower === 'admin' ||
+    lower === 'administrador'
+  );
 }
 
 /** El usuario puede ver datos de costos */

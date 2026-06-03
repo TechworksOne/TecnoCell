@@ -509,12 +509,12 @@ function ModalAsignarTecnicoRepairs({
           <p className="text-xs text-slate-500 dark:text-slate-400">Equipo: <span className="text-slate-700 dark:text-slate-300">{[repair.recepcion.marca, repair.recepcion.modelo].filter(Boolean).join(' ')}</span></p>
         </div>
         <div>
-          <label className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">T\u00e9cnico a asignar</label>
+          <label className="block text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Técnico a asignar</label>
           <select className={inputCls} value={selectedId} onChange={e => { setSelectedId(e.target.value ? Number(e.target.value) : ''); setError(''); }}>
-            <option value="">\u2014 Seleccionar t\u00e9cnico \u2014</option>
+            <option value="">— Seleccionar técnico —</option>
             {tecnicos.map(t => (
               <option key={t.id} value={t.id}>
-                {(t.nombre_completo?.trim() && t.nombre_completo !== ' ') ? t.nombre_completo : t.username}{t.id === currentUserId ? ' (yo)' : ''} \u2014 {t.roles.join(', ')}
+                {(t.nombre_completo?.trim() && t.nombre_completo !== ' ') ? t.nombre_completo : t.username}{t.id === currentUserId ? ' (yo)' : ''}{' — '}{t.roles.join(', ')}
               </option>
             ))}
           </select>
