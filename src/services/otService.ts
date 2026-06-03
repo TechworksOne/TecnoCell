@@ -58,8 +58,8 @@ export async function getResumenOT(): Promise<ResumenOT> {
 
 // ── Obtener técnicos disponibles ──────────────────────────────────────────
 export async function getTecnicos(): Promise<Tecnico[]> {
-  const { data } = await api.get<{ success: boolean; data: Tecnico[] }>('/ot/tecnicos');
-  return data.data;
+  const { data } = await api.get<{ success: boolean; tecnicos: Tecnico[] }>('/ot/tecnicos');
+  return data.tecnicos ?? [];
 }
 
 // ── Asignar técnico a reparación ──────────────────────────────────────────
