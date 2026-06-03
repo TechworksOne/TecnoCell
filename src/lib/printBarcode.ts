@@ -18,15 +18,20 @@ export function printBarcode(sku: string, name: string, type?: string): void {
   <meta charset="UTF-8" />
   <title>Etiqueta ${esc(sku)}</title>
   <style>
-    @page { size: 2in 1in; margin: 1mm; }
+    @page { size: 2in 1in; margin: 0; }
     * { box-sizing: border-box; }
-    html, body {
+    html {
+      width: 2in;
+      height: 1in;
+      overflow: hidden;
+    }
+    body {
       font-family: Arial, sans-serif;
       font-size: 6px;
       color: #000;
       background: #fff;
       margin: 0;
-      padding: 0;
+      padding: 1mm;
       width: 2in;
       height: 1in;
       max-height: 1in;
@@ -34,12 +39,13 @@ export function printBarcode(sku: string, name: string, type?: string): void {
       display: flex;
       align-items: center;
       justify-content: center;
+      page-break-inside: avoid;
       page-break-after: avoid;
+      page-break-before: avoid;
     }
     .label {
       width: 100%;
       text-align: center;
-      padding: 0 1mm;
     }
     .name {
       font-size: 7px;
@@ -48,23 +54,27 @@ export function printBarcode(sku: string, name: string, type?: string): void {
       overflow: hidden;
       text-overflow: ellipsis;
       margin-bottom: 0.5mm;
+      line-height: 1.1;
     }
     .type {
       font-size: 5px;
       color: #555;
-      margin-bottom: 0.5mm;
+      margin-bottom: 0.3mm;
+      line-height: 1.1;
     }
     svg {
+      display: block;
       max-width: 100%;
-      height: auto;
+      height: 26px !important;
     }
     .sku-text {
       font-size: 6px;
       font-family: monospace;
-      margin-top: 0.5mm;
+      margin-top: 0.3mm;
+      line-height: 1.1;
     }
     @media print {
-      body { background: #fff !important; color: #000 !important; }
+      html, body { background: #fff !important; color: #000 !important; }
     }
   </style>
 </head>

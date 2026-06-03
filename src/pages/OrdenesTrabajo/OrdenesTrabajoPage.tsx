@@ -554,7 +554,7 @@ function OTList({ ots, loading, userIsAdmin, onAsignar, onQuitar, onVer, onFlujo
 export default function OrdenesTrabajoPage() {
   const navigate    = useNavigate();
   const { user }    = useAuth();
-  const userIsAdmin = isAdmin(user?.roles);
+  const userIsAdmin = isAdmin(user?.roles, user?.role);
 
   // Data
   const [ots,          setOts]          = useState<OrdenTrabajo[]>([]);

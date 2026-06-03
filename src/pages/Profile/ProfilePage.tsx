@@ -560,7 +560,7 @@ export default function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const showCost   = canViewCosts(user?.roles);
-  const userIsAdmin = isAdmin(user?.roles);
+  const userIsAdmin = isAdmin(user?.roles, user?.role);
 
   async function loadProfile() {
     try {

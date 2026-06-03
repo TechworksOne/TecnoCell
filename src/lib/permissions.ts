@@ -26,9 +26,9 @@ export function hasAnyRole(roles: string[] | undefined, allowedRoles: string[]):
   return Array.isArray(roles) && allowedRoles.some(r => roles.includes(r));
 }
 
-/** El usuario es administrador */
-export function isAdmin(roles: string[] | undefined): boolean {
-  return hasRole(roles, ROLES.ADMINISTRADOR);
+/** El usuario es administrador (soporta el rol legacy 'admin' y el nuevo 'ADMINISTRADOR') */
+export function isAdmin(roles: string[] | undefined, legacyRole?: string): boolean {
+  return hasRole(roles, ROLES.ADMINISTRADOR) || legacyRole === 'admin';
 }
 
 /** El usuario puede ver datos de costos */

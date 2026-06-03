@@ -750,7 +750,7 @@ export default function RepairsPage() {
   const navigate = useNavigate();
   const { repairs, deleteRepair, changeRepairState, updateRepair, searchRepairs, isLoading, validateStickerUniqueness } = useRepairs();
   const { user } = useAuth();
-  const userIsAdmin = isAdmin(user?.roles);
+  const userIsAdmin = isAdmin(user?.roles, user?.role);
 
   const [searchQuery,    setSearchQuery]    = useState('');
   const [statusFilter,   setStatusFilter]   = useState('');

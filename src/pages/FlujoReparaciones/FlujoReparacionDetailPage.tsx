@@ -44,7 +44,7 @@ export default function FlujoReparacionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
-  const userIsAdmin = isAdmin(user?.roles);
+  const userIsAdmin = isAdmin(user?.roles, user?.role);
 
   // OT: técnico asignado
   const [tecnicos,       setTecnicos]       = useState<Tecnico[]>([]);
