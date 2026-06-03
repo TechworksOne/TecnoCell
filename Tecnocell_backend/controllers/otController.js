@@ -403,6 +403,8 @@ exports.getTecnicos = async (req, res) => {
          p.apellidos
        HAVING
          REPLACE(UPPER(COALESCE(roles, '')), 'É', 'E') LIKE '%TECNICO%'
+         OR UPPER(COALESCE(roles, '')) LIKE '%ADMIN%'
+         OR UPPER(COALESCE(roles, '')) LIKE '%ADMINISTRADOR%'
        ORDER BY nombre_completo ASC`,
       []
     );
